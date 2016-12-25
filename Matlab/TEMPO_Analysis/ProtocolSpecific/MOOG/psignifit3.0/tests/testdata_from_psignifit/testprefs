@@ -1,0 +1,9 @@
+#shape logistic
+#n_intervals 2
+#runs 999
+
+#lambda_limits 0, 0.1
+#cuts 0.5
+#conf 0.1 0.9
+
+#write_st_sim dummy

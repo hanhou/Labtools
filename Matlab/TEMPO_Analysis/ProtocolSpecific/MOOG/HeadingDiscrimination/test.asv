@@ -1,0 +1,4 @@
+for i=1:length(temp_heading)
+    firing_rate(i) = sum(data.spike_data(1,1115+500:3115-500,i));
+end
+find(temp_heading==-9 & temp_stim_type==1)

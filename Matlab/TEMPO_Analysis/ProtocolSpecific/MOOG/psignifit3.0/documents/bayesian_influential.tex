@@ -1,0 +1,73 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc}
+
+\title{Determining influential observations using markov chain monte carlo samples}
+\author{Ingo Fründ}
+\date{\today}
+
+\def\E{\mathbb{E}}
+
+\begin{document}
+
+\maketitle
+% Your text here
+Assume we have obtained response counts $\mathbf{y} = (y_k)_{k=1}^K$ in $K$ blocks.
+We model these response counts using a parameter vector $\theta$.
+We write the posterior density of $\theta$ given the data as
+%
+$$
+p(\theta|\mathbf{y}) =: f(\theta).
+$$
+%
+We are now interested in determining wether a particular block $k_0$ is an influential
+observation.
+To this end, we want to determine the Kullbach-Leibler divergence between the posterior
+density of $\theta$ given all blocks $p(\theta|\mathbf{y})$ and the posterior density of
+$\theta$ given all blocks except for block $k_0$.
+We will write the posterior density of $\theta$ given all blocks except for block $k_0$
+as
+%
+$$
+p(\theta|\mathbf{y}_{-k_0}) =: g(\theta).
+$$
+%
+We don't have direct access to $f$ and $g$.
+We can write
+%
+$$
+f(\theta) = \frac{1}{Z_f} \tilde{f} = \frac{1}{Z_f} \exp(-F(\theta)),\quad g(\theta) = \frac{1}{Z_g} \tilde{g} = \frac{1}{Z_g} \exp(-G(\theta)).
+$$
+%
+The psignifit C++ engine allows fast evaluation of $-F(\theta)$ and $-G(\theta)$ via the
+\verb!neglpost()! method of the \verb!PsiPsychometric! class.
+In chapter 11 of the book by Bishop we learn that for samples $\theta^{(\ell)}, \ell=1,\dots,N$ from
+the density $f$, we can obtain the ratio of the partition functions using importance sampling
+%
+$$
+\frac{Z_g}{Z_f} \approx -\frac{1}{N} \sum_{\ell=1}^N \exp(-F(\theta^{(\ell)} + G(\theta^{(\ell)}) ),
+$$
+%
+where in our case, we can use the MCMC samples from the full data set fit.
+Importance sampling is efficient if $F$ and $G$ are reasonably similar.
+We assume that this is the case.
+The less similar $F$ and $G$, the higher will be the Kullbach-Leibler divergence and the more likely
+will it be that block $k_0$ is an influential observation anyhow.
+
+The Kullbach-Leibler divergence of $f$ and $g$ is
+%
+\begin{align*}
+    D_{KL}(f||g) := -\E_f (\log \frac{g}{f} ) &= -\E_f ( \log \frac{\tilde{g}}{Z_g}\cdot \frac{Z_f}{\tilde{f}} ) \\
+    &= -\E_f ( \log \frac{\tilde{g}}{\tilde{f}} ) - \E_f (\log \frac{Z_f}{Z_g})\\
+    &= -\E_f ( \log \frac{\exp(-G)}{\exp(-F)} ) - \E_f (-\log\frac{Z_g}{Z_f})\\
+    &= -\E_f ( -G+F ) + \log \frac{Z_g}{Z_f} \\
+    &= -\E_f ( -G+F ) + \log \E_f\big(\exp ( -G+F )\big)\\
+    &\approx -\frac{1}{N} \sum_{\ell=1}^N \big( -G(\theta^{(\ell)})+F(\theta^{(\ell)}) \big) +
+        \log \Big( \frac{1}{N}\sum_{\ell=1}^N \exp\big( -G(\theta^{(\ell)})+F(\theta^{(\ell)}) \Big).
+    \end{align*}
+%
+This can be evaluated without sampling from $G$ at all.
+We just need to store $F(\theta^{(\ell)}) - G(\theta^{(\ell)})$ with each sample $\theta^{(\ell)}$.
+
+\end{document}

@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+		"http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+	<head>
+		<title>psignifit -> matlab toolbox</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+		<link rel="StyleSheet" type="text/css" href="/bootstrap.css">
+	</head>
+	<body background="/images/logo/onezero.gif">
+		
+		<a name="top"></a>
+		<center>
+
+			<table cellpadding="0" cellspacing="0" border="0" rules="none" width="90%">
+				<tr valign="top">
+					<td align="left" height="98" width="100" rowspan="2">
+						<a href="/"><img src="/images/logo/bootsoftlogo-small-left.gif" border="0" height="98" width="100" alt="[logo] "></a>
+					</td>
+					<td align="left" height="65" background="/images/logo/logobg-small.gif">
+						<a href="/"><img src="/images/logo/bootsoftlogo-small-right.gif" border="0" height="65" width="313" alt="bootstrap-software.org"></a>
+					</td>
+				</tr>
+				<tr valign="middle">
+					<td align="right" height="33">
+						<p class="minimap"><a href="/psignifit/">psignifit</a><strong>&nbsp;-&gt;&nbsp;</strong><a href="/psignifit/download.php">download</a>&nbsp;|&nbsp;<a href="/psignifit/publications.php">publications</a>&nbsp;|&nbsp;<a href="/psignifit/faq.php">FAQ</a></p>
+					</td>
+				</tr>
+			</table>
+
+			<table cellpadding="15" cellspacing="5" border="4" rules="all" width="90%" bgcolor="#FFFFFF">
+<tr><td valign="top" align="left">
+
+<p class="pagenav">
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+<h1>psignifit toolbox for Matlab 5 and up</h1>
+<ul>
+	<li><a href="#overview">Overview</a></li>
+	<li><a href="#compatibility">Compatibility</a></li>
+	<li><a href="#installation">Installation</a></li>
+	<li><a href="#quickstart">Quick-start</a></li>
+</ul>
+<p class="pagenav">
+	<a name="overview"></a>
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+<h2>Overview</h2>
+<p>
+	The toolbox is in two parts: 
+</p>
+<ul>
+	<li>
+		Most important is the <samp>psignifit</samp> engine, which is a mex-file (a compiled binary plug-in to Matlab).
+		This does all the serious number-crunching, fitting functions to a large number of simulated data sets.
+		The engine works with Matlab versions 4 and up. On its own, the functionality of the engine is similar
+		to that of the <a href="standalone.php">standalone application</a>, except that its input/output interface
+		uses Matlab matrices rather than text streams. 
+	</li>
+	<li>
+		The rest of the toolbox consists of m-files (text files) which carry out many of the peripheral tasks involved
+		in fitting psychophysical data, and provide a convenient input/output interface with the engine, including
+		graphics functions. 
+	</li>
+</ul>
+<p>
+	The toolbox m-files and pre-compiled versions of the engine can be obtained on the <a href="download.php">download page</a>.
+	Release notes and version history can be found <a href="History.html">here</a>.
+</p>
+<p class="pagenav">
+	<a name="compatibility"></a>
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+<h2>Compatibility</h2>
+<p>
+	Most of the m-files require Matlab version 5 and up (they were developed on versions 5.2, 5.3 and 6.1). They are text files
+	written in the Matlab script language so they should, in theory, work on Matlab on any platform. The mex-file has to be
+	compiled from the C source for your particular platform: pre-compiled versions for some platforms can be found on
+	are already included in the <a href="download.php#tbx">download</a> - otherwise, consult the <a href="compiling.php#mex">instructions for
+	compiling from the source code</a>.
+</p>
+<p>
+	Matlab 5.1 users: many highly useful functions are lacking in Matlab 5.1, having only been introduced in version 5.2. I have
+	programmed around these where I can, and released m-file patches in the few cases where this was too inconvenient. I have never
+	tested the toolbox on Matlab version 5.0. 
+</p>
+
+<p class="pagenav">
+	<a name="installation"></a>
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+<h2>Installation</h2>
+<p>
+	Download the <a href="download.php#tbx">toolbox archive</a> and unpack it - this should give you a directory called
+	<samp>psignifit</samp>. Ensure that this directory is listed on the Matlab path, so that Matlab can find it (typing
+	<samp>pathtool</samp> at the Matlab command prompt gives you a dialog for adding directories to your path - click save
+	in order to preserve the new setting for future sessions). When installing a new Matlab toolbox, it is a good idea to
+	ensure that it is listed <em>first</em> on the path. This will ensure that, in the case of any name conflicts with other
+	third-party toolboxes, the newly installed functions are called in preference to the old. (Later, if you discover a name 
+	conflict and wish to continue using both toolboxes, you will either have to start renaming functions, or add and remove
+	one of the toolboxes from the path each time the need arises. There is no way for third-party developers to know whether they
+	are conflicting with each other in this way, and unfortunately Matlab has no direct or easy way to resolve conflicts.)
+</p>
+<p>
+	Next, you need to ensure you have the mex-file: it is a binary file
+	called <samp>psignifit.dll</samp> on Windows, <samp>psignifit.mexglx</samp> on Linux,
+	<samp>psignifit.mexsol</samp> on SunOS, <samp>psignifit.mexmac</samp> on MacOS X, or just <samp>psignifit.mex</samp> on
+	Matlab 5.x and earlier (e.g. on the old MacOS). 
+	If the mex file for your platform is not already included in the downloaded archive, either download a <a href="download.php#prev">precompiled older version</a> and unpack it, or
+	<a href="compiling.php#mex">compile the new version</a> it from the C source code, which is included in the toolbox.
+	The newly downloaded or compiled mex file also needs to go into one of the directories on the path (for example, the <samp>psignifit</samp> toolbox directory) so that Matlab can find it.
+</p>
+
+<p class="pagenav">
+	<a name="quickstart"></a>
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+<h2>Quick-start</h2>
+The <samp>psignifit</samp> engine on its own does not interface in a very convenient way with Matlab. The function
+<samp>pfit</samp> is designed to be a front-end to the engine, preparing the inputs and collecting and structuring the
+outputs. To get started, start Matlab and try the following: 
+<pre>	dat = readdata('example_data.txt')
+	pfit(dat)</pre>
+	Additional options may be specified on the command line, e.g.: 
+<pre>	pfit(dat, 'shape', 'weibull', 'n_intervals', 1, 'runs', 999, ...)</pre>
+<p>
+	See the documentation <samp>psych_options.m</samp> for a list of available options, and refer to <samp>psych_glossary.m</samp>
+	for definitions and explanations where necessary. The tutorial script <samp>psych_tool_demo.m</samp> begins to break down the
+	operation of <samp>pfit</samp>, demonstrating the use of some of the toolbox functions. 
+</p>
+<p>
+	Refer to <samp>psignifit/contents.m</samp> for a full list of available functions (type <samp>helpwin psignifit</samp> to
+	browse the toolbox from within Matlab). 
+</p>
+<p class="pagenav">
+	<a href="#top">top</a> | <a href="#overview">overview</a> | <a href="#compatibility">compatibility</a> | <a href="#installation">installation</a> | <a href="#quickstart">quickstart</a>
+</p>
+
+</td></tr>
+			</table>
+			<p>&nbsp;</p>
+		</center>
+	</body>
+</html>

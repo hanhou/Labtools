@@ -1,0 +1,306 @@
+function VerticalSlice(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE) 
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+
+%now, get the firing rates for all the trials 
+temp_spike_rates = data.spike_rates(SpikeChan, :);                                                                                                                             
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% a vector of trial indices
+bad_tri = find(temp_spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+if ( bad_tri ~= NaN)
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) & (trials~=bad_tri) );
+else 
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+end
+
+azimuth = temp_azimuth(~null_trials & select_trials);
+elevation = temp_elevation(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+
+%  vertical slice code, begins here.  this code will calculate the vector sum in a 
+%  in a single plane and then will find the difference in vector direction
+%  and finally plot the distribution of vector directions for a given population
+%  of cells, enjoy. JRB 4/16/07
+
+vest = 1;
+vis = 2;
+combined =3;
+
+%  possibility is for the different points that you want to look at, change
+%  this if you are looking at a different plane, this is for the vertical
+%  (fronto-parallel plane)
+possibility = [0     0   180     0     0   180   180     0;-90    90     0     0   -45   -45    45    45];
+
+%  this finds the index for each of trials that match the stimulus
+%  parameters defined above, you will also need to modify this for your
+%  specific application
+combined_index = find(stim_type == combined & amplitude ~= 0 & (azimuth == 0 | azimuth == 180)...
+                      & (elevation == -90 | elevation == 90 | elevation == 45 |...
+                      elevation == -45 | elevation == 0));
+
+vestibular_index = find(stim_type == vest & amplitude ~= 0 & (azimuth == 0 | azimuth == 180)...
+                      & (elevation == -90 | elevation == 90 | elevation == 45 |...
+                      elevation == -45 | elevation == 0));
+
+visual_index = find(stim_type == vis & amplitude == 0 & (azimuth == 0 | azimuth == 180)...
+                      & (elevation == -90 | elevation == 90 | elevation == 45 |...
+                      elevation == -45 | elevation == 0));
+
+combined_matrix = cat(1,azimuth,elevation,spike_rates,stim_type,amplitude);
+
+for i=1:length(visual_index)
+    visual_results(1:3,i) = combined_matrix(1:3,visual_index(i));
+end
+
+for i=1:length(vestibular_index)
+    vestibular_results(1:3,i) = combined_matrix(1:3,vestibular_index(i));
+end
+
+for i=1:length(possibility)
+    for j=1:length(visual_results)
+        if (possibility(1:2,i)==visual_results(1:2,j));
+            repeat_vis_index(i,j) = true;
+        end     
+    end
+end
+
+avg_vis_sum = 0;
+for i=1:length(possibility)
+    repeats_index = find(repeat_vis_index(i,:)~=0)
+    for j=1:length(repeats_index)       
+        repeated_fr(j) = visual_results(3,repeats_index(j))
+        anova_vis(j,i) = visual_results(3,repeats_index(j));
+    end
+    avg_vis(i) = (sum(repeated_fr))/length(repeated_fr)
+end
+
+average_inputs_per_direction = cat(1,possibility(1:2,:),avg_vis(1,:));
+
+
+for i=1:length(average_inputs_per_direction)
+    directions(i) = average_inputs_per_direction(1,i) + average_inputs_per_direction(2,i);
+end
+
+for i=1:length(directions)
+    switch directions(i)
+          case -90
+            direction(i) = pi/2;
+        case 90
+            direction(i) = 3*pi/2;
+        case 180
+            direction(i) = pi;
+        case 0
+            direction(i) = 0;
+        case -45
+            direction(i) = pi/4;
+        case 135
+            direction(i) = 3*pi/4;
+        case 225
+            direction(i) = 5*pi/4;
+        case 45
+            direction(i) = 7*pi/4;
+    end
+end
+
+
+for i=1:length(direction)
+    theta(i) = direction(i);
+    rho(i) = avg_vis(i);
+end
+
+for i=1:length(theta)
+    [x(i),y(i)] = pol2cart(theta(i),rho(i))
+end
+
+summed_x = sum(x)
+summed_y = sum(y)
+
+[p,q] = cart2pol(summed_x, summed_y)
+
+subplot(3,1,1)
+polar(direction,average_inputs_per_direction(3,:),'bx');
+hold on
+polar(p,q,'ro')
+title ('Visual');
+hold off
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+for i=1:length(possibility)
+    for j=1:length(vestibular_results)
+        if (possibility(1:2,i)==vestibular_results(1:2,j));
+            repeat_vest_index(i,j) = true;
+        end     
+    end
+end
+
+avg_vest_sum = 0;
+for i=1:length(possibility)
+    repeats_index_vest = find(repeat_vest_index(i,:)~=0)
+    for j=1:length(repeats_index_vest)       
+        repeated_fr_vest(j) = vestibular_results(3,repeats_index_vest(j)); 
+        anova_vest(j,i) = vestibular_results(3,repeats_index_vest(j));
+    end
+    avg_vest(i) = (sum(repeated_fr_vest))/length(repeated_fr_vest);
+end
+
+average_inputs_per_direction_vest = cat(1,possibility(1:2,:),avg_vest(1,:));
+
+
+for i=1:length(average_inputs_per_direction_vest)
+    directions_vest(i) = average_inputs_per_direction_vest(1,i) + average_inputs_per_direction_vest(2,i);
+end
+
+for i=1:length(directions_vest)
+    switch directions_vest(i)
+          case -90
+            direction_vest(i) = pi/2;
+        case 90
+            direction_vest(i) = 3*pi/2;
+        case 180
+            direction_vest(i) = pi;
+        case 0
+            direction_vest(i) = 0;
+        case -45
+            direction_vest(i) = pi/4;
+        case 135
+            direction_vest(i) = 3*pi/4;
+        case 225
+            direction_vest(i) = 5*pi/4;
+        case 45
+            direction_vest(i) = 7*pi/4;
+    end
+end
+
+
+for i=1:length(direction)
+    theta(i) = direction(i);
+    rho(i) = avg_vis(i);
+end
+
+for i=1:length(theta)
+    [x_vis(i),y_vis(i)] = pol2cart(theta(i),rho(i));
+end
+
+x_final_vis = sum(x_vis.*average_inputs_per_direction(3,:)) / sum(average_inputs_per_direction(3,:));
+y_final_vis = sum(y_vis.*average_inputs_per_direction(3,:)) / sum(average_inputs_per_direction(3,:));
+
+
+[p_vis,q_vis]= cart2pol(x_final_vis,y_final_vis);
+
+
+for i=1:length(direction)
+    theta(i) = direction(i);
+    rho(i) = avg_vest(i);
+end
+
+for i=1:length(theta)
+    [x_vest(i),y_vest(i)] = pol2cart(theta(i),rho(i));
+end
+
+x_final_vest = sum(x_vest.*average_inputs_per_direction_vest(3,:)) / sum(average_inputs_per_direction_vest(3,:));
+y_final_vest = sum(y_vest.*average_inputs_per_direction_vest(3,:)) / sum(average_inputs_per_direction_vest(3,:));
+
+
+[p_vest,q_vest]= cart2pol(x_final_vest,y_final_vest);
+
+
+p_value_vis = anova1(anova_vis,[],'off')
+p_value_vest = anova1(anova_vest,[],'off')
+
+pvis = num2str(p_value_vis);
+pvest = num2str(p_value_vest);
+
+% vector_diff = p_vis - p_vest
+% degree_diff = abs(vector_diff * 180/pi)
+% 
+% if (degree_diff > 180)
+%     degree_diff = degree_diff - 180;
+% end
+% 
+% if (degree_diff <= 60)
+%     congruent = true;
+%     opposite = 0;
+% elseif (degree_diff >= 120)
+%     opposite = true;
+%     congruent = 0;
+% else
+%     opposite = 0;
+%     congruent = 0;
+% end
+% 
+% difference = num2str(degree_diff);
+
+filename = [PATH FILE];
+
+figure;
+hold on
+subplot(2,1,1)
+polar(direction,average_inputs_per_direction(3,:),'bx');
+hold on
+polar(p_vis,q_vis,'ro')
+xlabel(['Visual, p = ' pvis])
+%text(max(average_inputs_per_direction(3,:))*1.2,50,['P value =' pvis]);
+title(filename);
+hold off
+subplot(2,1,2)
+polar(direction,average_inputs_per_direction_vest(3,:),'bx');
+hold on
+polar(p_vest,q_vest,'ro')
+xlabel(['Vestibular, p = ' pvest])
+%text(max(average_inputs_per_direction_vest(3,:))*1.2,50,['P value =' pvest]);
+% if (congruent == 1)
+%     title(['Congruent, difference in preferred direction =' difference])
+% elseif (opposite == 1)
+%     title(['Opposite, difference in preferred direction =' difference])
+% else
+%     title(['Middle, difference in preferred direction =' difference])
+% end
+hold off
+hold off
+
+save(['Z:\Users\JRB\Data\Mat_Files\' FILE '.mat']);
+saveas(gcf,['Z:\Users\JRB\Data\Figures\' FILE '_fp.png'],'png');
+
+
+
+% saveas(gcf,['C:\MATLAB6p5\work\Experimental_Analysis\' FILE '_slice.fig']);
+% figure(2);
+% close;
+% 
+% if ((p_vis > 0.05) | (p_vest > 0.05))
+%     difference = 9999;
+% else
+%     difference = 180/pi*(vectorsum_vis(1,1) - vectorsum_vest(1,1));
+% end
+% 
+% foldername = ('C:\MATLAB6p5\work\');
+% outfile1 = [foldername 'vertical_slice.dat'];
+% 
+% sprint_txt = ['%s\t %f\t %f\t %f\t'];
+% buff = sprintf(sprint_txt, FILE, difference, vectorsum_vis(1,1)*180/pi, vectorsum_vest(1,1)*180/pi);  
+% 
+% 
+% printflag = 0;
+% if (exist(outfile1, 'file') == 0)    %file does not yet exist
+%     printflag = 1;
+% end
+% 
+% fid = fopen(outfile1, 'a');
+% 
+% fprintf(fid, '%s', buff);
+% fprintf(fid, '\r\n');
+% fclose(fid);
+% return

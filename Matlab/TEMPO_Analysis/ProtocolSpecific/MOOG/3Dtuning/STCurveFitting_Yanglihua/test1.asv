@@ -1,0 +1,8 @@
+xlabels={'RT1','RT2','Holding Time','HoldingTime','Reward'};
+maxJ = 5;
+maxI = 7;
+for i=1:maxI
+    for j=1:maxJ
+        subplot(max,5,5*j+5*);
+    end
+end

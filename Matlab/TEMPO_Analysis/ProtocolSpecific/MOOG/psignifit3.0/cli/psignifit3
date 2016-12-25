@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# command line wrapper for psignifit3
+
+print_help() {
+cat << END 
+Usage: psignifit3 COMMAND [OPTIONS] FILE [FILE ...]"
+
+COMMANDS are:
+    bootstrap   -- perform bootstrap inference
+    mcmc        -- perform mcmc inference
+    mapestimate -- obtain mapestimate
+    diagnostics -- miscellaneous diagnostics
+    help        -- print this help message
+
+for help on commands try:
+    psignifit3 COMMAND -h
+
+END
+}
+
+COMMAND=$1 ; shift
+
+case $COMMAND in
+    "bootstrap")
+        psignifit-bootstrap $@;;
+    "mcmc")
+        psignifit-mcmc $@;;
+    "mapestimate")
+        psignifit-mapestimate $@;;
+    "diagnostics")
+        psignifit-diagnostics $@;;
+    "help" | "")
+        print_help ;;
+    *)
+        print_help
+        echo "Fatal: '$COMMAND' is not a valid command!" ;;
+esac
+

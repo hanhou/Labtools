@@ -1,0 +1,177 @@
+function HeadingDis_fixation(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_heading   = data.moog_params(HEADING, :, MOOG); 
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
+temp_motion_coherence = data.moog_params(COHERENCE,:,MOOG);
+temp_spike_rates = data.spike_rates(SpikeChan, :); 
+temp_total_trials = data.misc_params(OUTCOME, :);
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% a vector of trial indices
+bad_tri = find(temp_spike_rates > 1000);   % cut off 3k frequency which definately is not cell's firing response
+
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+stim_type = temp_stim_type( select_trials );
+heading = temp_heading( select_trials );
+amplitude= temp_amplitude( select_trials );
+num_sigmas= temp_num_sigmas( select_trials );
+motion_coherence = temp_motion_coherence(select_trials);
+spike_rates = temp_spike_rates( select_trials);
+total_trials = temp_total_trials( select_trials);
+unique_stim_type = munique(stim_type');
+unique_heading = munique(heading');
+unique_amplitude = munique(amplitude');
+unique_num_sigmas = munique(num_sigmas');
+unique_motion_coherence = munique(motion_coherence');
+
+one_repetition = length(unique_heading)*length(unique_stim_type);
+repetition = floor( length(spike_rates)/one_repetition ); % take minimum repetition
+
+for k = 1:length(unique_stim_type)    % notice that the condition is double than disc_heading    
+    for i = 1:length(unique_heading)
+        select =logical( (heading == unique_heading(i)) & (stim_type == unique_stim_type(k)) ) ;  
+        resp{k,i} = spike_rates(select);   
+        % calculate firing rate of each trial
+        for j = 1 : repetition; 
+            spike_temp = spike_rates(select);   
+            resp_heading{k}(i, j) = spike_temp( j );           
+        end
+        resp_mat(k,i) = mean(resp_heading{k}(i,:));  % the mean firing rate for each heading 
+        resp_mat_std(k,i) = std(resp_heading{k}(i,:));
+        resp_mat_err(k,i) = std(resp_heading{k}(i,:)) / sqrt(repetition);
+    end
+end
+
+% % check correlation coefficience
+% for k = 1 : length(unique_stim_type)
+%     [rr,pp] = corrcoef(unique_heading, resp_mat(k,:));
+%     line_re{k} = rr(1,2);
+%     line_p{k} = pp(1,2);
+% end
+% if length(unique_stim_type)>=2 % make sure there are ves and vis conditions
+%     if sign(line_re{1}) == sign(line_re{2})
+%         tuning_sign_vis = 0; % congruent
+%     else
+%         tuning_sign_vis = 180; % opposite
+%     end
+%     tuning_sign_p(1) = line_p{1};
+%     tuning_sign_p(2) = line_p{2};
+% else
+%     tuning_sign_vis = NaN;
+%     tuning_sign_p(1) = NaN;
+%     tuning_sign_p(2) = NaN;
+% end  
+
+% % now calculate propotion correct from area under ROC curves, each heading is compared to 0 heading
+% % neurothreshold 
+% fit_data_neuro = [];
+% for k = 1 : length(unique_stim_type)
+%     for i = 1 : length(unique_heading)-1   % subtract the 0 heading
+%         trials_n =logical( (heading == unique_heading(i)) & (stim_type == unique_stim_type(k)) ) ;
+%         fit_data_neuro_cum{k}(i,3) = sum(trials_n);  % for later function fit use
+%         if i < (1+length(unique_heading))/2
+%              Neuro_correct{k}(i) =  rocN( resp_heading{k}(i,:),resp_heading{k}((1+length(unique_heading))/2,:),100 ); % compare to the 0 heading condition, which is straght ahead
+%              Neuro_correct{k}(i) = 1 - Neuro_correct{k}(i); % turn proportion correct into rightward choice
+%          else
+%              Neuro_correct{k}(i) =  rocN( resp_heading{k}((1+length(unique_heading))/2,:), resp_heading{k}(i+1,:),100 ); % compare to the 0 heading condition, which is straght ahead
+%          end
+%          if  resp_mat{k}(1) < resp_mat{k}(end)  
+%              % we don't know whether left heading is for sure smaller than right heading,thus ROC curve might be flipped above or below the unity line
+%              % here we asume if left response larger than right response then asign the left to be preferred direction
+%              Neuro_correct{k}(i) = 1 - Neuro_correct{k}(i);            
+%          end         
+%     end
+% end
+% 
+% %%%%%% use Wichman's MLE method to estimate threshold and bias
+% for k = 1:length(unique_stim_type)    
+%     fit_data_neuro_cum{k}(:,1) = unique_heading(unique_heading~=0);
+%     fit_data_neuro_cum{k}(:,2) = Neuro_correct{k}(:);
+%     wichman_neu = pfit(fit_data_neuro_cum{k},'plot_opt','no plot','shape','cumulative gaussian','n_intervals',1,'FIX_LAMBDA',0.001,'sens',0,'compute_stats','false','verbose','false');
+%     Thresh_neu{k} = wichman_neu.params.est(2);
+%     Bias_neu{k} = wichman_neu.params.est(1);
+%     neu_perf{k} = [wichman_neu.params.est(1),wichman_neu.params.est(2)];
+% end
+% % %--------------------------------------------------
+% % plot psychometric and neurometric function here
+% h{1} = 'bo';  f{1} = 'b-';  g{1} = 'bo-';
+% h{2} = 'rd';  f{2} = 'r-';  g{2} = 'rd-';
+% h{3} = 'gs';  f{3} = 'g-';  g{3} = 'gs-';
+% figure(2);
+% set(2,'Position', [5,25, 980,650], 'Name', 'psycho_neurometic function');
+% orient landscape;
+% % plot neurometric function
+% axes('position',[0.36 0.15, 0.26 0.6]);
+% title('neuroometric');
+% for k = 1:length(unique_stim_type)
+%     neu_heading = unique_heading(unique_heading~=0);
+%     xi = min(unique_heading) : 0.1 : max(unique_heading); 
+%     plot(neu_heading, Neuro_correct{k}(:), h{k},  xi, cum_gaussfit(neu_perf{k}, xi),  f{k} );
+%     xlabel('Heading Angles');   
+%     ylim([0,1]);
+%     hold on;
+% end
+% 
+% % neurological raw data based on firing rate instead of ROC
+% axes('position',[0.7 0.15, 0.26 0.6]);
+% title('firing rate');
+% for k = 1:length(unique_stim_type)
+%     errorbar(unique_heading, resp_mat{k}(:), resp_mat_err{k}(:),g{k} );
+%     xlabel('Heading Angle (deg)');
+%     ylabel('Firing rate(spikes/s)');   
+%     xlim([min(unique_heading),max(unique_heading)]);
+%     hold on;
+% end
+% %--------------------------------------------------------------------------
+% % output some text of basic parameters in the figure
+% axes('position',[0.05,0.8, 0.9,0.15] );
+% xlim( [0,100] );
+% ylim( [2,10] );
+% text(0, 10, FILE);
+% text(20,10,'coherence =');
+% text(30,10,num2str(unique_motion_coherence) );
+% text(45,10,'repetition =');
+% text(55,10,num2str(repetition) );
+% text(5,8, 'Psy: u      threshold         Neu:u     threshold         CP      p');
+% text(0,8, 'stim');
+% for k = 1:length(unique_stim_type)
+%     text(0,8-k, num2str(unique_stim_type(k)));
+%     text(20,8-k,num2str(Bias_neu{k} ));
+%     text(28,8-k,num2str(Thresh_neu{k} ));
+% end
+% axis off;
+%--------------------------------------------------------------------------
+% Also, write out some summary data to a cumulative summary file
+sprint_txt = ['%s\t'];
+for i = 1 : 1000
+     sprint_txt = [sprint_txt, ' %1.3f\t'];    
+end
+% buff = sprintf('%s\t %4.0f\t   %4.0f\t   %4.3f\t  %4.3f\t  %4.3f\t  %4.3f\t  %4.3f\t', ...
+%      FILE, unique_motion_coherence, repetition, Thresh_neu{:}, line_re{1}, line_re{2}, line_p{1},line_p{2} );
+% outfile = [BASE_PATH 'ProtocolSpecific\MOOG\HeadingDiscrimination\HeadingDis_Fixation.dat'];
+buff = sprintf(sprint_txt, FILE, resp_mat(:,:),resp_mat_std(:,:).^2 );
+%buff = sprintf(sprint_txt, FILE, unique_stim_type(1), Thresh_neu{1});
+%outfile = ['Z:\Users\Yong\fisherDiscrimMeanSD.dat'];
+outfile = ['Z:\Users\Yong\fisherMeanVarianceAllProtocol000ms.dat'];
+printflag = 0;
+if (exist(outfile, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t         Coher\t repet\t u\t thr\t max\t min\t');
+    fprintf(fid, '\r\n');
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+%---------------------------------------------------------------------------------------
+return;

@@ -1,0 +1,47 @@
++ negative Gamma prior
++ Influential observations and outliers for Bayes                          [OK]
++ improved search for starting values                                      [OK]
++ influential observations marked graded                                   [OK]
++ posterior predictive Rkd, Rpd                                            [OK]
++ more meaningfull errors if sample based plot functions are used before sampling [OK]
++ Inference objects take relative probabilities, too                       [OK]
++ nonparametric bootstrap                                                  [OK]
++ Sensitivity analysis                                                     [OK]
++ Add ThresholdPlot to Tutorial                                            [OK]
++ resampling of chains in BayesInference objects                           [OK]
++ Like ParameterPlot but for thresholds                                    [OK]
++ move numbers further away from the axes.                                 [OK]
++ warning message for Rpd: "Try other sigmoid!"                            [OK]
++ unit tests                                                               [OK]
++ write a number of simulated observers                                    [OK]
++ complete tutorial                                                        [OK]
++ setup.py                                                                 [OK]
++ More Sigmoids (gumbel, weibull, gauss, ...)                              [OK] at least for now
++ log-core to allow fitting data on log contrast (i.e. gumbel to weibull)  [OK]
++ unit tests for logCore and linearCore                                    [OK]
++ linear core ax+b                                                         [OK]
++ Unit test for mwCore                                                     [OK]
++ Outliers and Influential observations                                    [OK]
++ MCMC
+     implement dlposteri und dnegllikeli                                   [OK]
+     check hybrid MCMC versus MH-MCMC                                      [OK]
+     can we put both MCMC strategies together to have the same base class? [OK]
++ Documentation                                                            [OK]
++ pointer arithmetic for datasets                                          [OK]
++ low level Python interface
+	+ generate some functions that perform the parameter parsing -- the code is really ugly in its current state
+	+ bootstrap, missing:
+		+ return BCa stuff                                                 [OK] but is this what we wanted?
+        + return correlations and outliers                                 [OK]
+		+ many python functions return new references. Not all of them are
+		  properly dereferenced yet.                                       [OK]
+	+ ML/MAP-estimate separately                                           [OK]
+	+ MCMC                                                                 [OK]
+    + evaluation, deviance and deviance residuals                          [OK]
++ refactor the python toolbox to have "strict" data objects and plot functions working on top of these  [OK]
++ Convergence diagnostics for MCMC                                         [OK]
++ posterior intervals and posterior histograms for model parameters        [OK]
++ Using linalg matrix routines in leastfavourable                          [OK]
++ Don't use asymptotic values for the correlations.                        [OK] only for Rkd, Rpd seemed be be based on all blocks (Why?)
++ copy Core, Sigmoid, ... in psychometric                                  [OK] done for priors too
++ migrate to boost-python?                                                 [OK] decided to use SWIG instead

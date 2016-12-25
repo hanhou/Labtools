@@ -1,0 +1,38 @@
+% analysis3f graphical intervace to DoAnalysis3f suite
+% mqm Feb 1999/modified dora May 2001
+
+h=figure(98);
+%set(h,'handlevisibility','on');
+clf
+% This sets the screen size and position of the user interface. 
+% H = GCF returns the handle of the current figure. The current figure is the window into 
+% which graphics commands like PLOT,TITLE, SURF, etc. will draw.
+ss=get(0,'screensize');
+if ss(3)==1600
+    set(gcf,'units','normalized','position',[0.005 0.5 0.35 0.45]);
+else
+    set(gcf,'units','normalized','position',[0.005 0.333 0.477 0.617]); %[0.005 0.5 0.35 0.45]);
+end
+
+% EXIST  Check if variables or functions are defined (~ means the logical
+% operator NOT --- does not exist = ~exist)
+set(gcf,'menubar','none','numbertitle','off','name','Single Unit Analysis Launchpad (Qware)');
+set(gca,'visible','off');
+if ~exist('direct'),
+    if exist([matlabroot,'\eyemovrc.m'])
+    run([matlabroot,'\eyemovrc']);
+end
+if ~exist('direct'), direct=''; end
+end
+
+if ~exist('analmfile'), analmfile='doanalysis3f'); end % which mfile to use
+if exist('logfile') & ~isempty(logfile)
+    if exist(logfile)
+        log=loadascii(logfile);
+    end
+else
+    logfile='';
+end
+
+if ~exist('exppre'), exppre='';end
+if ~exist('calpre'),

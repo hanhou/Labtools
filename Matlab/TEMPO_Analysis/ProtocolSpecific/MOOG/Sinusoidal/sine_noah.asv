@@ -1,0 +1,6 @@
+function d=sine_noah(out,x,y,frqf)
+
+d=abs(y-(out(1)*sin(frqf*2*pi*x+out(2)/180*pi)+out(3)));
+return
+%absolute value of (signal -(gain*sin(frequency*2pi*time + phase/180pi) +
+%offset));

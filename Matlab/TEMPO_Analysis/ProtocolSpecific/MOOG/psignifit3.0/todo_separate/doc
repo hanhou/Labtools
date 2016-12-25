@@ -1,0 +1,19 @@
+- add a delete/uninstall possibility
+- Makefile/setup.py call for doctests
+- List _all_ dependencies in terms of packages for debian (python/numpy headers
+  sphinx etc...)
+
+- Figure for sigmoid/core philosophy
+- math symbols in documentation according to
+  http://matplotlib.sourceforge.net/sampledoc/extensions.html
+  in particular:
+  :math:`f(g(x,m,w))` for inline math and
+
+  .. math::
+
+  f(g(x,m,w))
+
+  for display style math.
+
+- Tutorial 1
+ - suggest using ipython, especially object? and %cpaste for examples

@@ -1,0 +1,360 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- PoissSpikeSim.m -- Simulates neuronal thresholds at different integration periods. Extracts mean firing rates for 
+%-- each correlation level, and assumes that it has poisson spike statistics.
+%--	TU, 02/21/02
+%-- Add inhomogeneous poisson simulation TU, 12/02/02
+%-----------------------------------------------------------------------------------------------------------------------
+
+function PoissSpikeSim(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE)
+
+TEMPO_Defs;		
+Path_Defs;
+ProtocolDefs;	%needed for all protocol specific functions - contains keywords - BJP 1/4/01
+
+%get the column of values of horiz. disparities in the dots_params matrix
+h_disp = data.dots_params(DOTS_HDISP,:,PATCH1);
+unique_hdisp = munique(h_disp');
+
+%get the binocular correlations
+binoc_corr = data.dots_params(DOTS_BIN_CORR, :, PATCH1);
+unique_bin_corr = munique(binoc_corr');
+
+%now, get the firing rates for all the trials 
+spike_rates = data.spike_rates(SpikeChan, :);
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (binoc_corr == data.one_time_params(NULL_VALUE)) );
+
+%now, select trials that fall between BegTrial and EndTrial
+trials = 1:length(binoc_corr);		% a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+%[h_disp' binoc_corr' spike_rates' null_trials' select_trials']
+
+Pref_HDisp = data.one_time_params(PREFERRED_HDISP);
+
+%%%%%%%%%%%%%%%% HOMOGENEOUS POISSON SIMULATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%do simulation 20 times and take the median
+%n_sim = 20;
+n_sim = 0;
+for k=1:n_sim
+    %First, extract the mean firing rates for each correlation level, and then simulate poisson spike trains using that firing rate.
+    for i=1:length(unique_bin_corr)
+        pref_trials = ( (h_disp == Pref_HDisp) & (binoc_corr == unique_bin_corr(i)) );    
+        mean_pref(i) = mean(spike_rates(pref_trials & select_trials));
+        null_trials = ( (h_disp ~= Pref_HDisp) & (binoc_corr == unique_bin_corr(i)) );    
+        mean_null(i) = mean(spike_rates(null_trials & select_trials));
+        N_obs(i) = length(pref_trials) + length(null_trials);
+    
+        %now, simulate poisson spike trains.
+        anal_bin_width = 1; %ms
+        trial_length = 1.5; %seconds
+        num_reps = 80; %first half for first site, second half for other site   
+    
+        %%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%  Neuron Parameter
+        %%%%%%%%%%%%%%%%%%%
+        neurons_per_site = 1;
+        t_ref = 0; %ms
+        corr_jitter = 2; % ms lambda for gaussian jitter for sync pulses
+        corr_lag = 0; % ms time lag between coordinated spikes
+        corr_rates = 0.00* ones(trial_length*1000);  %proportion of sync spikes
+        corr_rates(1500:end) = corr_rates(1500:end) * 0.05;
+        mean_FR1 = mean_pref(i); % mean FR PER NEURON IN SITE
+        mean_FR2 = mean_null(i); % mean FR PER NEURON IN SITE
+        neuron_parms = [neurons_per_site t_ref corr_jitter corr_lag mean_FR1 mean_FR2];
+
+        spike_density_filter = [1];
+
+        spike_disp_flag = 1;
+        spike_print_flag = 0;
+        raster_max_time = 1000; %ms 
+        raster_max_trial = 5;
+        PSTH_bin_width = 20;
+        spike_disp_parms = [spike_disp_flag spike_print_flag raster_max_time raster_max_trial PSTH_bin_width];
+
+        %% PSTH contains function normalized to 1 for spike rate
+        sin_freq = [0 0]; %Hz
+        dc_offset = [1 1];
+        amplitude = [0 0];
+        phase = [pi/2 pi/2];
+        PSTH = zeros(2,trial_length*1000);
+        for j = 1:2
+            PSTH(j, 1: trial_length*1000+ 2*(t_ref + corr_lag + 6)) = (amplitude(j)/2)*sin(phase(j) + (linspace(-pi*trial_length*sin_freq(j),pi*(trial_length)*sin_freq(j), trial_length*1000+ 2*(t_ref + corr_lag + 6))  ) ) + dc_offset(j);
+        end
+
+        %% correlation parameters
+        peak_range = 5; % +/- range for width of averaging across peak
+        peak_window = 128;   % +/- range around 0 lag time in which peak is sought
+        corr_range = 128; %ms +/- bounds for correlograms
+        time = -corr_range:anal_bin_width : corr_range;
+        high_freq_cutoff = 100;
+        low_freq_cutoff = 10;
+
+        %triangle correction factor for finite trial length
+        triangle = trial_length - abs(time)/1000;
+
+        %bootstrap parameters
+        num_bootstraps = 10000;
+        %0.5 = 1:1 correlated spikes above chance/total spikes
+        corr_levels = [0.0 0.4 0.3 0.2 0];
+        FR_levels = [100]; % mean FR PER NEURON IN SITE
+        FR_levels2 = [100]; % mean FR PER NEURON IN SITE
+        %close all;
+
+        PATHOUT = 'Z:\Data\Simulation\CorrSimulation\';
+        FILEOUT = 'Sim00001.mat';
+
+        stats = zeros(1000,8);
+
+%        [spike_raster{i}, spike_stats{i}, actual_corr_rate{i}, jitter_times{i}] = gen_spike_trains_poiss(PSTH, neuron_parms, spike_disp_parms, corr_rates, num_reps, trial_length, anal_bin_width, spike_density_filter, PATHOUT, FILEOUT);
+        close;    
+    end
+
+
+    %calculate neuronal thresholds at different integration periods.
+    ROC_values_integ = [];
+    start_offset = 60; %offset for response latency, ms
+    integ_step = 100;  % increment of integration time, ms
+    integ_time = integ_step: integ_step: 1500;
+    for j = 1:length(integ_time) %calculate spike rates for different integration time
+        for i=1:length(unique_bin_corr)%loop through each binocular correlation levels, and do ROC analysis for each
+%            pref_dist = sum(spike_raster{i}(1:num_reps/2,1:(integ_time(j)-start_offset)),2);
+%            null_dist = sum(spike_raster{i}(num_reps/2+1:num_reps,1:(integ_time(j)-start_offset)),2);
+%            ROC_values_integ(i) = rocN(pref_dist, null_dist, 100);
+            % data for Weibull fit
+%            fit_data(i, 1) = unique_bin_corr(i);
+%            fit_data(i, 2) = ROC_values_integ(i);
+%            fit_data(i,3) = N_obs(i);
+        end
+        
+        %do the weibull fit
+%        [neuron_alpha_integ(j,k) neuron_beta_integ(j,k)] = weibull_fit(fit_data);
+    end
+end
+
+%raw_thres = median(neuron_alpha_integ, 2);
+%normalize thresholds to the last (1500ms) data
+%norm_thres = raw_thres/raw_thres(length(raw_thres));
+    
+%%%%%%%%%%%%%%%% INHOMOGENEOUS POISSON SIMULATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%do simulation 20 times and take the median
+n_sim = 20;
+for k=1:n_sim
+    %First, compute PSTH for each correlation level, next smooth, and then simulate poisson spike trains using that firing rate.
+    for i=1:length(unique_bin_corr)
+        pref_trials = ( (h_disp == Pref_HDisp) & (binoc_corr == unique_bin_corr(i)) );  
+        trial_index = find(pref_trials==1); 
+        num_reps = length(trial_index);
+        % calculate PSTH for each trial
+        for trial = 1: num_reps
+            start_bin = find(data.event_data(:,:,trial_index(trial)) == StartCode) + StartOffset + 30;
+            stop_bin = start_bin + 1500;
+            raw_spikes(trial,:) = data.spike_data(SpikeChan, start_bin : stop_bin , trial_index(trial)); 
+        end
+        %calculate mean PSTH and smooth
+        mean_pref(i,:) = mean(raw_spikes)*1000;
+        smooth_pref(i,:) = BoxcarFilter(mean_pref(i,:),20);
+
+        null_trials = ( (h_disp ~= Pref_HDisp) & (binoc_corr == unique_bin_corr(i)) ); 
+        trial_index = find(null_trials==1); 
+        num_reps = length(trial_index);
+        % calculate PSTH for each trial
+        for trial = 1: num_reps
+            start_bin = find(data.event_data(:,:,trial_index(trial)) == StartCode) + StartOffset + 30;
+            stop_bin = start_bin + 1500;
+            raw_spikes(trial,:) = data.spike_data(SpikeChan, start_bin : stop_bin , trial_index(trial)); 
+        end
+        %calculate mean PSTH and smooth
+        mean_null(i,:) = mean(raw_spikes)*1000;
+        smooth_null(i,:) = BoxcarFilter(mean_null(i,:),20);
+        
+        N_obs(i) = length(pref_trials) + length(null_trials);
+    
+        %now, simulate poisson spike trains.
+        sim_reps = 40;
+        for j=1:sim_reps
+            sim_pref(i,:,j) = (rand(1,size(smooth_pref,2)) < smooth_pref(i,:)/1000);    
+            sim_null(i,:,j) = (rand(1,size(smooth_null,2)) < smooth_null(i,:)/1000); 
+        end
+    end
+
+    %calculate neuronal thresholds at different integration periods.
+    ROC_values_integ = [];
+    integ_step = 100;  % increment of integration time, ms
+    integ_time = integ_step: integ_step: 1500;
+    for j = 1:length(integ_time) %calculate spike rates for different integration time
+        for i=1:length(unique_bin_corr)%loop through each binocular correlation levels, and do ROC analysis for each
+            pref_dist = sum(sim_pref(i,1:integ_time(j),:),2);
+            null_dist = sum(sim_null(i,1:integ_time(j),:),2);
+            ROC_values_integ(i) = rocN(pref_dist, null_dist, 100);
+            % data for Weibull fit
+            fit_data(i, 1) = unique_bin_corr(i);
+            fit_data(i, 2) = ROC_values_integ(i);
+            fit_data(i,3) = N_obs(i);
+        end
+        
+        %do the weibull fit
+        [neuron_alpha_inhomo(j,k) neuron_beta_inhomo(j,k)] = weibull_fit(fit_data);
+    end
+    
+    %calculate neuronal thresholds at different window times. 12/04/02
+    ROC_values_sliding = [];
+    window_size = 200;  % in ms
+    window_step = 100;  % increment of starting time, ms
+    start_time = 0: window_step: 1500-window_size;
+    end_time = start_time + window_size;
+    for j = 1:length(start_time) %calculate spike rates for different integration time
+        for i=1:length(unique_bin_corr)%loop through each binocular correlation levels, and do ROC analysis for each
+            pref_dist = sum(sim_pref(i,start_time(j)+1:end_time(j),:),2);
+            null_dist = sum(sim_null(i,start_time(j)+1:end_time(j),:),2);
+            ROC_values_sliding(i) = rocN(pref_dist, null_dist, 100);
+            % data for Weibull fit
+            fit_data(i, 1) = unique_bin_corr(i);
+            fit_data(i, 2) = ROC_values_sliding(i);
+            fit_data(i,3) = N_obs(i);
+        end
+        
+        %do the weibull fit
+        [neuron_alpha_sliding(j,k) neuron_beta_sliding(j,k)] = weibull_fit(fit_data);
+    end
+end
+
+raw_inhomo = median(neuron_alpha_inhomo, 2);
+%normalize thresholds to the last (1500ms) data
+norm_inhomo = raw_inhomo/raw_inhomo(length(raw_inhomo));
+
+raw_sliding = median(neuron_alpha_sliding, 2);
+%normalize thresholds to the last (1500ms) data
+norm_sliding = raw_sliding/raw_sliding(length(raw_sliding));
+    
+
+%------------------------------------------------------------------------
+%write out data for integration time simulation TU 12/02/02
+outfile1 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\InhomoPoissSim_norm.dat'];
+printflag = 0;
+if (exist(outfile1, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile1, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t Nthr1500\t ');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(norm_inhomo)
+    buff = sprintf('%s %6.4f\t', buff, norm_inhomo(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+
+outfile2 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\InhomoPoissSim_raw.dat'];
+printflag = 0;
+if (exist(outfile2, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile2, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t Nthr1500\t ');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(raw_inhomo)
+    buff = sprintf('%s %6.4f\t', buff, raw_inhomo(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+%------------------------------------------------------------------------
+%------------------------------------------------------------------------
+%write out data for sliding window NTHRES simulation TU 12/04/02
+outfile1 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\SlidingNthresSim_norm.dat'];
+printflag = 0;
+if (exist(outfile1, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile1, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(norm_sliding)
+    buff = sprintf('%s %6.4f\t', buff, norm_sliding(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+
+outfile2 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\SlidingNthresSim_raw.dat'];
+printflag = 0;
+if (exist(outfile2, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile2, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(raw_sliding)
+    buff = sprintf('%s %6.4f\t', buff, raw_sliding(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+%------------------------------------------------------------------------
+return;
+
+%------------------------------------------------------------------------
+%write out data for integration time simulation TU 02/21/02
+outfile1 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\IntegrationTimeSim_norm.dat'];
+printflag = 0;
+if (exist(outfile1, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile1, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t Nthr1500\t ');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(norm_thres)
+    buff = sprintf('%s %6.4f\t', buff, norm_thres(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+
+outfile2 = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\IntegrationTimeSim_raw.dat'];
+printflag = 0;
+if (exist(outfile2, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile2, 'a');
+if (printflag)
+    fprintf(fid, 'FILE\t Nthr100\t Nthr200\t Nthr300\t Nthr400\t Nthr500\t Nthr600\t Nthr700\t Nthr800\t Nthr900\t Nthr1000\t Nthr1100\t Nthr1200\t Nthr1300\t Nthr1400\t Nthr1500\t ');
+    fprintf(fid, '\r\n');
+    printflag = 0;
+end
+
+buff = sprintf('%s\t ', FILE);
+for i=1:length(raw_thres)
+    buff = sprintf('%s %6.4f\t', buff, raw_thres(i));
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+%------------------------------------------------------------------------
+

@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings name="matlab" xmlns="urn:mathworks.matlab.settings" xsi:schemaLocation="urn:mathworks.matlab.settings settings.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <key name="DeleteFilesPermanently">
+        <bool>
+            <value>1</value>
+        </bool>
+    </key>
+    <settings name="apps" visible="true">
+    </settings>
+    <settings name="class">
+    </settings>
+    <settings name="desktop">
+        <settings name="commandwindow">
+        </settings>
+        <settings name="currentfolder">
+            <key name="History">
+                <string minArraySize="0" maxArraySize="500">
+                    <value><![CDATA[Z:\Data\Tempo\Batch\20150725_HD_allAreas_m5_m10]]></value>
+                    <value><![CDATA[Z:\Others\XueFei\MT_MST_PCA]]></value>
+                    <value><![CDATA[Z:\Others\XueFei]]></value>
+                    <value><![CDATA[Z:\Others]]></value>
+                    <value><![CDATA[Z:]]></value>
+                    <value><![CDATA[C:]]></value>
+                    <value><![CDATA[C:\WINDOWS]]></value>
+                    <value><![CDATA[F:\360_Han\金山快盘\ZDriver\Labtools\HH_Tools]]></value>
+                    <value><![CDATA[F:\360_Han\金山快盘\ZDriver\Labtools]]></value>
+                    <value><![CDATA[F:\360_Han\金山快盘\ZDriver]]></value>
+                    <value><![CDATA[F:\360_Han\金山快盘]]></value>
+                    <value><![CDATA[F:\360_Han]]></value>
+                    <value><![CDATA[F:]]></value>
+                    <value><![CDATA[E:]]></value>
+                    <value><![CDATA[Z:\Labtools\HH_Tools\DownLoad]]></value>
+                    <value><![CDATA[Z:\Labtools\Matlab\TEMPO_Analysis\ProtocolSpecific\MOOG\HeadingDiscrimination]]></value>
+                    <value><![CDATA[Z:\Labtools\Matlab\TEMPO_Analysis\ProtocolSpecific\MOOG]]></value>
+                    <value><![CDATA[Z:\Labtools\Matlab\TEMPO_Analysis\ProtocolSpecific]]></value>
+                    <value><![CDATA[Z:\Labtools\Matlab\TEMPO_Analysis]]></value>
+                    <value><![CDATA[Z:\Labtools\Matlab]]></value>
+                </string>
+            </key>
+            <settings name="autorefresh">
+            </settings>
+            <settings name="lastfolder">
+                <key name="ClosedGroups">
+                    <string minArraySize="0" maxArraySize="100000">
+                        <value><![CDATA[]]></value>
+                        <value><![CDATA[Editor Autosave]]></value>
+                        <value><![CDATA[BMP 图像]]></value>
+                        <value><![CDATA[Figure]]></value>
+                    </string>
+                </key>
+                <key name="ColumnOrder">
+                    <string minArraySize="0" maxArraySize="6">
+                        <value><![CDATA[icon]]></value>
+                        <value><![CDATA[name]]></value>
+                        <value><![CDATA[size]]></value>
+                        <value><![CDATA[modified]]></value>
+                        <value><![CDATA[__vertical_attribute:description]]></value>
+                        <value><![CDATA[type]]></value>
+                    </string>
+                </key>
+                <key name="ColumnSizes">
+                    <string minArraySize="0" maxArraySize="100000">
+                        <value><![CDATA[40]]></value>
+                        <value><![CDATA[80]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[56]]></value>
+                    </string>
+                </key>
+                <key name="GroupColumn">
+                    <string>
+                        <value><![CDATA[icon]]></value>
+                    </string>
+                </key>
+                <key name="GroupMode">
+                    <string>
+                        <value><![CDATA[type]]></value>
+                    </string>
+                </key>
+                <key name="OpenGroups">
+                    <string minArraySize="0" maxArraySize="100000">
+                        <value><![CDATA[DAT 文件]]></value>
+                        <value><![CDATA[Microsoft Word 97 - 2003 文档]]></value>
+                        <value><![CDATA[DVR_401-501 文件]]></value>
+                        <value><![CDATA[TIF 文件]]></value>
+                        <value><![CDATA[DVR_1-2991 文件]]></value>
+                        <value><![CDATA[OLB 文件]]></value>
+                        <value><![CDATA[WinRAR 压缩文件]]></value>
+                        <value><![CDATA[MOF 文件]]></value>
+                        <value><![CDATA[TMP 文件]]></value>
+                        <value><![CDATA[EMF File]]></value>
+                        <value><![CDATA[PPR 文件]]></value>
+                        <value><![CDATA[Adobe Premiere Project]]></value>
+                        <value><![CDATA[JPEG 图像]]></value>
+                        <value><![CDATA[Adobe Audition Peak Data File]]></value>
+                        <value><![CDATA[文件]]></value>
+                        <value><![CDATA[Adobe Acrobat Language Resource file]]></value>
+                        <value><![CDATA[IME 文件]]></value>
+                        <value><![CDATA[Windows 命令脚本]]></value>
+                        <value><![CDATA[Microsoft Excel 97-2003 工作表]]></value>
+                        <value><![CDATA[MS-DOS 应用程序]]></value>
+                        <value><![CDATA[PB 文件]]></value>
+                        <value><![CDATA[RSP 文件]]></value>
+                        <value><![CDATA[JSON 文件]]></value>
+                        <value><![CDATA[系统文件]]></value>
+                        <value><![CDATA[C7483456-A289-439D-8115-601632D005A0 文件]]></value>
+                        <value><![CDATA[small]]></value>
+                        <value><![CDATA[YUNPANTMP 文件]]></value>
+                        <value><![CDATA[CED Spike2 script]]></value>
+                        <value><![CDATA[XML Configuration File]]></value>
+                        <value><![CDATA[分级系统文件]]></value>
+                        <value><![CDATA[光盘映像文件]]></value>
+                        <value><![CDATA[DVR_701-801 文件]]></value>
+                        <value><![CDATA[PNG 图像]]></value>
+                        <value><![CDATA[WAV 文件]]></value>
+                        <value><![CDATA[MP4 视频]]></value>
+                        <value><![CDATA[PRX 文件]]></value>
+                        <value><![CDATA[SDI 文件]]></value>
+                        <value><![CDATA[XSL 样式表]]></value>
+                        <value><![CDATA[TLB 文件]]></value>
+                        <value><![CDATA[TXT 文件]]></value>
+                        <value><![CDATA[应用程序扩展]]></value>
+                        <value><![CDATA[Package App Project]]></value>
+                        <value><![CDATA[Adobe Illustrator Artwork 17.0]]></value>
+                        <value><![CDATA[RS 文件]]></value>
+                        <value><![CDATA[SEP 文件]]></value>
+                        <value><![CDATA[BIN 文件]]></value>
+                        <value><![CDATA[360压缩 RAR 文件]]></value>
+                        <value><![CDATA[Windows Media 音频/视频文件]]></value>
+                        <value><![CDATA[medium]]></value>
+                        <value><![CDATA[编译的 HTML 帮助文件]]></value>
+                        <value><![CDATA[PNG 文件]]></value>
+                        <value><![CDATA[HTB 文件]]></value>
+                        <value><![CDATA[Windows Script 文件]]></value>
+                        <value><![CDATA[TIP 文件]]></value>
+                        <value><![CDATA[设备驱动程序]]></value>
+                        <value><![CDATA[DVR_101-201 文件]]></value>
+                        <value><![CDATA[安装信息]]></value>
+                        <value><![CDATA[Microsoft 通用管理文档]]></value>
+                        <value><![CDATA[AX 文件]]></value>
+                        <value><![CDATA[MATLAB Function]]></value>
+                        <value><![CDATA[ACM 文件]]></value>
+                        <value><![CDATA[视频剪辑]]></value>
+                        <value><![CDATA[DVR_301-401 文件]]></value>
+                        <value><![CDATA[MBF 文件]]></value>
+                        <value><![CDATA[配置设置]]></value>
+                        <value><![CDATA[MANIFEST 文件]]></value>
+                        <value><![CDATA[BMP 文件]]></value>
+                        <value><![CDATA[EndNote Library]]></value>
+                        <value><![CDATA[IEC 文件]]></value>
+                        <value><![CDATA[控制面板项]]></value>
+                        <value><![CDATA[UCE 文件]]></value>
+                        <value><![CDATA[DVR_1-101 文件]]></value>
+                        <value><![CDATA[TSP 文件]]></value>
+                        <value><![CDATA[DIN 文件]]></value>
+                        <value><![CDATA[Encapsulated PostScript]]></value>
+                        <value><![CDATA[XML 文档]]></value>
+                        <value><![CDATA[搜索连接器]]></value>
+                        <value><![CDATA[屏幕保护程序]]></value>
+                        <value><![CDATA[Microsoft Excel 工作表]]></value>
+                        <value><![CDATA[C/C++ Header]]></value>
+                        <value><![CDATA[VBScript Script 文件]]></value>
+                        <value><![CDATA[SEC 文件]]></value>
+                        <value><![CDATA[1 文件]]></value>
+                        <value><![CDATA[Microsoft Excel 启用宏的工作表]]></value>
+                        <value><![CDATA[BAK 文件]]></value>
+                        <value><![CDATA[S2L 文件]]></value>
+                        <value><![CDATA[AVI 文件]]></value>
+                        <value><![CDATA[应用程序]]></value>
+                        <value><![CDATA[Object File Library]]></value>
+                        <value><![CDATA[波形声音]]></value>
+                        <value><![CDATA[large]]></value>
+                        <value><![CDATA[CONF 文件]]></value>
+                        <value><![CDATA[T14 文件]]></value>
+                        <value><![CDATA[Adobe Acrobat 文档]]></value>
+                        <value><![CDATA[XML Document Type Definition]]></value>
+                        <value><![CDATA[QuickTime 电影]]></value>
+                        <value><![CDATA[DVR_201-301 文件]]></value>
+                        <value><![CDATA[TBL 文件]]></value>
+                        <value><![CDATA[MI 文件]]></value>
+                        <value><![CDATA[File Folder]]></value>
+                        <value><![CDATA[MAT File]]></value>
+                        <value><![CDATA[CHW 文件]]></value>
+                        <value><![CDATA[360压缩 ZIP 文件]]></value>
+                        <value><![CDATA[SMT 文件]]></value>
+                        <value><![CDATA[文本文档]]></value>
+                        <value><![CDATA[Data Base File]]></value>
+                        <value><![CDATA[DVR_501-601 文件]]></value>
+                        <value><![CDATA[360压缩]]></value>
+                        <value><![CDATA[JPG 文件]]></value>
+                        <value><![CDATA[NLS 文件]]></value>
+                        <value><![CDATA[视频文件]]></value>
+                        <value><![CDATA[DVR_601-701 文件]]></value>
+                        <value><![CDATA[DVR_801-901 文件]]></value>
+                        <value><![CDATA[RTF 格式]]></value>
+                        <value><![CDATA[MATLAB Script]]></value>
+                        <value><![CDATA[WinRAR ZIP 压缩文件]]></value>
+                        <value><![CDATA[EFI 文件]]></value>
+                        <value><![CDATA[ActiveX 控件]]></value>
+                        <value><![CDATA[Microsoft PowerPoint 演示文稿]]></value>
+                        <value><![CDATA[Origin Graph]]></value>
+                    </string>
+                </key>
+                <key name="SortColumn">
+                    <string>
+                        <value><![CDATA[type]]></value>
+                    </string>
+                </key>
+                <key name="SortDescending">
+                    <bool>
+                        <value>0</value>
+                    </bool>
+                </key>
+                <key name="VisibleColumns">
+                    <string minArraySize="0" maxArraySize="100">
+                        <value><![CDATA[icon]]></value>
+                        <value><![CDATA[name]]></value>
+                    </string>
+                </key>
+            </settings>
+            <settings name="lastsearch">
+                <key name="ClosedGroups">
+                    <string minArraySize="0" maxArraySize="10000">
+                        <value><![CDATA[]]></value>
+                    </string>
+                </key>
+                <key name="ColumnOrder">
+                    <string minArraySize="0" maxArraySize="7">
+                        <value><![CDATA[icon]]></value>
+                        <value><![CDATA[name]]></value>
+                        <value><![CDATA[size]]></value>
+                        <value><![CDATA[modified]]></value>
+                        <value><![CDATA[__vertical_attribute:description]]></value>
+                        <value><![CDATA[location]]></value>
+                        <value><![CDATA[type]]></value>
+                    </string>
+                </key>
+                <key name="ColumnSizes">
+                    <string minArraySize="0" maxArraySize="100000">
+                        <value><![CDATA[40]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                        <value><![CDATA[0]]></value>
+                    </string>
+                </key>
+                <key name="GroupColumn">
+                    <string>
+                        <value><![CDATA[location]]></value>
+                    </string>
+                </key>
+                <key name="GroupMode">
+                    <string>
+                        <value><![CDATA[location]]></value>
+                    </string>
+                </key>
+                <key name="OpenGroups">
+                    <string minArraySize="0" maxArraySize="100000">
+                    </string>
+                </key>
+                <key name="SortColumn">
+                    <string>
+                        <value><![CDATA[modified]]></value>
+                    </string>
+                </key>
+                <key name="SortDescending">
+                    <bool>
+                        <value>1</value>
+                    </bool>
+                </key>
+                <key name="VisibleColumns">
+                    <string minArraySize="0" maxArraySize="100">
+                        <value><![CDATA[icon]]></value>
+                        <value><![CDATA[name]]></value>
+                        <value><![CDATA[modified]]></value>
+                        <value><![CDATA[description]]></value>
+                    </string>
+                </key>
+            </settings>
+            <settings name="pathaffordance">
+            </settings>
+        </settings>
+        <settings name="help" visible="true">
+        </settings>
+    </settings>
+</settings>

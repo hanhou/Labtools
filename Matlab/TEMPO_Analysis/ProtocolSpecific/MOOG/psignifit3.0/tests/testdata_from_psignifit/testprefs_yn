@@ -1,0 +1,8 @@
+#shape logistic
+#n_intervals 1
+#runs 9999
+
+#lambda_limits 0, 0.1
+#gamma_limits 0, 1.
+#cuts 0.5
+#conf 0.1 0.9

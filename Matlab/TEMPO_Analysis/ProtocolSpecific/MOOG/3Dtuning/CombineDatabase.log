@@ -1,0 +1,21 @@
+
+
+Combine Database record: 03-Aug-2011 14:30:56
+
+
+================================================
+Input Files:
+Z:\Data\MOOG\Montana\Raw\m37c10r1.log
+Z:\Data\MOOG\Montana\Raw\m37c10r4.log
+
+Output File:
+Z:\LabTools\Matlab\TEMPO_Analysis\ProtocolSpecific\MOOG\3Dtuning\m37c10r1_4.log
+
+Following is different between log file headers:
+m37c10r1.log: 	SOFT_CAL_LEYE_HORIZ 22.200001  2.000000  0.000000
+m37c10r4.log: 	SOFT_CAL_LEYE_HORIZ 22.299999  2.000000  0.000000
+
+m37c10r1.log: 	SOFT_CAL_LEYE_VERT  6.900000  2.000000  0.000000
+m37c10r4.log: 	SOFT_CAL_LEYE_VERT  6.800000  2.000000  0.000000
+
+User Cancel combining database!

@@ -1,0 +1,477 @@
+function HGradSinFit(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, PATH, FILE)
+
+TEMPO_Defs;
+
+symbols = {'bo' 'ro' 'go' 'ko' 'b*' 'r*' 'g*' 'k*' 'c*'};
+lines = {'b-' 'r-' 'g-' 'k-' 'b--' 'r--' 'g--' 'k--' 'c--'};
+lines2 = {'b--' 'r--' 'g--' 'k--' 'b-*' 'r-*' 'g-*' 'k-*' 'c-*'};
+colors = {[0 0 1] [1 0 0] [0 1 0] [0 0 0] [1 1 1]};
+
+
+%Start Data Retrieval Routines---------------------------------------------------------------------------------------------------------
+%get the column of values of horiz. disparity magnitude in the dots_params matrix
+mag_disp = data.dots_params(DOTS_HGRAD_MAG,BegTrial:EndTrial,PATCH1);
+
+%get indices of any NULL conditions (for measuring spontaneous activity)
+null_trials = logical( (mag_disp == data.one_time_params(NULL_VALUE)) );
+
+unique_mag_disp = munique(mag_disp(~null_trials)');	
+
+%get the column of values of horiz. disparity angle of orientation in the dots_params matrix
+disp_ang = data.dots_params(DOTS_HGRAD_ANGLE,BegTrial:EndTrial,PATCH1);
+unique_disp_ang = munique(disp_ang(~null_trials)');
+
+
+%get the column of mean disparity values
+mean_disp = data.dots_params(DOTS_HDISP,BegTrial:EndTrial,PATCH1);
+
+%get indices of monoc. and uncorrelated controls
+control_trials = logical( (mean_disp == LEYE_CONTROL) | (mean_disp == REYE_CONTROL) | (mean_disp == UNCORR_CONTROL) );
+
+unique_mean_disp = munique(mean_disp(~null_trials & ~control_trials)');
+
+%get the column of different aperture sizes
+ap_size = data.dots_params(DOTS_AP_XSIZ,BegTrial:EndTrial,PATCH1);
+unique_ap_size = munique(ap_size(~null_trials)');
+%get the column of different aperture sizes
+ap_size = data.dots_params(DOTS_AP_XSIZ,BegTrial:EndTrial,PATCH1);
+%do all sizes
+all_sizes = 0
+unique_ap_size = munique(ap_size(~null_trials)');
+if all_sizes ~= 1
+    unique_ap_size = unique_ap_size(length(unique_ap_size));
+    num_ap_size = length(unique_ap_size);
+else
+    num_ap_size = length(unique_ap_size);
+end
+
+%now, get the firing rates for all the trials 
+spike_rates = data.spike_rates(SpikeChan, :);
+
+%get the average horizontal eye positions to calculate vergence
+Leyex_positions = data.eye_positions(1, :);
+Reyex_positions = data.eye_positions(3, :);
+
+vergence = Leyex_positions - Reyex_positions;
+
+%get indices of monoc. and uncorrelated controls
+control_trials = logical( (mean_disp == LEYE_CONTROL) | (mean_disp == REYE_CONTROL) | (mean_disp == UNCORR_CONTROL) );
+
+%now, remove trials from hor_disp and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(mag_disp);		% a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+%End Data Retrieval Routines---------------------------------------------------------------------------------------------------------
+num_ap_size = length(unique_ap_size);
+num_mag_disp = length(unique_mag_disp);
+graph = figure;
+set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [500 50 500 773], 'Name', 'Fitted Tilt Tuning Curves');
+
+PATHOUT = 'Z:\Users\Jerry\GradAnalysis\figure_data\';
+checkfile = [PATHOUT 'r_sqared_each_mdisp_move.dat'];
+if (exist(checkfile, 'file') == 0)    %file does not yet exist
+    stat_out{1} = sprintf('File\tMdisp\tRmean\tFmean\tPmean\tRraw\tFraw\tPraw\tAmp\tFreq\tPhase\tBaseL\tExp\tPrefTilt\tTrough\tPval\tTDI\n');
+end
+
+sinstat_out = '';
+angle_out = '';
+TDI_out = '';
+p_val = zeros(length(unique_ap_size), length(unique_mean_disp));
+pref_tilt = zeros(length(unique_ap_size), length(unique_mean_disp));
+max_response = zeros(length(unique_ap_size), length(unique_mean_disp));
+TDI_save = zeros(1,(length(unique_ap_size)));
+pars_out = cell(7,1);
+for i=1:length(unique_ap_size)
+    font_size = 9;
+    bump_size = 10;
+    TDIdata = [];
+    curve_out = cell(1000,1);
+    for j=1:length(unique_mag_disp)
+        start = zeros(length(unique_mean_disp), 1);
+        stop = zeros(length(unique_mean_disp), 1);
+        for k=1:length(unique_mean_disp)
+            figure(graph);
+            hold on;
+            if(num_ap_size >= num_mag_disp)
+                subplot(num_ap_size*2, num_mag_disp,  ((j-1)*(num_mag_disp) + i)*2);
+            elseif(num_ap_size < num_mag_disp)
+                subplot(num_mag_disp*2, num_ap_size,  ((j-1)*(num_ap_size) + i)*2);
+            end
+            disp_select = logical((ap_size == unique_ap_size(i)) & (mag_disp == unique_mag_disp(j)) & (mean_disp == unique_mean_disp(k)) );
+            
+            plot_x = disp_ang(disp_select & ~null_trials & ~control_trials & select_trials);
+            plot_y = spike_rates(disp_select & ~null_trials & ~control_trials & select_trials);
+            
+            %NOTE: inputs to PlotTuningCurve must be column vectors, not row vectors, because of use of munique()
+            [px, py, perr, spk_max, spk_min] = PlotTuningCurve(plot_x', plot_y', symbols{k}, '', 1, 1);
+            [single_TDI, var_term] = Compute_DDI(plot_x, plot_y);
+            
+            
+            %store data to calculate adjusted TDI later
+            start(k) = length(TDIdata)+1;
+            stop(k) = length(plot_x)+start(k)-1;
+            TDIdata(start(k):stop(k), 1) = plot_x';
+            TDIdata(start(k):stop(k), 2) = plot_y';
+            
+            px_out = px;
+            px = (px * pi)/180;
+            plot_x = (plot_x * pi)/180;
+            means = [px py];
+            raw = [plot_x' plot_y'];
+            
+            %fit with a distorted sin wave
+            pars{k} = sin_exp_fit(means,raw);
+            
+            print_pars = 1;
+            if print_pars == 1
+                PATHOUT = 'Z:\Users\jerry\GradAnalysis\';
+                FILEOUT = ['SinFitParamSummary.dat'];
+                fileid = [PATHOUT FILEOUT];
+                proffid = fopen(fileid, 'a');
+                fprintf(proffid, '%s\t%3.2f\t%3.2f\t%1.4f\t%1.4f\t%4.2\t%1.2f\n', FILE, unique_mean_disp(k), pars{k}(1), pars{k}(2), pars{k}(3), pars{k}(4), pars{k}(5));
+                fclose(proffid);
+
+            end
+            
+            x_interp = (px(1)): .01 : (px(length(px)));
+            y_sin = sin_exp_func(x_interp, pars{k});
+            y_err = sin_exp_err(pars{k});
+            y_sin(y_sin < 0) = 0;
+            hold on
+            x_rad = (x_interp * 180)/pi;
+            size_rad = length(x_rad);
+            plot(x_rad, y_sin, lines{k});
+            
+            %run chi^2 test on fit
+            num_free_params = 5;
+            [chi2(k), chiP(k)] = Chi2_Test(plot_x', plot_y', 'sin_exp_func', pars{k}, num_free_params);
+            
+            %store p-values of each mdisp curve
+            temp_x =(plot_x *180)/pi;
+            if length(unique_mean_disp) > length(unique_mag_disp)
+                p_val(i,k) = calc_mdisp_anovap(disp_select, temp_x, plot_y, unique_disp_ang);
+                chiP_list(i, k) = chiP(k);
+            else
+                p_val(i,j) = calc_mdisp_anovap(disp_select, temp_x, plot_y, unique_disp_ang);
+                chiP_list(i, j) = chiP(k);
+            end
+            [value, index_max] = max(y_sin);
+            pref_tilt(i,k) = x_rad(index_max);
+            max_response(i,k) = value;
+            
+            null_x = [min(x_rad) max(x_rad)];
+            null_rate = mean(data.spike_rates(SpikeChan, null_trials & select_trials));
+            null_y = [null_rate null_rate];
+            
+            printcurves = 0;
+            if printcurves == 1
+                %print out each individual tuning curve for origin
+                for go=1:length(x_rad)
+                    if isempty(curve_out{go})
+                        curve_out{go} = '';
+                    end
+                    if (go<=2)
+                        curve_out{go} = sprintf('%s%6.2f\t%6.2f\t%6.2f\t%6.2f\t%6.3f\t%6.2f\t%6.2f\t', curve_out{go}, x_rad(go), y_sin(go), px_out(go), py(go), perr(go), null_x(go),null_y(go));
+                    elseif (go<=length(px))
+                        curve_out{go} = sprintf('%s%6.2f\t%6.2f\t%6.2f\t%6.2f\t%6.3f\t\t\t', curve_out{go}, x_rad(go), y_sin(go), px_out(go), py(go), perr(go));
+                    else
+                        curve_out{go} = sprintf('%s%6.2f\t%6.2f\t\t\t\t\t\t', curve_out{go}, x_rad(go), y_sin(go));
+                    end
+                end
+                curve_out{1}
+            end %end printcurves;
+            
+            [max_y, ind] = max(y_sin);
+            [min_y, ind_min] = min(y_sin);
+            
+            angle_max(k) = x_rad(ind);
+            angle_min(k) = x_rad(ind_min);
+            
+            if length(unique_mean_disp) > length(unique_mag_disp)
+                angle_max(k) = x_rad(ind);
+                angle_min(k) = x_rad(ind_min);
+                angle_string = sprintf(' %1.3f %3.2f %3.2f %1.3f', unique_mean_disp(k), angle_max(k), angle_min(k), p_val(i, k));
+                angle_out{k+1} = angle_string;
+            else
+                angle_max(j) = x_rad(ind);
+                angle_min(j) = x_rad(ind_min);
+                angle_string = sprintf(' %1.3f %3.2f %3.2f %1.3f', unique_mag_disp(j), angle_max(j), angle_min(j), p_val(i, j));
+                angle_out{j+1} = angle_string;
+            end
+            
+            %calculate R^2 of mean response
+            y_fit_mean = sin_exp_func(px, pars{k});
+            y_fit_mean(y_fit_mean < 0) = 0;
+            %add a column of ones to yfit to make regress happy
+            y_fit_mean = [ones(length(y_fit_mean),1) y_fit_mean];
+            [b_mean, bint_mean, r_mean, rint_mean, stats_mean] = regress(py, y_fit_mean);
+            
+            r(k) = stats_mean(1);
+            
+            %calculate R^2 of raw responses
+            y_fit_raw = sin_exp_func(plot_x', pars{k});
+            y_fit_raw(y_fit_raw < 0) = 0;
+            y_fit_raw = [ones(length(y_fit_raw),1) y_fit_raw];
+            [b_raw, bint_raw, r_raw, rint_raw, stats_raw] = regress(plot_y', y_fit_raw);
+            
+            
+            if num_mag_disp < length(unique_mean_disp)
+                stat_string = sprintf(' %1.3f %1.4f %1.4f %1.4f %1.4f %1.4f %1.4f %3.2f %1.4f %1.4f %3.2f %1.2f %3.2f %3.2f %1.3f %1.4f', unique_mean_disp(k), stats_mean(1), stats_mean(2), stats_mean(3), stats_raw(1), stats_raw(2), stats_raw(3), pars{k}(1), pars{k}(2), pars{k}(3), pars{k}(4), pars{k}(5), angle_max(k), angle_min(k), p_val(i, k), single_TDI);
+                stat_out{k+1} = stat_string;
+            else
+                stat_string = sprintf(' %1.3f %1.4f %1.4f %1.4f %1.4f %1.4f %1.4f %3.2f %1.4f %1.4f %3.2f %1.2f %3.2f %3.2f %1.3f %1.4f', unique_mean_disp(k), stats_mean(1), stats_mean(2), stats_mean(3), stats_raw(1), stats_raw(2), stats_raw(3), pars{k}(1), pars{k}(2), pars{k}(3), pars{k}(4), pars{k}(5), angle_max(k), angle_min(k), p_val(i, j), single_TDI);
+                stat_out{j+1} = stat_string;
+            end
+            
+            %print out the parameters for the current mean disparity in the correct subplot
+            if(num_ap_size >= num_mag_disp)
+                subplot(num_ap_size*2, num_mag_disp,  (((j-1)*(num_mag_disp) + i)*2)-1);
+            elseif(num_ap_size < num_mag_disp)
+                subplot(num_mag_disp*2, num_ap_size,  (((j-1)*(num_ap_size) + i)*2)-1);
+            end
+            
+            axis([0 100 0 100]);
+            axis('off');
+            xpos = -10 + (20*(k-1));
+            ypos = 110-(20*(i-1));         
+            
+            line = sprintf('M Disp = %3.2f', unique_mean_disp(k));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;         
+            line = sprintf('Amp = %3.2f', pars{k}(1));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            line = sprintf('Freq = %1.4f', pars{k}(2));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            line = sprintf('Phase = %1.4f', pars{k}(3));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            line = sprintf('Baseline = %3.2f', pars{k}(4));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            line = sprintf('Exp = %1.2f', pars{k}(5));
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            line = sprintf('Error = %1.2f', y_err);
+            text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+            
+        end %end meandisp
+        
+        %print out curves here if multiple mdisps
+        if length(unique_mag_disp) < length(unique_mean_disp)
+            if printcurves == 1
+                %print out each individual tuning curve for origin
+                
+                PATHOUT = 'Z:\Users\Jerry\GradAnalysis\data_curves\';
+                filesize = size(FILE,2) - 1;
+                while FILE(filesize) ~='.'
+                    filesize = filesize - 1;
+                end
+                FILEOUT = [FILE(1:filesize) 'sin_curve'];
+                fileid = [PATHOUT FILEOUT];
+                printflag = 0;
+                if (exist(fileid, 'file') == 0)    %file does not yet exist
+                    printflag = 1;
+                end
+                proffid = fopen(fileid, 'a');
+                if (printflag)
+                    fprintf(proffid,'IntHDisp\tSinFit\tHDisp\tAvgResp\tStdErr\tSpon\n');
+                    printflag = 0;
+                end
+                for go = 1:size_rad
+                    fprintf(proffid, '%s\n', curve_out{go});
+                end
+                fclose(proffid);
+            end
+        end
+        %readjust mean disparity responses to fall on the same mean
+        %then calc avg TDI
+        %shifted_graphs = figure;
+        %set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [750 50 500 773], 'Name', 'Mean Adjusted Tilt Tuning Curves');
+        total_mean = mean(TDIdata(:,2));
+        for count_meandisp = 1:length(unique_mean_disp)
+            disp_mean = mean(TDIdata(start(count_meandisp):stop(count_meandisp),2));
+            difference = total_mean - disp_mean;
+            TDIdata(start(count_meandisp):stop(count_meandisp),2) = TDIdata(start(count_meandisp):stop(count_meandisp),2) + difference;
+            %figure(shifted_graphs);
+            %hold on
+            %PlotTuningCurve(TDIdata(start(count_meandisp):stop(count_meandisp),1), TDIdata(start(count_meandisp):stop(count_meandisp),2), symbols{count_meandisp}, lines{count_meandisp}, 1, 1);
+        end
+        %hold on
+        [TDI(i), var_term] = compute_DDI(TDIdata(:,1)', TDIdata(:,2)');
+        
+        TDI_string = sprintf(' %1.4f', TDI(i));
+        TDI_out = strcat(TDI_out, TDI_string);
+        
+        if(num_ap_size >= num_mag_disp)
+            subplot(num_ap_size*2, num_mag_disp,  ((j-1)*(num_mag_disp) + i)*2);
+        elseif(num_ap_size < num_mag_disp)
+            subplot(num_mag_disp*2, num_ap_size,  ((j-1)*(num_ap_size) + i)*2);
+        end
+        height = axis;
+        yheight = height(4);
+        string = sprintf('File = %s', FILE);
+        text(height(1)+2, .95*yheight, string, 'FontSize', 8);
+        for counter =1:length(unique_mean_disp)
+            string = sprintf('r^2 = %1.4f, TDI = %1.4f', r(counter), TDI(i));
+            text_handle = text(height(1)+2, (1-.05*counter-.05)*yheight, string, 'FontSize', 8);
+            set(text_handle, 'Color', colors{counter});
+        end
+    end
+    %print out curves here if multiple slants
+    if length(unique_mag_disp) > length(unique_mean_disp)
+        if printcurves == 1
+            %print out each individual tuning curve for origin
+            
+            PATHOUT = 'Z:\Users\Jerry\GradAnalysis\data_curves\';
+            filesize = size(FILE,2) - 1;
+            while FILE(filesize) ~='.'
+                filesize = filesize - 1;
+            end
+            FILEOUT = [FILE(1:filesize) 'sin_curve'];
+            fileid = [PATHOUT FILEOUT];
+            printflag = 0;
+            if (exist(fileid, 'file') == 0)    %file does not yet exist
+                printflag = 1;
+            end
+            proffid = fopen(fileid, 'a');
+            if (printflag)
+                fprintf(proffid,'IntHDisp\tSinFit\tHDisp\tAvgResp\tStdErr\tSpon\n');
+                printflag = 0;
+            end
+            for go = 1:size_rad
+                fprintf(proffid, '%s\n', curve_out{go});
+            end
+            fclose(proffid);
+        end
+    end
+end
+
+print_preftilts = 1;
+if print_preftilts == 1
+    PATHOUT = 'Z:\Users\jerry\GradAnalysis\';
+    outfile = [PATHOUT 'PrefTilt_and_MaxResp_013003.dat'];
+    fid = fopen(outfile, 'a');
+    if length(unique_mean_disp) > 1
+        %go through each combination of mean disparities and print out the relationship between pref tilts
+        if length(unique_ap_size) > 1
+            i = length(unique_ap_size)
+        else
+            i = 1;
+        end
+        for j=1:length(unique_mean_disp)
+            pref_out = sprintf('\t%1.3f\t%3.2f\t%3.2f\t%1.3f\t%1.4f', unique_mean_disp(j), pref_tilt(i, j), max_response(i,j), p_val(i,j), TDI(i));
+            line = sprintf('%s', FILE);
+            pref_out = strcat(line, pref_out);
+            fprintf(fid, '%s', [pref_out]);
+            fprintf(fid, '\r');
+        end
+    end
+    fclose(fid)
+end
+
+do_combo = 0;
+if do_combo == 1
+    PATHOUT = 'Z:\Users\jerry\GradAnalysis\figure_data\';
+    outfile = [PATHOUT 'all_delta_tilt_model_data.dat'];
+    fid = fopen(outfile, 'a');
+    if length(unique_mean_disp) > 1
+        %go through each combination of mean disparities and print out the relationship between pref tilts
+        if length(unique_ap_size) > 1
+            i = length(unique_ap_size)
+        else
+            i = 1;
+        end
+        for j=1:length(unique_mean_disp)
+            pref_out = '';
+            if (p_val(i,j) < 0.01)
+                if(chiP_list(i,j) > .05)
+                    for k=j+1:length(unique_mean_disp)
+                        if (p_val(i,k) < 0.01)
+                            if (chiP_list(i,k) > .05)
+                                %print out pref tilt and mean disp for this combo
+                                pref_out = sprintf('\t%1.3f\t%3.2f\t%1.5f\t%3.2f\t%1.4f', unique_mean_disp(j), pref_tilt(i, j), unique_mean_disp(k), pref_tilt(i, k), TDI(i));
+                                line = sprintf('%s', FILE);
+                                pref_out = strcat(line, pref_out);
+                                fprintf(fid, '%s', [pref_out]);
+                                fprintf(fid, '\r');
+                            end %end 2nd chiP sig test
+                        end %end 2nd mdisp sig test
+                    end %end 2nd mdisp search
+                end %end 1st chiP sig test
+            end %end 1st mdisp sig test
+        end %end 1st mdisp search
+        fclose(fid);
+    end %end check for multiple mdisp
+    
+    PATHOUT = 'Z:\Users\jerry\GradAnalysis\figure_data\';
+    outfile = [PATHOUT 'delta_tilt_slant_p0.05_8.19.2002.dat'];
+    fid = fopen(outfile, 'a');
+    if length(unique_mean_disp) > 1
+        %go through each combination of mean disparities and print out the relationship between pref tilts
+        if length(unique_ap_size) > 1
+            i = length(unique_ap_size)
+        else
+            i = 1;
+        end
+        for j=1:length(unique_mean_disp)
+            pref_out = '';
+            if (p_val(i,j) < 0.05)
+                if (chiP_list(i,j) > .05)
+                    for k=j+1:length(unique_mean_disp)
+                        if (p_val(i,k) < 0.05)
+                            if (chiP_list(i,k) > .05)
+                                %print out pref tilt and mean disp for this combo
+                                pref_out = sprintf('\t%1.3f\t%3.2f\t%1.3f\t%3.2f\t%1.4f', unique_mean_disp(j), pref_tilt(i, j), unique_mean_disp(k), pref_tilt(i, k), TDI(i));
+                                line = sprintf('%s', FILE);
+                                pref_out = strcat(line, pref_out);
+                                fprintf(fid, '%s', [pref_out]);
+                                fprintf(fid, '\r');
+                            end %end 2nd chiP sig test
+                        end %end 2nd mdisp sig test
+                    end %end 2nd mdisp search
+                end %end 1st chiP sig test
+            end %end 1st mdisp sig test
+        end %end 1st mdisp search
+        fclose(fid);
+    end %end check for multiple mdisp
+end %end check if do_combo
+
+printme = 0;
+if (printme==1)
+    PATHOUT = 'Z:\Users\jerry\GradAnalysis\figure_data\';
+    
+    line = sprintf('%s ', FILE);
+    TDI_out = strcat(line, TDI_out);
+    
+    %print grad metrics
+    outfile = [PATHOUT 'r_sqared_each_mdisp_11_25_02.dat'];
+    fid = fopen(outfile, 'a');
+    if (exist(checkfile, 'file') == 0)    %file does not yet exist
+        fprintf(fid, '%s', [stat_out{1}]);
+    end
+    for i=2:length(stat_out)
+        stat_out{i} = strcat(line, stat_out{i});
+        fprintf(fid, '%s', [stat_out{i}]);
+        fprintf(fid, '\r\n');
+    end
+    fclose(fid);
+    
+    %print grad metrics
+    outfile = [PATHOUT 'TDI_82002.dat'];
+    fid = fopen(outfile, 'a');
+    fprintf(fid, '%s', [TDI_out]);
+    fprintf(fid, '\r\n');
+    fclose(fid);
+    
+    %print grad metrics
+    outfile = [PATHOUT 'max_model_sinfit_82002.dat'];
+    fid = fopen(outfile, 'a');
+    for i=2:length(angle_out)
+        angle_out{i} = strcat(line, angle_out{i});
+        fprintf(fid, '%s', [angle_out{i}]);
+        fprintf(fid, '\r\n');
+    end
+    fclose(fid);
+    
+    %   outfile = [PATHOUT 'r_squared_raw_each_mdisp.dat'];
+    %   fid = fopen(outfile, 'a');
+    %   fprintf(fid, '%s', [stat_out]);
+    %   fprintf(fid, '\r\n');
+    %   fclose(fid);
+end

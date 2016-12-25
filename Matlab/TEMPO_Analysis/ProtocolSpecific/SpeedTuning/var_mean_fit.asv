@@ -1,0 +1,59 @@
+%----------------------------------------------------------
+%find variance/mean fit for d' stat
+%for direction tuning - Z. Briggs
+%---------------------------------
+
+function var_mean_fit(batchfiledir, filename)
+backdoor_dir = fullfile('work','tempo_backdoor');
+backdoor_dir = fullfile(matlabroot, backdoor_dir);
+backdoor_load_ext = '_load.mat';
+filename = fullfile(batchfiledir, filename);
+fid = fopen(filename);
+Curvefit_defines;
+line = fgetl(fid);
+cnt = 0;
+while (line ~= -1)
+    
+    %pause
+    % format for batch files
+    % PATH  FILE    
+    
+    if (line(1) ~= '%')
+        
+        % first remove any comment text at the end of a line (following a %), GCD, added 9/25/01
+        comment_start = find(line == '%');
+        if ~isempty(comment_start)
+            line = line(1:(comment_start(1)-1));
+        end
+        
+        spaces = isspace(line);
+        space_index = find(spaces);
+        
+        %get path / file
+        PATH = line(1:space_index(1) - 1);
+        FILE = line(space_index(1) + 1:space_index(2) - 1)
+        l = length(FILE);
+        if (FILE(l-3:l) == '.htb')	% .htb extension already there
+            filename = [PATH FILE];   %the HTB data file
+            logfile = [PATH FILE(1:l-4) '.log'];   %the TEMPO log file
+        else	%no extension in FILE, add extensions
+            filename = [PATH FILE '.htb'];   %the HTB data file
+            logfile = [PATH FILE '.log'];   %the TEMPO log file
+        end
+        backdoor_load_file = fullfile(backdoor_dir, [FILE backdoor_load_ext]);
+        load(backdoor_load_file,'-mat');
+        % go through the backdoor
+        for m=1:26
+        mean(cnt,m)=resp_mat(2,1,m,1);
+        L=length(resp_mat(2,1,m,:));
+        var(cnt,m)=var(resp_mat(2,1,m,2:(L-1)));
+        cnt = cnt + 1;
+   
+        pause;
+    end
+line = fgetl(fid);
+end
+
+
+backdoor_load_file = fullfile(backdoor_dir, 'var_mean_mat.htb');
+save(backdoor_load_file, 'mean', 'var'

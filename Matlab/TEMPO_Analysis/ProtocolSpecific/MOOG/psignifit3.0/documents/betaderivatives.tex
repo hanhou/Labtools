@@ -1,0 +1,138 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc}
+
+\title{Derivatives of the likelihood for a beta-psychometric function}
+\author{Ingo Fründ}
+\date{\today}
+
+\def\rd{\mathrm{d}}
+\def\p{\partial}
+\def\ddlnu{\frac{\p^2\ell_i}{\p\nu^2}}
+\def\ddlf{\frac{\p^2\ell_i}{\p f_i^2}}
+\def\ddlfnu{\frac{\p^2\ell_i}{\p f_i\p\nu}}
+\def\dfdt{\frac{\p f_i}{\p\theta}}
+
+\begin{document}
+
+\maketitle
+% Your text here
+
+\section{Log likelihood}
+
+The log likelihood for a beta-psychometric function can be written as
+%
+$$
+\ell = \sum_{i=1}^m \ell_i,
+$$
+%
+where $m$ is the number of blocks in the experiment and
+%
+$$
+\ell_i = \log\Gamma(\nu n_i) - \log\Gamma( f_i\nu n_i ) - \log\Gamma( (1-f_i) \nu n_i ) + ( f_i \nu n_i - 1 ) \log p_i + ( (1-f_i) \nu n_i - 1 ) \log (1-p_i).
+$$
+%
+Here, $f_i = \gamma + (1-\gamma-\lambda) F(g(x_i,\alpha,\beta))$, i.e. the predicted value of the psychometric function, and
+$p_i = k_i/n_i$, i.e. the observed probability of a correct response.
+
+\section{Derivatives of the log likelihood function}
+
+Derivatives of the log likelihood function involve the $\psi$ function,
+%
+$$
+\psi = \frac{\rd}{\rd x} \log\Gamma.
+$$
+%
+They read:
+%
+$$
+\frac{\p \ell_i}{\p\nu} = n_i\psi(\nu n_i) - f_i n_i \psi ( f_i\nu n_i) - (1-f_i) n_i \psi ( (1-f_i) \nu n_i) + f_i n_i \log(p_i) + (1-f_i) n_i \log(1-p_i),
+$$
+%
+and
+%
+$$
+\frac{\p \ell_i}{\p f_i} = \nu n_i \Big( \log\frac{p_i}{1-p_i} + \psi ( (1-f_i) \nu n_i) - \psi ( f_i \nu n_i) \Big).
+$$
+%
+In order to obtain derivatives of the log likelihood with respect to parameters $\alpha,\beta,\gamma,\delta$, we use the definition of $f_i$ to arrive at
+%
+$$
+\frac{\p \ell_i}{\p \theta} = \frac{\p\ell_i}{\p f_i} \frac{\p f_i}{\p \theta}, \quad \theta\in\{\alpha,\beta,\gamma,\delta\}.
+$$
+%
+These are given by:
+%
+\begin{align*}
+    \frac{\p f_i}{\p\alpha} &= (1-\gamma-\lambda) F' ( g(x_i,\alpha,\beta) ) \frac{\p g}{\p \alpha} ( x_i, \alpha, \beta ),\\
+    \frac{\p f_i}{\p\beta} &= (1-\gamma-\lambda) F' ( g(x_i,\alpha,\beta) ) \frac{\p g}{\p \beta} ( x_i, \alpha, \beta ),\\
+    \frac{\p f_i}{\p\lambda} &= -F(g(x_i,\alpha,\beta)),\\
+    \frac{\p f_i}{\p \gamma} &= 1-F(g(x_i,\alpha,\beta)).
+\end{align*}
+%
+
+\section{Second derivatives of the log likelihood function}
+
+The second derivatives of the log likelihood function involve derivatives of the $\psi$ function.
+These are called the trigamma function and are notated by $\psi'$.
+%
+$$
+\ddlnu = \psi' (\nu n_i) n_i^2 - f_i^2 n_i^2\psi' (f_i\nu n_i) - (1-f_i)^2n_i^2 \psi' ( (1-f_i)\nu n),
+$$
+%
+and
+%
+$$
+\ddlf = - (\nu n)^2 \Big(\psi' ( f_i \nu n) + \psi'( (1-f_i)\nu n) \Big).
+$$
+Finally, we have
+%
+$$
+\ddlfnu = - n_i \psi ( f_i \nu n_i ) - f_i n_i^2\nu \psi' ( f_i\nu n_i ) + n_i\psi( (1-f_i)\nu n_i) + (1-f)n_i^2\nu\psi'( (1-f_i)\nu n_i) + n_i \log\frac{p_i}{1-p_i}.
+$$
+%
+
+We can use these identities to derive expressions for derivatives of the log likelihood function with respect to parameters of the psychometric function:
+%
+$$
+\frac{\p^2 \ell_i}{\p \lambda^2} = \frac{\p^2\ell_i}{\p \gamma^2} = 0,
+$$
+%
+$$
+\frac{\p^2\ell_i}{\p\alpha^2} = (1-\gamma-\lambda) \ddlf \cdot \Big( F''(g(x_i,\alpha,\beta))\frac{\p g}{\p\alpha}(x_i,\alpha,\beta) + F'(g(x_i,\alpha,\beta))\frac{\p^2g}{\p\alpha^2}(x_i,\alpha,\beta)\Big),
+$$
+%
+$$
+\frac{\p^2\ell_i}{\p\beta^2} = (1-\gamma-\lambda) \ddlf \cdot \Big( F''(g(x_i,\alpha,\beta))\frac{\p g}{\p\beta}(x_i,\alpha,\beta) + F'(g(x_i,\alpha,\beta))\frac{\p^2g}{\p\beta^2}(x_i,\alpha,\beta)\Big).
+$$
+%
+
+The crossterms are
+%
+\begin{align*}
+\frac{\p^2\ell_i}{\p\alpha\p\beta} &= (1-\gamma-\lambda)\ddlf\cdot \Big( F''(g(x_i,\alpha,\beta))\frac{\p g}{\p\alpha}\frac{\p g}{\p\beta} + F'(g(x_i,\alpha,\beta))\frac{\p^2}{\p\alpha\p\beta}\Big), \\
+\frac{\p^2\ell_i}{\p\alpha\p\gamma} &= - \ddlf F'(g(x_i,\alpha,\beta)) \frac{\p g}{\p\alpha},
+\end{align*}
+%
+and an analogous expression for $\frac{\p^2\ell_i}{\p\beta\p\gamma}$.
+Further
+%
+$$
+\frac{\p^2\ell_i}{\p\alpha\p\gamma} = \ddlf (1-F'(g(x_i,\alpha,\beta)) \frac{\p g}{\p\alpha}),
+$$
+%
+with an analogous expression for $\frac{\p^2\ell_i}{\p\beta\p\lambda}$.
+
+We now come the the final crossterm
+%
+\begin{align*}
+\frac{\p^2\ell_i}{\p\theta\p\nu} &= 
+    - n_i\dfdt \Big ( \psi (f_i \nu n_i) + f_i\nu n_i \psi'(f_i\nu n_i)\Big)\\
+    &\quad+ n_i\dfdt \Big ( \psi ( (1-f_i)\nu n_i) + (1-f_i)\nu n_i\psi'( (1-f_i)\nu n_i) \Big)\\
+    &\quad+ n_i\dfdt \log\frac{p_i}{1-p_i},
+\end{align*}
+%
+where $\theta \in\{\alpha,\beta,\lambda,\gamma\}$.
+
+\end{document}

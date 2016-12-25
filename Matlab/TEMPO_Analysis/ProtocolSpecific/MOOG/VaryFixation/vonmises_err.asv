@@ -1,0 +1,10 @@
+
+function err = vonmises_err(X)
+
+global xdata ydata_merged stimtype
+
+y = vonmises(X,xdata);
+
+err = (sqrt(y) - sqrt(data))^2);
+
+return;

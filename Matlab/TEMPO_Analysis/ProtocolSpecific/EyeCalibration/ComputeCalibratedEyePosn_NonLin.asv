@@ -1,0 +1,10 @@
+function [horiz_calib, vert_calib] = ComputeCalibratedEyePosn_NonLin(horiz_raw, vert_raw, horiz_pars, vert_pars)
+% computes the calibrated eye positions from the raw data and the fit parameters
+
+   horiz_calib = horiz_pars(1) + horiz_pars(2).*horiz_raw + horiz_pars(3).*(horiz_raw.^2) + ...
+       horiz_pars(4).*vert_raw + horiz_pars(5).*(vert_raw.^2);
+   vert_calib = vert_pars(1) + vert_pars(2).*horiz_raw + vert_pars(3).*(horiz_raw.^2) + ...
+       vert_pars(4).*vert_raw + vert_pars(5).*(vert_raw.^2);
+   vert_calib = vert_pars(1) + vert_pars(2).*vert_raw + vert_pars(3).*horiz_raw;
+   
+return;

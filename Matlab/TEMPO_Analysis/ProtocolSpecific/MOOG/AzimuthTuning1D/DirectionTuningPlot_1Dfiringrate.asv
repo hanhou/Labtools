@@ -1,0 +1,407 @@
+% % AZIMUTH_TUNING_1D.m -- Plots response as a function of azimuth for
+% % heading task
+% %--	YG, 07/12/04
+% %-----------------------------------------------------------------------------------------------------------------------
+function DirectionTuningPlot_1Dfiringrate(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+%SpikeChan = 1;
+plfp_chan = 1;
+analyze_lfp = 0; % firing rate based on spikes
+%analyze_lfp = 1; % firing rate based on LFP
+
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_duration = data.moog_params(DURATION,:,MOOG);
+temp_motion_coherence = data.moog_params(COHERENCE,:,MOOG);
+temp_spike_data = data.spike_data(SpikeChan, :);
+
+temp_spike_rates = data.spike_rates(SpikeChan, :);                                                                                                                             
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% a vector of trial indices
+bad_tri = find(temp_spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+if ( bad_tri ~= NaN)
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) & (trials~=bad_tri) );
+else 
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+end
+
+azimuth = temp_azimuth(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+duration = temp_duration(~null_trials & select_trials);
+motion_coherence = temp_motion_coherence(~null_trials & select_trials);
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+
+unique_azimuth = munique(azimuth');
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+unique_duration = munique(duration');
+unique_motion_coherence = munique(motion_coherence');
+
+condition_num = stim_type;
+h_title{1}='Vestibular';
+h_title{2}='Visual';
+h_title{3}='Combined';
+unique_condition_num = munique(condition_num');
+StartEventBin(1)=996;
+
+Discard_trials = find(null_trials==1 | trials <BegTrial | trials >EndTrial);
+for i = 1 : length(Discard_trials)
+    temp_spike_data( 1, ((Discard_trials(i)-1)*5000+1) :  Discard_trials(i)*5000 ) = 99;
+end
+spike_data(1,:) = temp_spike_data( 1, find(temp_spike_data(1,:)~=99) );
+spike_data(1, find(spike_data>10) ) = 1; % something is absolutely wrong 
+
+for ss =  1 : length(spike_rates) % ss marks the index of trial
+    if unique_duration == 2000
+        % use the middle 1 second
+        spike_rates(ss) = sum( spike_data(1,StartEventBin(1)+615+5000*(ss-1) : StartEventBin(1)+1615+5000*(ss-1)) ) ; 
+    elseif unique_duration == 1000
+        % use the whole 1 second
+        spike_rates(ss) = sum( spike_data(1,StartEventBin(1)+115+5000*(ss-1) : StartEventBin(1)+1115+5000*(ss-1)) ) ; 
+    end
+end
+
+% calculate spontaneous firing rate
+spon_found = find(null_trials==1); 
+spon_resp = mean(temp_spike_rates(spon_found));
+
+pc=0;
+for c=1:length(unique_motion_coherence)
+    for k=1: length(unique_condition_num)
+        for i=1:length(unique_azimuth)        
+            select = find( (azimuth==unique_azimuth(i)) & (condition_num==unique_condition_num(k)) & (motion_coherence==unique_motion_coherence(c)));
+            if (sum(select) > 0) 
+                pc=pc+1;
+                trialrepeat(pc) = length(select);
+            end
+        end
+    end
+end
+repetition = min(trialrepeat)
+
+% creat basic matrix represents each response vector
+resp = [];
+for c=1:length(unique_motion_coherence)  % motion coherence
+    for k=1:length(unique_stim_type)
+        for i=1:length(unique_azimuth)
+            select = logical( azimuth==unique_azimuth(i) & stim_type==unique_stim_type(k) & motion_coherence==unique_motion_coherence(c) );
+            if (sum(select) > 0)  % there are situations where visual/combined has >2 coherence and vestibular only has one coherence
+                resp{c}(i, k) = mean(spike_rates(select));        
+                resp_std{c}(i,k) = std(spike_rates(select));        
+                resp_err{c}(i,k) = std(spike_rates(select)) / sqrt(repetition);                
+                resp_sse{c}(k,i) = sum( (spike_rates(select)-mean(spike_rates(select))).^2);
+                resp_trialnum{c}(k,i) = length(spike_rates(select));
+                spike_temp = spike_rates(select);
+                resp_trial{c,k}(1:repetition,i) = spike_temp(1:repetition);
+            else
+                resp{c}(i, k) = resp{1}(i, k);    % actually duplicate vestibular condition    
+                resp_std{c}(i,k) = resp_std{1}(i,k);        
+                resp_err{c}(i,k) = resp_err{1}(i,k);
+                
+                resp_trial{c,k}(1:repetition,i) = resp_trial{1,k}(1:repetition,i);
+            end
+        end
+    end
+    % vectorsum and calculate preferred direction
+    % vectors must be symetric, otherwise there will be a bias both on
+    % preferred direction and the length of resultant vector
+    % the following is to get rid off non-symetric data, hard code temporally
+    if length(unique_azimuth) >8
+        resp_s{c}(1,:) = resp{c}(1,:); resp_s_std{c}(1,:) = resp_std{c}(1,:);
+        resp_s{c}(2,:) = resp{c}(2,:); resp_s_std{c}(2,:) = resp_std{c}(2,:);
+        resp_s{c}(3,:) = resp{c}(4,:); resp_s_std{c}(3,:) = resp_std{c}(4,:);
+        resp_s{c}(4,:) = resp{c}(6,:); resp_s_std{c}(4,:) = resp_std{c}(6,:);
+        resp_s{c}(5,:) = resp{c}(7,:); resp_s_std{c}(5,:) = resp_std{c}(7,:);
+        resp_s{c}(6,:) = resp{c}(8,:); resp_s_std{c}(6,:) = resp_std{c}(8,:);
+        resp_s{c}(7,:) = resp{c}(9,:); resp_s_std{c}(7,:) = resp_std{c}(9,:);
+        resp_s{c}(8,:) = resp{c}(10,:); resp_s_std{c}(8,:) = resp_std{c}(10,:);
+    else
+        resp_s{c}(:,:) = resp{c}(:,:); resp_s_std{c}(:,:) = resp_std{c}(:,:);
+    end
+end
+
+unique_azimuth_s(1:8) = [0,45,90,135,180,225,270,315];
+unique_elevation_s(1:8) = 0;
+unique_azimuth_plot = [unique_azimuth',360];
+fit_x_spline = 0:22.5:337.5;
+
+A=[]; B=[]; Aeq=[]; Beq=[]; NONLCON=[];
+OPTIONS = optimset('fmincon');
+OPTIONS = optimset('LargeScale', 'off', 'LevenbergMarquardt', 'on', 'MaxIter', 5000, 'Display', 'off');
+
+for c=1:length(unique_motion_coherence)
+    for k = 1: length(unique_stim_type)
+ %       if length(resp_s) >= length(unique_azimuth_s)
+            [az(c,k), el(c,k), amp(c,k)] = vectorsumAngle(resp_s{c}(:,k), unique_azimuth_s, unique_elevation_s);
+ %       else
+ %           az(c,k) = NaN;   % this hard-coded method cannot handle < 8 azims  -CRF
+ %       end
+    %    Modulation Index
+        respstd = sum(resp_sse{c}(k,:))/(sum(resp_trialnum{c}(k,:))-length(unique_azimuth));
+        DDI(c,k) = ( max(resp{c}(:,k))-min(resp{c}(:,k)) ) / ( max(resp{c}(:,k))-min(resp{c}(:,k))+2*sqrt(respstd) );
+        index_90 = find(unique_azimuth == 90);    
+        Dprime(c,k) = (resp{c}(index_90+1,k)-resp{c}(index_90-1,k)) / sqrt( (resp_std{c}(index_90+1,k)^2+resp_std{c}(index_90-1,k)^2)/2 );
+        p_1D(c,k) = anova1(resp_trial{c,k},'','off');
+    end    
+    
+    % fit weights
+    if length(unique_stim_type)==3        
+        ves = resp{c}(:, 1)-spon_resp;
+        vis = resp{c}(:, 2)-spon_resp;
+        com = resp{c}(:, 3)-spon_resp;
+%         ves = resp{c}(:, 1);
+%         vis = resp{c}(:, 2);
+%         com = resp{c}(:, 3);
+%         ves = interp1(unique_azimuth,resp{c}(:, 1),fit_x_spline,'spline');
+%         vis = interp1(unique_azimuth,resp{c}(:, 2),fit_x_spline,'spline');
+%         com = interp1(unique_azimuth,resp{c}(:, 3),fit_x_spline,'spline');
+        
+        yy1 = @(x)sum( (ves*x(1) + vis*x(2)-com).^2 );  %w1*ve+w2*vi
+        es1 = [0.5,0.5];
+        LB1 = [-5,-5];
+        UB1 = [5,5];
+
+        v1 = fmincon(yy1,es1,A,B,Aeq,Beq,LB1,UB1, NONLCON, OPTIONS); % fminsearch         
+        pred1(c,:) = ves*v1(1) + vis*v1(2);       
+        w1(c,:) = v1;
+        [rrtemp,pptemp] = corrcoef(com,pred1(c,:));
+        Rfit(c) = rrtemp(1,2);
+        pfit(c) = pptemp(1,2);
+    end
+end
+% 
+% % % ------------------------------------------------------------------
+% % Define figure
+% xoffset=0;
+% yoffset=0;
+% figure(2);
+% set(2,'Position', [5,15 980,650], 'Name', '1D Direction Tuning');
+% orient landscape;
+% set(0, 'DefaultAxesXTickMode', 'manual', 'DefaultAxesYTickMode', 'auto', 'DefaultAxesZTickMode', 'manual');
+% 
+% spon_azimuth = min(unique_azimuth_plot) : 1 : max(unique_azimuth_plot);
+% % temporarily hard coded, will be probematic if there are more than 3*3 conditions
+% % repetitions -GY
+% f{1,1}='bo-'; f{1,2}='bo-'; f{1,3}='bo-'; 
+% f{2,1}='ro-'; f{2,2}='ro-'; f{2,3}='ro-'; 
+% f{3,1}='go-'; f{3,2}='go-'; f{3,3}='go-'; 
+% f{4,1}='co-'; f{4,2}='co-'; f{4,3}='co-'; 
+% 
+% for k=1: length(unique_stim_type)     
+%     if( xoffset > 0.5)          % now temperarily 2 pictures one row and 2 one column
+%         yoffset = yoffset-0.45;
+%         xoffset = 0;
+%     end
+%     axes('position',[0.11+xoffset 0.64+yoffset 0.32 0.3]);
+%     for c=1:length(unique_motion_coherence)
+%         errorbar(unique_azimuth, resp{c}(:,k), resp_err{c}(:,k), f{c,k} );
+%         hold on;
+%     end
+%     plot(spon_azimuth, spon_resp, 'k--');
+% 
+%     ylabel('spikes/s');
+%     xlabel('azimuth');
+%     xlim( [min(unique_azimuth), max(unique_azimuth)] );
+%     title(num2str(unique_stim_type(k)));
+%     set(gca, 'xtick', unique_azimuth);
+% 
+%     xoffset=xoffset+0.48;    
+% end
+% 
+% %show file name and some values in text
+% axes('position',[0.5,0.1, 0.4,0.4] );
+% xlim( [0,100] );
+% ylim( [0,length(unique_stim_type)*length(unique_motion_coherence)+2] );
+% text(0, length(unique_stim_type)*length(unique_motion_coherence)+2, FILE);
+% text(40, length(unique_stim_type)*length(unique_motion_coherence)+2, 'SpikeChan=');
+% text(60, length(unique_stim_type)*length(unique_motion_coherence)+2, num2str(SpikeChan));
+% text(0,length(unique_stim_type)*length(unique_motion_coherence)+1,'stim coherence    prefer               DDI                  p');
+% count=0;
+% for k=1:length(unique_stim_type)  
+%     for c=1:length(unique_motion_coherence)     
+%         count=count+1;
+%         text(0,length(unique_stim_type)*length(unique_motion_coherence)-(count-1),num2str(unique_stim_type(k)));
+%         text(10,length(unique_stim_type)*length(unique_motion_coherence)-(count-1), num2str(unique_motion_coherence(c)) );              
+%         text(20,length(unique_stim_type)*length(unique_motion_coherence)-(count-1), num2str(az(c,k)) );
+%         text(50,length(unique_stim_type)*length(unique_motion_coherence)-(count-1), num2str(DDI(c,k)) );
+%         text(70,length(unique_stim_type)*length(unique_motion_coherence)-(count-1), num2str(p_1D(c,k)) );
+%     end
+% end
+% axis off;
+% 
+% % Define figure for fitting
+% xoffset=0;
+% yoffset=0;
+% figure(3);
+% set(3,'Position', [5,15 980,650], 'Name', '1D Direction Tuning');
+% orient landscape;
+% set(0, 'DefaultAxesXTickMode', 'manual', 'DefaultAxesYTickMode', 'auto', 'DefaultAxesZTickMode', 'manual');
+% 
+% spon_azimuth = min(unique_azimuth_plot) : 1 : max(unique_azimuth_plot);
+% % temporarily hard coded, will be probematic if there are more than 3*3 conditions
+% % repetitions -GY
+% f{1,1}='bo-'; f{1,2}='bo-'; f{1,3}='bo-'; 
+% f{2,1}='ro-'; f{2,2}='ro-'; f{2,3}='ro-'; 
+% f{3,1}='go-'; f{3,2}='go-'; f{3,3}='go-'; 
+% 
+% for c = 1: length(unique_motion_coherence)     
+%     if( xoffset > 0.7)          % now temperarily 3 pictures one row and 2 one column
+%         yoffset = yoffset-0.45;
+%         xoffset = 0;
+%     end
+%     axes('position',[0.05+xoffset 0.64+yoffset 0.25 0.3]);
+%   
+%     errorbar(unique_azimuth, resp{c}(:,3), resp_err{c}(:,3), 'bo-');
+%     hold on;
+%     plot(unique_azimuth, pred1(c,:), 'r-');
+%     plot(spon_azimuth, spon_resp, 'k--');
+% 
+%     ylabel('spikes/s');
+%     xlabel('azimuth');
+%     xlim( [min(unique_azimuth), max(unique_azimuth)] );
+%     title(num2str(unique_motion_coherence(c)));
+%     set(gca, 'xtick', unique_azimuth);
+% 
+%     xoffset=xoffset+0.3;    
+% end
+% 
+% axes('position',[0.35,0.19, 0.25,0.3] );
+% plot(unique_motion_coherence, w1(:,1),'bo-'); %vestibular
+% hold on;
+% plot(unique_motion_coherence, w1(:,2),'ro-'); %visual
+% ylabel('weight');
+% xlabel('coherence');
+% xlim([unique_motion_coherence(1) unique_motion_coherence(end)]);
+% set(gca, 'xtick', unique_motion_coherence);
+% 
+% %show file name and some values in text
+% axes('position',[0.65,0.19 , 0.3,0.5] );
+% xlim( [0,100] );
+% ylim( [0,3*length(unique_motion_coherence)+2] );
+% text(0, length(unique_motion_coherence)+2, FILE);
+% text(40, length(unique_motion_coherence)+2, 'SpikeChan=');
+% text(70, length(unique_motion_coherence)+2, num2str(SpikeChan));
+% text(0,length(unique_motion_coherence)+1,'cohe       wves           wvis            R          p');
+% count=0;
+% for c=1:length(unique_motion_coherence)     
+%     count=count+1;
+%     text(0,length(unique_motion_coherence)-(count-1),num2str(unique_motion_coherence(c)));
+%     text(20,length(unique_motion_coherence)-(count-1), num2str(w1(c,1)) );              
+%     text(40,length(unique_motion_coherence)-(count-1), num2str(w1(c,2)) );
+%     text(60,length(unique_motion_coherence)-(count-1), num2str(Rfit(c)) );
+%     text(80,length(unique_motion_coherence)-(count-1), num2str(pfit(c)) );
+% end
+% 
+% axis off;
+
+%% ---------------------------------------------------------------------------------------
+%------------ extract some eye data
+eye_x_left_temp(:,:) = data.eye_data(1,:,~null_trials & select_trials);
+eye_y_left_temp(:,:) = data.eye_data(2,:,~null_trials & select_trials);
+eye_x_right_temp(:,:) = data.eye_data(3,:,~null_trials & select_trials);
+eye_y_right_temp(:,:) = data.eye_data(4,:,~null_trials & select_trials);
+dim1 = size(eye_x_left_temp);
+for i=1:dim1(2)
+    eyeleftmaxmin(i) = abs( max(eye_x_left_temp(1:600,i))-min(eye_x_left_temp(1:600,i)) );
+    eyerightmaxmin(i) = abs( max(eye_x_right_temp(1:600,i))-min(eye_x_right_temp(1:600,i)) );
+end
+for i=1:200
+    eye_x_left(i,:) = eye_x_left_temp(i+322,:)-mean(eye_x_left_temp(222:322,:));
+    eye_y_left(i,:) = eye_y_left_temp(i+322,:)-mean(eye_y_left_temp(222:322,:));
+    eye_x_right(i,:) = eye_x_right_temp(i+322,:)-mean(eye_x_right_temp(222:322,:));
+    eye_y_right(i,:) = eye_y_right_temp(i+322,:)-mean(eye_y_right_temp(222:322,:));
+    deviation_left(i,:) = sqrt(eye_x_left(i,:).^2+eye_y_left(i,:).^2);
+    deviation_right(i,:) = sqrt(eye_x_right(i,:).^2+eye_y_right(i,:).^2);
+end
+
+if median(eyeleftmaxmin)<max(eyeleftmaxmin) % left eye has no signal
+    deviation(1,:) = median(deviation_right(:,:),2);
+    eye_pos = deviation_right(:,:);
+else
+    deviation(1,:) = median(deviation_left(:,:),2);
+    eye_pos = deviation_left(:,:);
+end
+dim = size(eye_pos);
+count = 0;
+for j=1:dim(2)    
+    gauss2 = normpdf(1:1:200,100,1); % smooth data at a SD of 5ms (1 point)
+    eye_temp = conv(eye_pos(:,j), gauss2);
+    eye_pos_smooth(:,j) = eye_temp(100:end-ceil(200/2)); 
+    eye_vel(:,j) = abs(diff(eye_pos_smooth(:,j)))*200; 
+    saccadefind = find( eye_vel(:,j)>10 );
+    if length(saccadefind)>=1 
+       tempfind = find(diff(saccadefind)~=1);
+       if length(tempfind)>=1
+           saccade_count = length(tempfind)+1; % the number of microscaddes            
+           tempfind2 = [0 tempfind' length(saccadefind)];
+           for n=1:saccade_count
+               peak_vel(n+count) = max( eye_vel(saccadefind(tempfind2(n)+1):saccadefind(tempfind2(n+1)),j) );
+           end
+       else
+           saccade_count = 1;           
+           peak_vel(1+count) = max(eye_vel(:,j));
+       end
+    else
+        saccade_count = 0;        
+    end   
+    count = count+saccade_count; 
+end
+saccade_rate=count/dim(2);
+saccade_vel = hist(log10(peak_vel), 1:0.05:2)/count;
+% Also, write out some summary data to a cumulative summary file
+sprint_txt = ['%s\t'];
+for i = 1 : 1000
+     sprint_txt = [sprint_txt, ' %1.3f\t'];    
+end
+% if length(unique_stim_type)~=1
+%     buff = sprintf(sprint_txt, FILE, spon_resp, az, p_1D, Dprime, DDI );
+% %    buff = sprintf(sprint_txt, FILE, unique_stim_type, unique_motion_coherence, DDI );
+%     outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D.dat'];
+% else    
+%     buff = sprintf(sprint_txt, FILE, spon_resp, az(:), amp(:), p_1D{:}, DI);
+%     outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_Hui.dat'];
+% end
+
+% buff = sprintf(sprint_txt, FILE, az(:), p_1D{:},congruency, Z_Spikes );
+% outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_Zscore.dat'];
+% buff = sprintf(sprint_txt, FILE, az(:), p_1D{:},congruency, Z_Spikes );
+% outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_Zscore.dat'];
+% buff = sprintf(sprint_txt, FILE, az(:), p_1D{:},congruency, Z_Spikes );
+% outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_Zscore.dat'];
+%buff = sprintf(sprint_txt, FILE, resp{1}(:,1),resp_std{1}(:,1), resp{1}(:,2),resp_std{1}(:,2));
+%buff = sprintf(sprint_txt,FILE,length(unique_azimuth),repetition,resp_trial{1,1}(1:repetition,:),resp_trial{1,2}(1:repetition,:) );
+%buff = sprintf(sprint_txt,FILE,spon_resp);
+buff = sprintf(sprint_txt, FILE, saccade_rate, deviation, saccade_vel);
+outfile = ['Z:\Users\Yong\eyetrain.dat']; 
+    
+printflag = 0;
+if (exist(outfile, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fid = fopen(outfile, 'a');
+if (printflag)
+	if length(unique_stim_type)~=1
+        %     fprintf(fid, 'FILE\t Spon\t HTIve\t HTIvi\t VesP\t VisP\t VesPre\t VisPre\t VesSlo\t Vis\Slo\t VesMin\t VisMin\t VesMax\t VisMax\t');
+        fprintf(fid, 'FILE\t Spon\t VesPref\t VisPref\t VesP\t VisP\t VesDDI\t VisDDI\t Congruency');
+	else
+        fprintf(fid, 'FILE\t Spon\t Az_6\t Az_7_5\t Az_9\t Amp_6\t Amp_7_5\t Amp_9\t P_6\t P_7.5\t P_9\t DI_6\t DI_7.5\t DI_9\t');
+	end
+    fprintf(fid, '\r\n');
+end
+fprintf(fid, '%s', buff);
+fprintf(fid, '\r\n');
+fclose(fid);
+
+return;
+

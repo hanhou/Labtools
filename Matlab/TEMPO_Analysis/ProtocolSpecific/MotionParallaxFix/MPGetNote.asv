@@ -1,0 +1,13 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- MPGetNote.m -- Pulls a custom note from the batch note file. 
+%-- Started by JWN, 3/21/05
+%-----------------------------------------------------------------------------------------------------------------------
+function note = MPGetNote(cid,notefilepath);
+
+fid = fopen(notefilepath, 'r');
+y = 0;
+while feof(fid) == 0
+    tline = fgetl(fid);
+    if(findstr(tline,cid))
+        
+    

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ToolBar>
+   <Visible>
+      <Key>history</Key>
+      <Key>build</Key>
+      <Key>package</Key>
+      <Key>actions</Key>
+   </Visible>
+   <Hidden>
+      <Key>new</Key>
+      <Key>open</Key>
+      <Key>rename_project</Key>
+      <Key>package</Key>
+      <Key>settings</Key>
+      <Key>help</Key>
+   </Hidden>
+</ToolBar>

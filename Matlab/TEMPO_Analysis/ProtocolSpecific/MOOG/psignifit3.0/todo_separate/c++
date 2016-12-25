@@ -1,0 +1,27 @@
+- change transform method of cores to new getstart
+- noninformative Jeffreys Priors
+- Goodness of fit (Correlations?)                                          [OK] but correlations are wrong
+- Unit test with gamma as a free parameter                                 [OK] but only very rough correspondence to psignifit -- should be stricter
+- Bugs with different cores -> no convergence, exceptionally high deviance with ok looking fit, ... This is only due to the logCore-Kernel that returns -inf for contrasts of 0
+- codes in sigmoids should be constants with ' const unsigned int $VARIBALE'
+- add 'void' to the clone method calls
+- In PsiMCList, getdeviance and setdeviance should be getDeviance and
+  setDeviance
+- Review the documentation for BootstrapList
+- in PsiSigmoid getcode() should be getCode()
+- Use pure virtual functions in PsiSigmoid, PsiCore, and PsiPrior, instead of
+  NotImplemetedError
+- Make proper copy constructors for rng.h instead of relying on implicit ones
+
+- When using [] to access elements from the vector class, we need to manually
+  check that the index value is within range. Alternatively we could use the
+  'at()' method, which is index safe, and throws an 'std::out_of_range'
+  exception. Consider replacing parts of the code that do th manual checking
+  with calls to 'at()'. In this case we would also benefit from the swig
+  exception handling for all STL exceptions.
+
+MayBe:
+- implement fullmodel, nullmodel
+- Implement alternative SimplexAlgorithm (Numerical Recipes?, gsl-Wrapper-Object?) The current one depends heavily on the initial simplex!
+    - Perform some gradient based steps after simplex optimization (doesn't work good)
+    - alternative: Perform some gradient based steps as a special case of simplex optimization (e.g. particularly good points are moved in the direction of the gradient?)

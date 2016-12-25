@@ -1,0 +1,75 @@
+
+function Delayed_Saccade_Analysis_Adhira(data, Protocol, Analysis, SpikeChan, StartEventBin, StopEventBin, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;
+Path_Defs;
+ProtocolDefs;
+
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_heading   = data.moog_params(HEADING,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
+temp_total_trials = data.misc_params(OUTCOME,:);
+temp_spike_data = data.spike_data(SpikeChan,:);
+temp_event_data = data.spike_data(2,:);
+temp_spike_rates = data.spike_rates(SpikeChan,:);
+temp_accel = data.eye_data(5,:,:);
+temp_diode = data.eye_data(8,:,:);
+accel = reshape(temp_accel, 1000, length(temp_total_trials));
+diode = reshape(temp_diode, 1000, length(temp_total_trials));
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% vector of trial indices
+% select_trials = ((trials >= BegTrial) & (trials <= EndTrial));
+
+stim_type = temp_stim_type(trials);
+heading = temp_heading(trials);
+amplitude= temp_amplitude(trials);
+num_sigmas= temp_num_sigmas(trials);
+total_trials = temp_total_trials(trials);
+spike_rates = temp_spike_rates(trials);
+% unique_stim_type = munique(stim_type');
+unique_heading = munique(heading');
+unique_amplitude = munique(amplitude');
+unique_num_sigmas = munique(num_sigmas');
+
+% remove null trials, bad trials, and trials outside Begtrial~Engtrial
+data_duration = length(temp_spike_data)/length(temp_azimuth); %usually 5000
+Discard_trials = find(trials <BegTrial | trials >EndTrial);
+for i = 1 : length(Discard_trials)
+    temp_spike_data( 1, ((Discard_trials(i)-1)*data_duration+1) :  Discard_trials(i)*data_duration ) = 9999;
+end
+spike_data_good = temp_spike_data(temp_spike_data~=9999);
+%Each column is a new trial
+spike_data = reshape(spike_data_good, data_duration, length(trials)); %length(total_trials)
+event_data = reshape(temp_event_data, data_duration, length(trials));
+% size(spike_data)
+% spike_data_test = spike_data(1:data_duration,1:length(total_trials));
+
+% timebin for plot PSTH
+timebin=50; %ms
+% length of data for each trial - usually 5000
+data_length=length(temp_spike_data)/length(temp_total_trials);
+% x-axis for PSTH
+num_time_bins=1:(data_length/timebin);
+
+for i = 1:length(total_trials)
+    for j = 1:data_length
+        if (diode(j,i) > 2000)
+            targ_on_diode(i) = j;
+            break
+        end
+    end
+    trial_begin_moog = find(data.event_data(1,:,i) == TRIAL_START_CD);
+    trial_over_moog = find(data.event_data(1,:,i) == TRIAL_END_CD);
+    if (isempty(trial_begin_moog|trial_over_moog) == 1)
+        spike_data(i,:)=[];
+        n=n+1;
+end
+
+
+
+return;
+

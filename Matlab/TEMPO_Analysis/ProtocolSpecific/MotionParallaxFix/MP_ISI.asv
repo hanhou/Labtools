@@ -1,0 +1,82 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- MP_ISI.m -- Gets some specific inter-spike-interval information from each file
+%-- Exists to identify poorly isolated neurons
+%-- Started by JWN, 07/09/07
+%-- Last by JWN, 07/09/07
+%-----------------------------------------------------------------------------------------------------------------------
+
+function MP_ISI(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE);
+
+TEMPO_Defs;
+ProtocolDefs;
+Path_Defs;
+
+disp(sprintf('(MP_ISI) Started at %s.',datestr(now,14)));
+
+% Calculate number of trials
+trials = size(data.spike_data,3);
+
+spikes = squeeze(data.spike_data(1,:,:));
+catspikes = reshape(spikes, 1, 5000*trials);
+
+counts = zeros(1,10);
+counts(1) = sum(catspikes>1);
+counts(2) = sum(conv(catspikes,[1 1])>1);
+counts(3) = sum(conv(catspikes,[1 -1 1])>1);
+counts(4) = sum(conv(catspikes,[1 -1 -1 1])>1);
+counts(5) = sum(conv(catspikes,[1 -1 -1 -1 1])>1);
+counts(6) = sum(conv(catspikes,[1 -1 -1 -1 -1 1])>1);
+counts(7) = sum(conv(catspikes,[1 -1 -1 -1 -1 -1 1])>1);
+counts(8) = sum(conv(catspikes,[1 -1 -1 -1 -1 -1 -1 1])>1);
+counts(9) = sum(conv(catspikes,[1 -1 -1 -1 -1 -1 -1 -1 1])>1);
+counts(10) = sum(conv(catspikes,[1 -1 -1 -1 -1 -1 -1 -1 -1 1])>1);
+
+% Write out to a file
+PATHOUT = 'Z:\Data\MOOG\Ovid\Analysis\';
+filenames = {'ISI'};
+for i = 1:1
+    outfile = cell2mat(strcat(PATHOUT,filenames(i),'.txt'));
+    headerflag = 0;
+    if (exist(outfile) == 0) % File does not yet exist, so print a header
+        headerflag = 1;
+    end
+    fid = fopen(outfile, 'a');  % Open text file.
+    if (headerflag)
+        fprintf(fid, 'FILE ');
+        fprintf(fid, 'monkid cellid PG ');
+        fprintf(fid, 'MPgain MPmediangain MPneargain MPfargain eyeresp ');
+        fprintf(fid, 'MPiPDI BDiPDI RMiPDI CiPDI EOiPDI HOiPDI ');
+        fprintf(fid, 'MPxiPDI BDxiPDI RMxiPDI CxiPDI EOxiPDI HOxiPDI ');
+        fprintf(fid, 'MPcxiPDI BDcxiPDI RMcxiPDI CcxiPDI EOcxiPDI HOcxiPDI ');
+        fprintf(fid, 'MP1iPDI RM1iPDI RMs1iPDI MPsxiPDI ');
+        fprintf(fid, 'absMPiPDI absBDiPDI absRMiPDI absCiPDI absEOiPDI absHOiPDI ');
+        fprintf(fid, 'absMPxiPDI absBDxiPDI absRMxiPDI absCxiPDI absEOxiPDI absHOxiPDI ');
+        fprintf(fid, 'absMPcxiPDI absBDcxiPDI absRMcxiPDI absCcxiPDI absEOcxiPDI absHOcxiPDI ');
+        fprintf(fid, 'absMP1iPDI absRM1iPDI absRMs1iPDI absMPsxiPDI ');
+        fprintf(fid, 'MPiPDIm BDiPDIm RMiPDIm CiPDIm EOiPDIm HOiPDIm ');
+        fprintf(fid, 'absMPiPDIm absBDiPDIm absRMiPDIm absCiPDIm absEOiPDIm absHOiPDIm ');
+        fprintf(fid, 'nullMPphase nullBDphase nullRMphase nullCphase nullEOphase nullHOphase ');
+        fprintf(fid, 'signnullMPphase signnullBDphase signnullRMphase signnullCphase signnullEOphase signnullHOphase ');
+        fprintf(fid, 'nullMPamp nullBDamp nullRMamp nullCamp nullEOamp nullHOamp ');
+        fprintf(fid, 'fnMPphase fnBDphase fnRMphase fnCphase fnEOphase fnHOphase ');
+        fprintf(fid, 'signfnMPphase signfnBDphase signfnRMphase signfnCphase signfnEOphase signfnHOphase ');
+        fprintf(fid, 'fnMPamp fnBDamp fnRMamp fnCamp fnEOamp fnHOamp ');
+        fprintf(fid, 'sigpnullMPamp sigpnullBDamp sigpnullRMamp sigpnullCamp sigpnullEOamp sigpnullHOamp ');
+        fprintf(fid, 'sigpfnMPamp sigpfnBDamp sigpfnRMamp sigpfnCamp sigpfnEOamp sigpfnHOamp ');
+        fprintf(fid, 'sigp3nullMPamp sigp3nullBDamp sigp3nullRMamp sigp3nullCamp sigp3nullEOamp sigp3nullHOamp ');
+        fprintf(fid, 'sigp3fnMPamp sigp3fnBDamp sigp3fnRMamp sigp3fnCamp sigp3fnEOamp sigp3fnHOamp ');
+        fprintf(fid, 'sigpMPiPDI sigpBDiPDI sigpRMiPDI sigpCiPDI sigpEOiPDI sigpHOiPDI ');
+        fprintf(fid, 'sigpMPsxiPDI ');
+        fprintf(fid, 'sigpMPiPDIm sigpBDiPDIm sigpRMiPDIm sigpCiPDIm sigpEOiPDIm sigpHOiPDIm ');
+        fprintf(fid, 'pref prefcat RFx RFy RFd RFecc RFang rRFang sigrRFang corrupts');
+        fprintf(fid, '\r\n');
+    end
+    fprintf(fid,'%10s', strtok(FILE,'.'));
+    fprintf(fid,' %+2.5f', monkid, cellid, PG, pursuit_gain, median_pursuit_gain, near_gain, far_gain, eyeresp, mPDI, mxPDI, mcxPDI, MP1iPDI, RM1iPDI, RMs1iPDI, MPsxiPDI, abs(mPDI), abs(mxPDI), abs(mcxPDI), abs(MP1iPDI), abs(RM1iPDI), abs(RMs1iPDI), abs(MPsxiPDI), mPDImod, abs(mPDImod), null_phases, signnull_phases, null_amps, fn_phases, signfn_phases, fn_amps, (pnull_amps>0.05)+1, (pfn_amps>0.05)+1, (p3null_amps>0.05)+1, (p3fn_amps>0.05)+1, (pmPDI>0.025)+1, (pMPsxiPDI>0.25)+1, (pmPDImod>0.025)+1, pref, pref_cat, RFx, RFy, RFd, RFecc, RFang, rRFang, sigrRFang, corrupts);
+    fprintf(fid,'\r\n');
+    fclose(fid);
+end
+
+disp('(MP_ISI) Done.');
+
+return;

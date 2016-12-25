@@ -1,0 +1,3 @@
+If want to change eye/head centered output, go to 
+make_traning_set.m
+look at line around 34,38,76,78

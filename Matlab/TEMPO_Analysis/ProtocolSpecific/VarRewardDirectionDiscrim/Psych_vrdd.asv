@@ -1,0 +1,85 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- Psych_vrdd.m -- Plots psychometric curve sorted by cue validity but collapsed across direction
+%--	VR, 9/19/05
+%-----------------------------------------------------------------------------------------------------------------------
+function Psych_vrdd(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;		
+Path_Defs;
+ProtocolDefs;	%needed for all protocol specific functions - contains keywords - BJP 1/4/01
+
+%get the column of values of directions in the dots_params matrix
+direction = data.dots_params(DOTS_DIREC,BegTrial:EndTrial,PATCH1);
+unique_direction = munique(direction');
+Pref_direction = data.one_time_params(PREFERRED_DIRECTION);
+if unique_direction(1)~=Pref_direction  %this ensures that the preferred direction (T1) is the first element of 
+    unique_direction = [unique_direction(2) unique_direction(1)];
+end
+   
+%get the motion coherences
+coherence = data.dots_params(DOTS_COHER, BegTrial:EndTrial, PATCH1);
+unique_coherence = munique(coherence');
+signed_coherence = coherence.*(-1+2.*(direction==Pref_direction));
+unique_signed_coherence = [-unique_coherence' unique_coherence'];
+
+%get the cue validity: -1=Invalid; 0=Neutral; 1=Valid; 2=CueOnly
+cue_val = data.cue_params(CUE_VALIDITY,BegTrial:EndTrial,PATCH2);
+unique_cue_val = munique(cue_val');
+cue_val_names = {'NoCue','Invalid','Neutral','Valid','CueOnly'};
+
+%get the cue directions
+cue_direc = data.cue_params(CUE_DIREC, BegTrial:EndTrial, PATCH1);
+cue_direc = squeeze_angle(cue_direc);
+unique_cue_direc = munique(cue_direc');
+
+%compute cue types - 0=neutral, 1=directional, 2=cue_only
+cue_type = abs(cue_val); %note that invalid(-1) and valid(+1) are directional
+unique_cue_type = munique(cue_type');
+
+%classifies each trial based on the cue direction: 1=PrefDir, -1=NullDir, 0=Neutral, 2=CueOnly (both cue directions)
+cue_dir_type = cue_val;
+for i=1:length(cue_dir_type)
+    if abs(cue_dir_type(i))==1
+        cue_dir_type(i) = -1+2*(squeeze_angle(Pref_direction)==squeeze_angle(cue_direc(i)));
+    end
+end
+unique_cue_dir_type = munique(cue_dir_type');
+cue_dir_type_names = {'NoCue','NullDir','Neutral','PrefDir','CueOnly'};
+cue_dir_type_names2 = {'NoCue','Nc','Neu','Pc','CueOnly'};
+
+%get the firing rates for all the trials
+spike_rates = data.spike_rates(SpikeChan, :);
+
+%get outcome for each trial: 0=incorrect, 1=correct
+trials_outcomes = logical (data.misc_params(OUTCOME,BegTrial:EndTrial) == CORRECT);
+
+%get indices of any NULL conditions (for measuring spontaneous activity)
+null_trials = logical( (coherence == data.one_time_params(NULL_VALUE)) );
+
+%now, select trials that fall between BegTrial and EndTrial
+trials = 1:length(coherence);
+%a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+OPTIONS = OPTIMSET('MaxIter', 1000000,'MaxFunEvals',200000);
+
+TempMarkers = {'bo','r*','g>','rd','g<','g>'};
+TempLines = {'b-','r:','g-','r:','g-','g:'};
+TempShamLines = {'bo-','r*--','g>:','rd:','g<-','g>:'};
+TempColors = {'b','b','r','r','g','g'};
+NeuroMarkers = TempMarkers;
+NeuroLines = TempLines;
+NeuroShamLines = TempShamLines;
+NeuroColors = TempColors;
+PsychoMarkers = TempMarkers;
+PsychoMarkers2 = {'bo','r*','g>','r*','go','g*'};
+PsychoLines = TempLines;
+PsychoLines2 = {'b-','r--','g:'};
+PsychoShamLines = TempShamLines;
+PsychoShamLines2 = {'bo-' 'r*--', 'g>:'};
+names = {'NoCue','NullDir','Neutral','PrefDir','CueOnly'};
+
+hlist=figure; 
+set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [250 50 500 573], 'Name', sprintf('%s: Psychometric Function',FILE));
+subplot(3, 1, 2); hold on;
+

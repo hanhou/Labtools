@@ -1,0 +1,46 @@
+#
+#DAStudio Preference File
+#
+
+
+[DAStudio DDG]
+DDGFontSize=10
+
+[Diagnostic Viewer]
+MEGeometry=395 330 600 400
+MEScope_Scope=Current
+MEScope_ShowLinkedSubSystems=0
+MEScope_ShowMaskedSubSystems=0
+MESplitterPositions=357 0 0 584 127 193 
+METreeClassNames=DAStudio.DiagMsgContainer,
+METreeClassRecord_DAStudio.DiagMsgContainer::ObjectTypes=DAStudio.DiagMsg,
+METreeClassRecord_DAStudio.DiagMsgContainer::PropertyList=Name,SourceFullName,SourceName,DispType,
+
+[General]
+MatlabRelease=2013a
+
+[LibraryBrowser]
+LBAlphaPercent4DisabledBlock=40
+LBColorBlocksDescriptionBackground=255 255 255
+LBColorLibraryBlocksBackgroundBot=245 246 247
+LBColorLibraryBlocksBackgroundTop=255 255 255
+LBColorSearchResultsBackgroundBot=245 246 247
+LBColorSearchResultsBackgroundTop=248 249 250
+LBColorSearchResultsDividerBarBot=153 163 190
+LBColorSearchResultsDividerBarTop=183 190 208
+LBFontFamily=Arial
+LBFontSize=8
+LBGeometry4Blocks=0 0 364 525
+LBGeometry4Window=32 64 600 624
+LBIconSize=Compact
+LBLayout=Grid
+LBSearchResults_isTitleElidedMiddle=1
+LBSearchResults_rememberUserHiddenSections=1
+LBSearch_MatchCase=0
+LBSearch_MatchWholeWord=0
+LBSearch_UseRegExp=0
+LBShowBlockDesc=1
+LBTreeSelectionTimeout=111
+LBWindowState=AAAA/wAAAAD9AAAAAgAAAAAAAADiAAACKPwCAAAAAfsAAAAWAEQAbwBjAGsAVwBpAGQAZwBlAHQAMAEAAAA1AAACKAAAAF0A////AAAAAwAAA23////6/AEAAAAC+wAAABYARABvAGMAawBXAGkAZABnAGUAdAAxAAAAAAAAAANtAAAAUQD////7AAAAFgBEAG8AYwBrAFcAaQBkAGcAZQB0ADIBAAAAAAAAA20AAAAAAAAAAAAAAXIAAAIoAAAABAAAAAQAAAAIAAAACPwAAAABAAAAAgAAAAIAAAAQAFQAbwBvAGwAQgBhAHIAMwEAAAAAAAAAXwAAAAAAAAAAAAAAEABUAG8AbwBsAEIAYQByADQBAAAAXwAAAw4AAAAAAAAAAA==
+LBWindowVersion=1
+

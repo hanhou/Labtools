@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings name="images" xmlns="urn:mathworks.matlab.settings" xsi:schemaLocation="urn:mathworks.matlab.settings settings.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <key name="PreferencesMigrated">
+        <bool>
+            <value>1</value>
+        </bool>
+    </key>
+    <settings name="imshow">
+    </settings>
+    <settings name="imtool">
+    </settings>
+</settings>

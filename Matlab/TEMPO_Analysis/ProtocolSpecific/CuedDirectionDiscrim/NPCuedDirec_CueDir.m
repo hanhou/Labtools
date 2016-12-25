@@ -1,0 +1,557 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- NPCuedDirec_CueDir.m -- Plots neurometric and psychometric curve sorted by various cue DIRECTIONS (not validity) 
+%--	VR, 9/19/05
+%-----------------------------------------------------------------------------------------------------------------------
+function NPCuedDirec_CueDir(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;		
+Path_Defs;
+ProtocolDefs;	%needed for all protocol specific functions - contains keywords - BJP 1/4/01
+
+%parameters for bootstrapping to get confidence intervals
+nboot = 1000;
+alpha = .05;
+
+%get the column of values of directions in the dots_params matrix
+direction = data.dots_params(DOTS_DIREC,:,PATCH1);
+unique_direction = munique(direction');
+Pref_direction = data.one_time_params(PREFERRED_DIRECTION);
+   
+%get the motion coherences
+coherence = data.dots_params(DOTS_COHER, :, PATCH1);
+unique_coherence = munique(coherence');
+signed_coherence = coherence.*(-1+2.*(direction==Pref_direction));
+unique_signed_coherence = [-unique_coherence' unique_coherence'];
+
+%get the cue validity: -1=Invalid; 0=Neutral; 1=Valid; 2=CueOnly
+cue_val = data.cue_params(CUE_VALIDITY,:,PATCH2);
+unique_cue_val = munique(cue_val');
+cue_val_names = {'NoCue','Invalid','Neutral','Valid','CueOnly'};
+
+%get the cue directions
+cue_direc = data.cue_params(CUE_DIREC, :, PATCH1);
+unique_cue_direc = munique(cue_direc');
+
+%compute cue types - 0=neutral, 1=directional, 2=cue_only
+cue_type = abs(cue_val); %note that invalid(-1) and valid(+1) are directional
+unique_cue_type = munique(cue_type');
+
+%classifies each trial based on the cue direction: 1=PrefDir, -1=NullDir, 0=Neutral, 2=CueOnly (both cue directions)
+cue_dir_type = cue_val;
+for i=1:length(cue_dir_type)
+    if abs(cue_dir_type(i))==1
+        cue_dir_type(i) = -1+2*(squeeze_angle(Pref_direction)==squeeze_angle(cue_direc(i)));
+    end
+end
+unique_cue_dir_type = munique(cue_dir_type');
+cue_dir_type_names = {'NoCue','NullDir','Neutral','PrefDir','CueOnly'};
+
+%get the firing rates for all the trials
+spike_rates = data.spike_rates(SpikeChan, :);
+
+%get outcome for each trial: 0=incorrect, 1=correct
+trials_outcomes = logical (data.misc_params(OUTCOME,:) == CORRECT);
+
+%get indices of any NULL conditions (for measuring spontaneous activity)
+null_trials = logical( (coherence == data.one_time_params(NULL_VALUE)) );
+
+%now, select trials that fall between BegTrial and EndTrial
+trials = 1:length(coherence);
+%a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+OPTIONS = OPTIMSET('MaxIter', 1000000,'MaxFunEvals',200000);
+
+%things to do: roc analysis for neurometrics, logistic fits of
+%neurometrics/psychometrics, plot, bootstrap
+% NeuroMarkers = {'bo','rs','g<','md','c>'}; %Neuron markers will be filled with the colors in NeuroLines
+% NeuroLines = {'b','r','g','m','c'};
+% NeuroShamLines = {'bo-','rs-','g<-','md-','c>-'}; %to allow both marker and line on legend
+% PsychoMarkers = NeuroMarkers;
+% PsychoLines = {'b--','r--','g--','m--','c--'};
+% PsychoShamLines = {'bo--','rs--','g<--','md--','c>--'};
+TempMarkers = {'bo','rs','g<'};
+TempLines = {'b','r--','g:'};
+TempShamLines = {'bo-','rs--','g<:'};
+TempColors = {'b','r','g'};
+NeuroMarkers = TempMarkers;
+NeuroLines = TempLines;
+NeuroShamLines = TempShamLines;
+NeuroColors = TempColors;
+PsychoMarkers = TempMarkers;
+PsychoLines = TempLines;
+PsychoShamLines = TempShamLines;
+names = {'NoCue','NullDir','Neutral','PrefDir','CueOnly'};
+
+hlist=figure; 
+set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [250 50 500 573], 'Name', sprintf('%s: Psychometric Function',FILE));
+subplot(3, 1, 2); hold on;
+
+%% ********* NEUROMETRIC ANALYSIS ********************
+%loop through each coherence level per cue val, and do ROC analysis for each
+ROC_values = []; N_obs = []; neuron_bootlog_CI = [];
+neuron_legend_str = '';
+tic
+
+for j=1:sum(unique_cue_dir_type~=2) %exclude CueOnly condition from plot
+%     for i=1:length(unique_coherence)
+%         CORRECT_FOR_SLOW_SPIKE_RATE_CHANGE = 0;
+%         if (CORRECT_FOR_SLOW_SPIKE_RATE_CHANGE)
+%             %Do a regression of spike rates against trial number for each coherence.
+%             trial_temp = trials((coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) & select_trials);
+%             trial_temp = [trial_temp; ones(1,length(trial_temp))];
+%             spike_temp = spike_rates((coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) & select_trials);
+%             [b, bint, r, rint, stats] = regress(spike_temp', trial_temp');
+%             spike_rates((coherence == unique_coherence(i)) & select_trials) = r';
+%         end
+%         pref_trials = ( (direction == Pref_direction) & (coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) );
+%         pref_dist{i} = spike_rates(pref_trials & select_trials);
+%         null_trials = ( (direction ~= Pref_direction) & (coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) );
+%         null_dist{i} = spike_rates(null_trials & select_trials);
+%         ROC_values{j}(i) = rocN(pref_dist{i}, null_dist{i}, 100);
+%         N_obs{j}(i) = length(pref_dist{i}) + length(null_dist{i});
+%         
+%         %data for logistic fit - For negative coherences, i'm using 1-ROC(coher); this unfortunately enforces symmetry
+%         fit_neuron_data{j}(i,1) = -unique_coherence(i);
+%         fit_neuron_data{j}(i+length(unique_coherence),1) =
+%         unique_coherence(i);
+%         fit_neuron_data{j}(i,2) = 1-ROC_values{j}(i);
+%         fit_neuron_data{j}(i+length(unique_coherence),2) = ROC_values{j}(i);
+%         fit_neuron_data{j}(i,3) = N_obs{j}(i);
+%         fit_neuron_data{j}(i+length(unique_coherence),3) = N_obs{j}(i);
+%     end
+    for i=1:length(unique_signed_coherence)
+        CORRECT_FOR_SLOW_SPIKE_RATE_CHANGE = 0;
+        if (CORRECT_FOR_SLOW_SPIKE_RATE_CHANGE)
+            %Do a regression of spike rates against trial number for each coherence.
+            trial_temp = trials((coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) & select_trials);
+            trial_temp = [trial_temp; ones(1,length(trial_temp))];
+            spike_temp = spike_rates((coherence == unique_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) & select_trials);
+            [b, bint, r, rint, stats] = regress(spike_temp', trial_temp');
+            spike_rates((coherence == unique_coherence(i)) & select_trials) = r';
+        end
+        %compare the firing rates for all non-zero signed-coherences with the
+        %firing rates on 0% coherent trials.
+        if unique_signed_coherence(i)~=0
+            var_trials = ( (signed_coherence == unique_signed_coherence(i)) & (cue_dir_type == unique_cue_dir_type(j)) );
+            var_dist{i} = spike_rates(var_trials & select_trials);
+            ctrl_trials = ( (coherence == 0) & (cue_dir_type == unique_cue_dir_type(j)) );
+            ctrl_dist{i} = spike_rates(ctrl_trials & select_trials);
+            ROC_values{j}(i) = rocN(var_dist{i}, ctrl_dist{i}, 100);
+            N_obs{j}(i) = length(var_dist{i}) + length(ctrl_dist{i});
+            %data for logistic fit
+            fit_neuron_data{j}(i,1) = unique_signed_coherence(i);
+            fit_neuron_data{j}(i,2) = ROC_values{j}(i);
+            fit_neuron_data{j}(i,3) = N_obs{j}(i);
+        end
+    end
+    
+    %Plot stuff
+    plot(fit_neuron_data{j}(:,1), fit_neuron_data{j}(:,2), NeuroMarkers{j}, 'MarkerFaceColor', NeuroColors{j});
+    %plot([unique_bin_corr(1) unique_bin_corr(length(unique_bin_corr))],[0.5 0.5], 'k-.');   %make a line across the plot at y=0.5
+    
+    [neuron_alpha(j) neuron_beta(j)] = logistic_fit(fit_neuron_data{j});
+    neuron_thresh(j) = get_logistic_threshold([neuron_alpha(j) neuron_beta(j)]);
+    fit_x = -max(unique_coherence):0.1:max(unique_coherence);
+    neuron_fit_y{j} = logistic_curve(fit_x, [neuron_alpha(j) neuron_beta(j)]);
+    plot(fit_x, neuron_fit_y{j}, NeuroLines{j});
+    n_Handl(j)=plot([-1 1],[-1 -1],NeuroShamLines{j},'MarkerFaceColor',NeuroColors{j}); %note this won't appear on plot
+    YLim([0 1]);
+    neuron_legend_str = strcat(neuron_legend_str,',''Neuron:',cue_dir_type_names{unique_cue_dir_type(j)+3},'''');
+    
+    %Bootstrap to generate new roc values for each coherence to generate logistic thresholds
+    boot_roc = [];
+    for i = 1:nboot
+        for k = 1:length(unique_signed_coherence)
+            if unique_signed_coherence(k)~=0
+                var_select_boot{j,i,k} = find( select_trials & (cue_dir_type == unique_cue_dir_type(j)) & ...
+                    (signed_coherence == unique_signed_coherence(k)) );
+                ctrl_select_boot{j,i,k} = find( select_trials & (cue_dir_type == unique_cue_dir_type(j)) & (signed_coherence == 0) );
+                for m = 1:length(var_select_boot{j,i,k})
+                    var_boot_shuffle = var_select_boot{j,i,k}(randperm(length(var_select_boot{j,i,k})));
+                    var_boot{j,i,k}(m) = var_boot_shuffle(1);
+                end
+                for m = 1:length(ctrl_select_boot{j,i,k})
+                    ctrl_boot_shuffle = ctrl_select_boot{j,i,k}(randperm(length(ctrl_select_boot{j,i,k})));
+                    ctrl_boot{j,i,k}(m) = ctrl_boot_shuffle(1);
+                end
+                boot_roc(i,k) = rocN(spike_rates(var_boot{j,i,k}), spike_rates(ctrl_boot{j,i,k}), 100);
+                n_obs(i,k) = length(var_boot{j,i,k})+length(ctrl_boot{j,i,k});
+            end
+        end
+        [neuron_bootlog_params{j,i}(1) neuron_bootlog_params{j,i}(2)] = logistic_fit([unique_signed_coherence' boot_roc(i,:)' n_obs(i,:)']);
+        neuron_bootlog_thresh(j,i) = get_logistic_threshold(neuron_bootlog_params{j,i}); 
+        neuron_bootlog_bias(j,i) = neuron_bootlog_params{j,i}(2);
+
+    end
+    %now compute confidence intervals
+    sorted_thresh = sort(neuron_bootlog_thresh(j,:));
+    neuron_bootlog_CI(j,:) = [sorted_thresh(floor( nboot*alpha/2 )) ...
+        sorted_thresh(ceil( nboot*(1-alpha/2) ))];
+    sorted_bias = sort(neuron_bootlog_bias(j,:));
+    neuron_bootlog_bias_CI(j,:) = [sorted_bias(floor( nboot*alpha/2 )) ...
+        sorted_bias(ceil( nboot*(1-alpha/2) ))];
+    
+end
+
+xlabel('Coherence x Direction');
+ylabel(sprintf('Fraction Choices in\nPreferred Direction'));
+neuron_legend_str = strcat('legend(n_Handl',neuron_legend_str, ', ''Location'', ''SouthEast'');');
+eval(neuron_legend_str); legend(gca,'boxoff');
+
+toc
+
+%for each combination of cue_directions, use glm to find whether there is a
+%significant interaction of cue_dir and coherence
+%note that matlab's logistic uses a slightly different parameterization than the one in logistic_func
+cuedir_combo = [ 1 0; 1 -1; 0 -1 ];
+for i = 1:size(cuedir_combo,1)
+    yy{i}=[];
+    count = 1;
+    for j = 1:length(unique_signed_coherence)
+        if unique_signed_coherence(j)~=0 %ignore zero coherence because these are the reference for ROC computation
+            for k = 1:length(cuedir_combo(i,:))
+                yy{i}(count,1) = unique_signed_coherence(j);
+                yy{i}(count,2) = cuedir_combo(i,k);
+                yy{i}(count,3) = ROC_values{find(unique_cue_dir_type==cuedir_combo(i,k))}(j);
+                yy{i}(count,4) = 1; %dummy to allow feeding continuous ROC values into binomial
+                count = count + 1;
+            end
+        end
+    end
+    [n_b(i,:), n_dev(i), n_stats{i}] = glmfit([yy{i}(:,1) yy{i}(:,2) yy{i}(:,1).*yy{i}(:,2)],[yy{i}(:,3) yy{i}(:,4)],'binomial');
+    P_n_bias(i) = n_stats{i}.p(3);  % P value for bias - always 1 since enforced symmetry eliminates bias
+    P_n_slope(i) = n_stats{i}.p(4);	% P value for slope - well, an interaction between validity and signed_coherence
+end
+i = i+1;
+yy{i}=[];
+for j = 1:length(unique_signed_coherence)
+    if unique_signed_coherence(j)~=0
+        for k = 1:sum(unique_cue_dir_type~=2)
+            yy{i}(count,1) = unique_signed_coherence(j);
+            yy{i}(count,2) = unique_cue_dir_type(k);
+            yy{i}(count,3) = ROC_values{k}(j);
+            yy{i}(count,4) = 1; %dummy to allow feeding continuous ROC values into binomial
+            count = count + 1;
+        end
+    end
+end
+[n_b(i,:), n_dev(i), n_stats{i}] = glmfit([yy{i}(:,1) yy{i}(:,2) yy{i}(:,1).*yy{i}(:,2)],[yy{i}(:,3) yy{i}(:,4)],'binomial');
+P_n_bias(i) = n_stats{i}.p(3);  % P value for bias - always 1 since enforced symmetry eliminates bias
+P_n_slope(i) = n_stats{i}.p(4);	% P value for slope - well, an interaction between validity and signed_coherence
+
+%%% ********* PSYCHOMETRIC ANALYSIS ********************
+
+pct_correct = []; N_obs = []; fit_data = [];
+monkey_bootlog_CI = []; monkey_legend_str = '';
+subplot(3,1,3); hold on;
+%this computes the percent of responses in the preferred direction
+%combining across redundant conditions within each cue validity.
+for i=1:sum(unique_cue_dir_type~=2)
+    for j=1:length(unique_direction)
+        for k=1:length(unique_coherence)
+            ind = k + (j-1)*length(unique_coherence);
+            ok_values = logical( (direction == unique_direction(j)) & (coherence == unique_coherence(k)) ...
+                & (cue_dir_type == unique_cue_dir_type(i)) & select_trials );
+            pct_pd(i,ind) = sum(ok_values & (data.misc_params(OUTCOME, :) == CORRECT))/sum(ok_values);
+            if (unique_direction(j) ~= Pref_direction)
+                pct_pd(i,ind) = 1-pct_pd(i,ind);
+            end
+        end
+    end
+end
+
+%plot the raw data
+for i=1:sum(unique_cue_dir_type~=2) %loop through cue val
+    [sorted_coherence{i}, I{i}] = sort(unique_signed_coherence);
+    plot(sorted_coherence{i}, pct_pd(i,I{i}), PsychoMarkers{i});
+end
+%keyboard
+%now fit these data to logistic function and plot fits
+for i=1:sum(unique_cue_dir_type~=2)
+    n_obs = sum(select_trials & (cue_dir_type == unique_cue_dir_type(i)))./length(unique_coherence).*ones(size(sorted_coherence{i}));
+    [monkey_alpha(i) monkey_beta(i)] = logistic_fit([sorted_coherence{i}' pct_pd(i,I{i})' n_obs']);
+    monkey_thresh(i) = get_logistic_threshold([monkey_alpha(i) monkey_beta(i)]);
+    str = sprintf('%s cue: alpha(slope) = %5.3f, beta(bias) = %5.3f', cue_dir_type_names{unique_cue_dir_type(i)+3}, monkey_alpha(i), monkey_beta(i));
+    plot([min(xlim):1:max(xlim)],logistic_curve([min(xlim):1:max(xlim)],[monkey_alpha(i) monkey_beta(i)]), PsychoLines{i});
+    m_Handl(i) = plot([-1 1], [-1 -1], PsychoShamLines{i});
+    monkey_legend_str = strcat(monkey_legend_str,',''Monkey:',cue_dir_type_names{unique_cue_dir_type(i)+3},'''');
+end
+
+xlabel('Coherence x Direction');
+ylabel(sprintf('Fraction Choices in\nPreferred Direction'));
+monkey_legend_str = strcat('legend(m_Handl',monkey_legend_str, ', ''Location'', ''SouthEast'');');
+eval(monkey_legend_str); legend(gca,'boxoff');
+ylim([0 1]);
+
+% Bootstrap to get 95%CI around threshold behavior 
+boot_outcomes = []; 
+for i=1:sum(unique_cue_dir_type~=2) %exclude CueOnly condition from plot
+    for j=1:nboot
+        for k = 1:length(unique_signed_coherence)
+            if (k <= length(unique_signed_coherence)/2) %get direction
+                direc = Pref_direction - 180;
+            else
+                direc = Pref_direction;
+            end
+            select_boot{i,j,k} = logical( select_trials & (cue_dir_type == unique_cue_dir_type(i)) & ...
+                (signed_coherence == unique_signed_coherence(k)) );
+            behav_select{i,j,k} = trials_outcomes(select_boot{i,j,k});
+            for m = 1:length(behav_select)    %loop to generate bootstrap
+                boot_shuffle = behav_select{i,j,k}(randperm(length(behav_select{i,j,k})));
+                boot_outcomes{i,j,k}(m) = boot_shuffle(1);
+            end
+            boot_pct(j,k) = sum(boot_outcomes{i,j,k})./length(boot_outcomes{i,j,k});
+            if (direc ~= Pref_direction) %for null use 1-ROC
+                boot_pct(j,k) = 1-boot_pct(j,k);
+            end
+            n_obs(j,k) = length(boot_outcomes{i,j,k});
+        end
+        [monkey_bootlog_params{i,j}(1) monkey_bootlog_params{i,j}(2)] = logistic_fit([unique_signed_coherence' boot_pct(j,:)' n_obs(j,:)']);
+        monkey_bootlog_thresh(i,j) = get_logistic_threshold(monkey_bootlog_params{i,j});
+        monkey_bootlog_bias(i,j) = monkey_bootlog_params{i,j}(2);
+    end
+    %now compute confidence intervals
+    sorted_thresh = sort(monkey_bootlog_thresh(i,:));
+    monkey_bootlog_CI(i,:) = [sorted_thresh(floor( nboot*alpha/2 )) ...
+            sorted_thresh(ceil( nboot*(1-alpha/2) ))];
+    sorted_bias = sort(monkey_bootlog_bias(i,:));
+    monkey_bootlog_bias_CI(i,:) = [sorted_bias(floor( nboot*alpha/2 )) ...
+        sorted_bias(ceil( nboot*(1-alpha/2) ))];
+end
+
+%for each combination of validities, use glm to find whether there is a
+%significant interaction of cue_validity and coherence
+%note that matlab's logistic uses a slightly different parameterization than the one in logistic_func
+cuedir_combo = [ 1 0; 1 -1; 0 -1 ];
+for i = 1:size(cuedir_combo,1)
+    yy{i}=[];
+    count = 1;
+    pref_choices = trials_outcomes;
+    pref_choices(direction~=Pref_direction) = 1-pref_choices(direction~=Pref_direction);
+    for j = 1:length(unique_signed_coherence)
+        for k = 1:length(cuedir_combo(i,:))
+            yy{i}(count,1) = unique_signed_coherence(j);
+            yy{i}(count,2) = cuedir_combo(i,k);
+            yy{i}(count,3) = sum((pref_choices == 1) & (signed_coherence == unique_signed_coherence(j)) & (cue_dir_type == cuedir_combo(i,k)) & select_trials);  % # preferred decisions
+            yy{i}(count,4) = sum((signed_coherence == unique_signed_coherence(j)) & (cue_dir_type == cuedir_combo(i,k)) & select_trials);		% # trials
+            count = count + 1;
+        end
+    end
+    [p_b(i,:), p_dev(i), p_stats{i}] = glmfit([yy{i}(:,1) yy{i}(:,2) yy{i}(:,1).*yy{i}(:,2)],[yy{i}(:,3) yy{i}(:,4)],'binomial');
+    P_p_bias(i) = p_stats{i}.p(3);  % P value for bias
+    P_p_slope(i) = p_stats{i}.p(4);	% P value for slope - well, an interaction between validity and signed_coherence
+end
+i=i+1; %now compute parameters for all three cue direction types
+yy{i}=[]; count=1;
+for j = 1:length(unique_signed_coherence)
+    for k = 1:sum(unique_cue_dir_type~=2)
+        yy{i}(count,1) = unique_signed_coherence(j);
+        yy{i}(count,2) = unique_cue_dir_type(k);
+        yy{i}(count,3) = sum((pref_choices == 1) & (signed_coherence == unique_signed_coherence(j)) & (cue_dir_type == unique_cue_dir_type(k)) & select_trials);  % # preferred decisions
+        yy{i}(count,4) = sum((signed_coherence == unique_signed_coherence(j)) & (cue_dir_type == unique_cue_dir_type(k)) & select_trials); % # trials
+        count = count + 1;
+    end
+end
+[p_b(i,:), p_dev(i), p_stats{i}] = glmfit([yy{i}(:,1) yy{i}(:,2) yy{i}(:,1).*yy{i}(:,2)],[yy{i}(:,3) yy{i}(:,4)],'binomial');
+P_p_bias(i) = p_stats{i}.p(3);  % P value for bias
+P_p_slope(i) = p_stats{i}.p(4);	% P value for slope - well, an interaction between validity and signed_coherence
+    
+%compute fraction correct on cue_only trials
+cue_only_trials = (select_trials & (cue_val==2));
+cue_only_correct = (cue_only_trials & (data.misc_params(OUTCOME, :) == CORRECT) );
+cue_only_pct_corr = sum(cue_only_correct)/sum(cue_only_trials);
+
+for i = 1:length(unique_cue_dir_type)
+    pct_correct(i) = sum(trials_outcomes(cue_dir_type(select_trials)==unique_cue_dir_type(i))) ./ sum(cue_dir_type(select_trials)==unique_cue_dir_type(i));
+end
+
+%classify cell as good-bad-ugly based only on slope p-values from glm fits
+cell_class_names = {'Good','Bad','Ugly','NoBehav'};
+GOOD=1; BAD=2; UGLY=3; NB=4;
+if ~sum(P_p_slope<.05) %if no significant differences in behavioral slopes
+    cell_class_sl = NB;
+elseif ~sum(P_n_slope<.05) %if no significant differences in neurometric slopes
+    cell_class_sl = BAD;
+else
+    diff_pairs = find( (P_p_slope<.05) & (P_n_slope<.05) ); %indices of comparisons with significant differences
+    if length(diff_pairs)==0  %when different comparisons show differences among neural and behavioral thresholds.
+        [dummy, ind_n] = sort(neuron_thresh);
+        [dummy, ind_p] = sort(monkey_thresh);
+        if isequal(ind_p,ind_n) %in this case, only call it good if the order of all 3 validities are the same for monkey/neuron
+            cell_class_sl = GOOD;
+        else
+            cell_class_sl = BAD;
+        end
+    else
+        cell_class_sl = GOOD; %default
+        for i = 1:length(diff_pairs)
+            cuedir1 = find(unique_cue_dir_type==cuedir_combo(i,1));
+            cuedir2 = find(unique_cue_dir_type==cuedir_combo(i,2));
+            n_threshes = [neuron_thresh(cuedir1) neuron_thresh(cuedir2)];
+            p_threshes = [monkey_thresh(cuedir1) monkey_thresh(cuedir2)];
+            if xor(n_threshes(1)>n_threshes(2),p_threshes(1)>p_threshes(2)) %if the bigger value does NOT belong to the same validity,
+                cell_class_sl = UGLY;                                       %then call the cell ugly
+            end
+        end
+    end
+end
+cell_class_names{cell_class_sl};
+%classify cell as good-bad-ugly based on BIAS p-values from glm fits
+cell_class_names = {'Good','Bad','Ugly','NoBehav'};
+GOOD=1; BAD=2; UGLY=3; NB=4;
+if ~sum(P_p_bias<.05) %if no significant differences in behavioral slopes
+    cell_class_bi = NB;
+elseif ~sum(P_n_bias<.05) %if no significant differences in neurometric slopes
+    cell_class_bi = BAD;
+else
+    diff_pairs = find( (P_p_bias<.05) & (P_n_bias<.05) ); %indices of comparisons with significant differences
+    if length(diff_pairs)==0  %when different comparisons show differences among neural and behavioral thresholds.
+        [dummy, ind_n] = sort(neuron_beta);
+        [dummy, ind_p] = sort(monkey_beta);
+        if isequal(ind_p,ind_n) %in this case, only call it good if the order of all 3 validities are the same for monkey/neuron
+            cell_class_bi = GOOD;
+        else
+            cell_class_bi = BAD;
+        end
+    else
+        cell_class_bi = GOOD; %default
+        for i = 1:length(diff_pairs)
+            cuedir1 = find(unique_cue_dir_type==cuedir_combo(i,1));
+            cuedir2 = find(unique_cue_dir_type==cuedir_combo(i,2));
+            n_biases = [neuron_beta(cuedir1) neuron_beta(cuedir2)];
+            p_biases = [monkey_beta(cuedir1) monkey_beta(cuedir2)];
+            if xor(n_biases(1)>n_biases(2),p_biases(1)>p_biases(2)) %if the bigger value does NOT belong to the same validity,
+                cell_class_bi = UGLY;                                       %then call the cell ugly
+            end
+        end
+    end
+end
+cell_class_names{cell_class_bi};
+
+
+%% ********************** PRINT INFO *****************************
+%now, print out some useful information in the upper subplot
+subplot(3, 1, 1);
+PrintGeneralData(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+
+%now, print out some specific useful info.
+xpos = -10; ypos = 25;
+font_size = 8;
+bump_size = 6;
+% for j = 1:sum(unique_cue_val~=2)
+%     line = sprintf('CueStatus = %s, slope = %6.2f, bias = %6.2f%%', ...
+%         names{unique_cue_val(j)+3}, monkey_alpha(j), monkey_beta(j) );
+%     text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+% end
+% line = sprintf(FILE);
+% text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+for j = 1:sum(unique_cue_dir_type~=2)
+%     line = sprintf('Neuron: CueDir = %s, bias = %6.2f%%, thresh = %6.2f%%, %d%% CI = [%6.2f%% %6.2f%%]', ...
+%         cue_dir_type_names{unique_cue_dir_type(j)+3}, neuron_beta(j), neuron_thresh(j), 100*(1-alpha), neuron_bootlog_CI(j,1), neuron_bootlog_CI(j,2));
+    line = sprintf('Neuron: CueDir = %s, bias = %6.2f%% [%6.2f%%,%6.2f%%], thresh = %6.2f%% [%6.2f%%,%6.2f%%]', ...
+        cue_dir_type_names{unique_cue_dir_type(j)+3}, neuron_beta(j), neuron_bootlog_bias_CI(j,1), neuron_bootlog_bias_CI(j,2), neuron_thresh(j), neuron_bootlog_CI(j,1), neuron_bootlog_CI(j,2));
+    text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+end
+% line = sprintf('Monkey Thresholds:');
+% text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+for j = 1:sum(unique_cue_dir_type~=2)
+%     line = sprintf('Monkey: CueDir = %s, bias = %6.2f%%, thresh = %6.2f%%, %d%% CI = [%6.2f%% %6.2f%%]', ...
+%         cue_dir_type_names{unique_cue_dir_type(j)+3}, monkey_beta(j), monkey_thresh(j), 100*(1-alpha), monkey_bootlog_CI(j,1), monkey_bootlog_CI(j,2));
+    line = sprintf('Monkey: CueDir = %s, bias = %6.2f%% [%6.2f%%,%6.2f%%], thresh = %6.2f%% [%6.2f%%,%6.2f%%]', ...
+        cue_dir_type_names{unique_cue_dir_type(j)+3}, monkey_beta(j), monkey_bootlog_bias_CI(j,1), monkey_bootlog_bias_CI(j,2), monkey_thresh(j), monkey_bootlog_CI(j,1), monkey_bootlog_CI(j,2));
+    text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+end
+line = sprintf('Pct Correct:');
+for j = 1:length(unique_cue_val)
+    line = strcat(line, sprintf(' %s = %4.2f%%;',names{unique_cue_val(j)+3},pct_correct(j)*100));
+end
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+line = sprintf('Directions tested: %6.3f, %6.3f deg', unique_direction(1), unique_direction(2) );
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+line = sprintf('Cell Classification by Slope: %s; by Bias: %s', cell_class_names{cell_class_sl}, cell_class_names{cell_class_bi} );
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+% line = pct_str;
+% text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+
+
+output = 1;
+output2 = 1; %categorization data
+if (output)
+    %------------------------------------------------------------------------
+    %write out all relevant parameters to a cumulative text file, VR 11/21/05
+    outfile = [BASE_PATH 'ProtocolSpecific\CuedDirectionDiscrim\NeuroPsycho_CueDir_Curve_summary.dat'];
+    printflag = 0;
+    if (exist(outfile, 'file') == 0)    %file does not yet exist
+        printflag = 1;
+    end
+    fid = fopen(outfile, 'a');
+    if (printflag)
+        fprintf(fid, 'FILE\t PrDir\t PrSpd\t PrHDsp\t RFX\t RFY\t RFDiam\t PdPct\t NeuPct\t NdPct\t CuePct\t P_PdTh\t P_NeuTh\t P_NdTh\t P_PdThCILo\t P_PdThCIHi\t P_NeuThCILo\t P_NeuThCIHi\t P_NdThCILo\t P_NdThCIHi\t P_PdSl\t P_PdBi\t P_PdBiCILo\t P_PdBiCIHi\t P_NeuSl\t P_NeuBi\t P_NeuBiCILo\t P_NeuBiCIHi\t P_NdSl\t P_NdBi\t P_NdBiCILo\t P_NdBiCIHi\t N_PdTh\t N_NeuTh\t N_NdTh\t N_PdThCILo\t N_PdThCIHi\t N_NeuThCILo\t N_NeuThCIHi\t N_NdThCILo\t N_NdThCIHi\t N_PdSl\t N_PdBi\t N_PdBiCILo\t N_PdBiCIHi\t N_NeuSl\t N_NeuBi\t N_NeuBiCILo\t N_NeuBiCIHi\t N_NdSl\t N_NdBi\t N_NdBiCILo\t N_NdBiCIHi\t MaxCoher\t Ntrials\t');
+        fprintf(fid, '\r\n');
+        printflag = 0;
+    end
+    pd = find(unique_cue_dir_type==1);  neu = find(unique_cue_dir_type==0);
+    nd = find(unique_cue_dir_type==-1); cue = find(unique_cue_dir_type==2);
+    buff = sprintf('%s\t %6.1f\t %6.2f\t %6.3f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.1f\t %4d\t',...
+        FILE, data.neuron_params(PREFERRED_DIRECTION, 1), data.neuron_params(PREFERRED_SPEED, 1), data.neuron_params(PREFERRED_HDISP, 1), data.neuron_params(RF_XCTR, 1), data.neuron_params(RF_YCTR, 1), data.neuron_params(RF_DIAMETER, 1),...
+        pct_correct(pd)*100,pct_correct(neu)*100,pct_correct(nd)*100,pct_correct(cue)*100,...
+        monkey_thresh(pd),monkey_thresh(neu),monkey_thresh(nd), monkey_bootlog_CI(pd,1),monkey_bootlog_CI(pd,2),...
+        monkey_bootlog_CI(neu,1),monkey_bootlog_CI(neu,2),monkey_bootlog_CI(nd,1),monkey_bootlog_CI(nd,2),...
+        monkey_alpha(pd),monkey_beta(pd),monkey_bootlog_bias_CI(pd,1),monkey_bootlog_bias_CI(pd,2),...
+        monkey_alpha(neu),monkey_beta(neu),monkey_bootlog_bias_CI(neu,1),monkey_bootlog_bias_CI(neu,2),...
+        monkey_alpha(nd),monkey_beta(nd),monkey_bootlog_bias_CI(nd,1),monkey_bootlog_bias_CI(nd,2),...
+        neuron_thresh(pd),neuron_thresh(neu),neuron_thresh(nd), neuron_bootlog_CI(pd,1),neuron_bootlog_CI(pd,2),...
+        neuron_bootlog_CI(neu,1),neuron_bootlog_CI(neu,2),neuron_bootlog_CI(nd,1),neuron_bootlog_CI(nd,2),...
+        neuron_alpha(pd),neuron_beta(pd),neuron_bootlog_bias_CI(pd,1),neuron_bootlog_bias_CI(pd,2),...
+        neuron_alpha(neu),neuron_beta(neu),neuron_bootlog_bias_CI(neu,1),neuron_bootlog_bias_CI(neu,2),...
+        neuron_alpha(nd),neuron_beta(nd),neuron_bootlog_bias_CI(nd,1),neuron_bootlog_bias_CI(nd,2),...
+        max(unique_coherence),(1+EndTrial-BegTrial) );
+    %buff = sprintf('%s\t %6.1f\t %6.2f\t %6.3f\t %6.2f\t %6.2f\t %6.2f\t %6.3f\t %6.4f\t %6.3f\t %6.3f\t %4d\t %6.3f\t %5d\t', ...
+    %    FILE, data.neuron_params(PREFERRED_DIRECTION, 1), data.neuron_params(PREFERRED_SPEED, 1), data.neuron_params(PREFERRED_HDISP, 1), data.neuron_params(RF_XCTR, 1), data.neuron_params(RF_YCTR, 1), data.neuron_params(RF_DIAMETER, 1),...
+    %    monkey_alpha,monkey_beta,unique_direction(1), unique_direction(2), (1+ EndTrial - BegTrial), unique_coherence(length(unique_coherence)), stim_duration );
+    fprintf(fid, '%s', buff);
+    fprintf(fid, '\r\n');
+    fclose(fid);
+    %------------------------------------------------------------------------
+end
+
+if (output2)
+    %------------------------------------------------------------------------
+    %write out all relevant parameters to a cumulative text file, VR 11/21/05
+    outfile = [BASE_PATH 'ProtocolSpecific\CuedDirectionDiscrim\NP_CueDir_Classify_summary.dat'];
+    printflag = 0;
+    if (exist(outfile, 'file') == 0)    %file does not yet exist
+        printflag = 1;
+    end
+    fid = fopen(outfile, 'a');
+    if (printflag)
+        fprintf(fid, 'FILE\t Class_Sl\t Class_Bi\t P_sl_pvals\t SlPpP0\t SlPpPN\t SlPp0N\t P_bi_pvals\t BiPpP0\t BiPpPN\t BiPp0N\t N_sl_pvals\t SlNpP0\t SlNpPN\t SlNp0N\t N_bi_pvals\t BiNpP0\t BiNpPN\t BiNp0N\t P_PdTh\t P_NeuTh\t P_NdTh\t P_PdSl\t P_PdBi\t P_NeuSl\t P_NeuBi\t P_NdSl\t P_NdBi\t N_PdTh\t N_NeuTh\t N_NdTh\t N_PdSl\t N_PdBi\t N_NeuSl\t N_NeuBi\t N_NdSl\t N_NdBi\t MaxCoher\t Ntrials\t');
+        fprintf(fid, '\r\n');
+        printflag = 0;
+    end
+    pd = find(unique_cue_dir_type==1);  neu = find(unique_cue_dir_type==0);
+    nd = find(unique_cue_dir_type==-1); cue = find(unique_cue_dir_type==2);
+    buff = sprintf('%s\t %s\t %s\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.5f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.1f\t %4d\t',...
+        FILE, cell_class_names{cell_class_sl}, cell_class_names{cell_class_bi},...
+        circshift(P_p_slope,[1 1]), circshift(P_p_bias,[1 1]), circshift(P_n_slope,[1 1]), circshift(P_n_bias,[1 1]), ...
+        monkey_thresh(pd),monkey_thresh(neu),monkey_thresh(nd), ...
+        monkey_alpha(pd),monkey_beta(pd), monkey_alpha(neu),monkey_beta(neu), monkey_alpha(nd),monkey_beta(nd), ...
+        neuron_thresh(pd),neuron_thresh(neu),neuron_thresh(nd), ...
+        neuron_alpha(pd),neuron_beta(pd), neuron_alpha(neu),neuron_beta(neu), neuron_alpha(nd),neuron_beta(nd), ...
+        max(unique_coherence),(1+EndTrial-BegTrial) );
+    fprintf(fid, '%s', buff);
+    fprintf(fid, '\r\n');
+    fclose(fid);
+    %------------------------------------------------------------------------
+end
+
+
+
+SAVE_FIGS = 0;
+if (SAVE_FIGS)
+    saveas(hlist, sprintf('%s_NP_curves.fig',FILE),'fig');
+end
+
+return

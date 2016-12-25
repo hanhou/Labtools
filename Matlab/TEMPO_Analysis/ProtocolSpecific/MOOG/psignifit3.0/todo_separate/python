@@ -1,0 +1,19 @@
+- optimize automatic proposal distribution generation
+- enable fixing the guessing rate to an arbitrary value (? which?)        <- This is actually possible by putting a strong prior on the guessing rate...
+- what is going on with type checking in psigniplot.GoodnessOfFit?
+- add a dictionary to the data objects to make them know what they are (stimulus intensity, ...)
+- ROC curves for 1AFC
+- allow for the gamma=lambda prior
+
+- Blob size reduction for PF
+- Deviance Bootstrap only one sided test
+- Error bars on PF. Simply streched bars? (Not sure what is meant)
+- 68 Confidence Interval
+- In 3d/4d, we could also integrate the posterior without monte carlo methods. Advantage: We get a somehow analytical formula for the posterior. Disadvantage: Might still take quite long and complicates things like CI estimation. In addition, it would be difficult to estimate the errors originating from the fact that we approximate |R by a compact interval.
+- Plot MCMC diagnostics  for all parameters (Not sure what is meant)
+- Plot the blue line on top of all the white ones, in the diagnostic plot.
+- Alternative view: Shaded region of the posterior instead of 20 sample PFs
+- In diagnostic plots, evtl. ad a message on top (what does this mean)
+- Replace "model correction" with psi(x) or psi(stimulus intensity) (for people with less elaborated statistics background)
+- Influence for Slope and Influence for Threshold seperately instead of using an
+  aggregation in the Plot for the Influential Observers.

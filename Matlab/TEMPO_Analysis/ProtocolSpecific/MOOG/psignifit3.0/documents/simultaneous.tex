@@ -1,0 +1,202 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc}
+
+\title{Informed priors and quasi-simultaneous inference for psychometric functions}
+\author{Ingo Fründ}
+\date{\today}
+
+\def\prob{\mathbb{P}}
+
+\begin{document}
+
+\maketitle
+% Your text here
+When fitting psychometric functions, we are often interested in summarizing the performance of observers in as few numbers as possible.
+Of particular interest is a summary of the performance that consists of a single parameter, the threshold.
+Unfortunately, comparisons of psychophysical thresholds are only meaningful if other parameters of the psychometric functions --- such as slope and lapse rate --- are constant across conditions.
+Here, I demonstrate how priors can be derived that incorporate the information from other conditions.
+If these priors are used in bayesian inference of psychometric functions, this allows for quasi-simultaneous fits that constrain parameters to be constant across conditions.
+
+\section{A simple example}
+
+We start with a simple example to illustrate the basic idea behind the approach.
+Assume, we colleted data $X_i$ under two different conditions $i\in\{1,2\}$.
+We want to model these data depending on a parameter $\theta$.
+In principle, $\theta$ might differ between the two conditions, but we will assume here, that $\theta_1=\theta_2$.
+In this particular case, we can write down the posterior distribution of $\theta$:
+%
+$$
+\prob(\theta|X_1,X_2) \propto \prob(X_1,X_2|\theta) \prob(\theta) = \prob(X_1|\theta)\prob(X_2|\theta)\prob(\theta),
+$$
+%
+Where the second equality holds under the assumption that the two conditions are independent.
+
+In practical applications, we will typically not be able to write down $\prob(\theta|X_1,X_2)$ directly.
+Thus, we will have to resort to sampling strategies to explore $\prob(\theta|X_1,X_2)$.
+The strategy in this case is therefore to perform two sampling stages.
+In the first sampling run, we derive proper priors for the parameter $\theta$ and in the second sampling run, we use these priors to perform the true analysis.
+
+For the first sampling run, we employ an improper uniform prior, that is $\prob(\theta)=\kappa$ for all $\theta$ and a fixed $\kappa$.
+We then use MCMC to generate a sample $(\theta_{1i})_{i=1}^m$ of size $m$ from $\prob(\theta|X_1)\propto\prob(X_1|\theta)\cdot\kappa$ and another sample
+$(\theta_{2i})_{i=1}^m$ from $\prob(\theta|X_2)\propto\prob(X_2|\theta)\cdot\kappa$.
+We now fit a parametric model to each sample and use these model as priors for the second sampling run.
+Denote the parametric model fitted to $(\theta_{1i})$ by $f_1$ and the parametric model fitted to $(\theta_{2i})$ by $f_2$.
+Then approximate samples from the simultaneous model can be obtained by sampling either
+%
+$$
+\prob(\theta|X_1,X_2) \propto\prob(X_1|\theta)f_2(\theta),
+$$
+%
+or
+%
+$$
+\prob(\theta|X_1,X_2) \propto\prob(X_2|\theta)f_1(\theta).
+$$
+%
+
+\section{Constant parameters}
+
+I will now expand the above strategy to the case in which the model has more than a single parameter.
+Let us think about a model with three parameters, $\theta$, $\vartheta_1$, $\vartheta_2$.
+As the notation already suggests,  $\theta$ shall be assumed fixed across conditions, while $\vartheta_1$ and $\vartheta_2$ depend on the
+experimental condition.
+Again, we write down the posterior distribution
+%
+\begin{align*}
+\prob(\theta,\vartheta_1,\vartheta_2|X_1,X_2) &=\prob(\theta|X_1,X_2)\prob(\vartheta_1,\vartheta_2|X_1,X_2)\\
+&= \prob(\theta|X_1,X_2)\prob(\vartheta_1|X_1)\prob(\vartheta_2|X_2),
+\end{align*}
+%
+Where the first equality requires $\theta$ to be independent of $\vartheta_1$ and $\vartheta_2$.
+That means, the parameter we want constraint to be equal across conditions necessarily has to be independent of the other parameters!
+The second equality is valid if $\vartheta_1$ depends only on the data $X_1$ and $\vartheta_2$ depends only on the data $X_2$.
+This is a rather plausible condition.
+
+We can now use the same trick as above to derive priors for $\theta$ by drawing samples $(\theta_{1i})_{i=1}^m$ from $\prob(\theta,\vartheta_1|X_1)\cdot\kappa$
+and $(\theta_{2i})_{i=1}^m$ from $\prob(\theta,\vartheta_2|X_2)\cdot\kappa$.
+Then, we fit the marginal distributions of $(\theta_{1i})$ and $(\theta_{2i})$ to obtain expressions for $f_1$ and $f_2$.
+In a second sampling run, we can then perform quasi simultaneous sampling using
+%
+$$
+\prob(\theta,\vartheta_1|X_1,X_2) \propto\prob(X_1|\theta,\vartheta_1)f_2(\theta)\prob(\vartheta_1),
+$$
+%
+and
+%
+$$
+\prob(\theta,\vartheta_2|X_1,X_2) \propto\prob(X_2|\theta,\vartheta_2)f_1(\theta)\prob(\vartheta_2).
+$$
+%
+
+\section{More than two conditions}
+
+The extension of these ideas to cases with more than two conditions is straight forward:
+In the first sampling run, we determine the prior densities $f_j, j=1,\dots,n$ from each dataset $X_j$ in isolation.
+We then combine the $f_j$ in order to sample
+%
+\begin{equation}
+    \label{eq:allcombined}
+\prob(\theta,\vartheta_j|X_j, j=1,\dots,n) \propto\prob(X_j|\vartheta_j,\theta) \prob(\vartheta_j) \prod_{\underset{\ell\neq j}{\ell=1}}^n f_\ell ( \theta ),
+\end{equation}
+%
+in isolation for each $j=1,\dots,n$.
+Thus, the product $\prod_{\underset{\ell\neq j}{\ell=1}}^n f_\ell ( \theta )$ can be taken as a prior that incorporates prior knowledge about the other psychometric functions in the design.
+
+\section{Specific choices of fitted posteriors}
+
+Here, we will highlight reasonable choices to fit the posterior distributions and we will demonstrate, how these choices imply a closed functional form for the product prior in equation \eqref{eq:allcombined}.
+
+\subsection{Fitting posterior distributions for scale parameters}
+
+In order to compare, thresholds obtained from different conditions, it is typically required that the slopes across all these conditions are equal.
+Although threshold comparisons are possible with unequal slopes, too, it is far more complicated to arrive at valid conclusions from these comparisons.
+In psignifit, many parameterizations of the psychometric functions do not explicitely specify the slope of the psychometric function but instead have a parameter that is somehow related to the inverse slope.
+Posterior distributions for this parameter often resemble a Gamma distribution, i.e. the seem to have a density of the form
+%
+\begin{equation}
+    \label{eq:GammaDensity}
+    f ( x | k, \theta ) = x^{k-1} \frac{\exp(-x/\theta)}{\Gamma(k)\theta^k}.
+\end{equation}
+%
+We now assume that we have fitted this density (using for instance maximum likelihood) to a set of $n$ sampled posteriors from different conditions and we want to derive the product prior for the $n+1$-th condition.
+The product prior has the density
+%
+\begin{align*}
+    \bar{f}(x) &= \prod_{j=1}^n f_j(x) = \prod_{j=1}^n x^{k_j-1} \frac{\exp(-x/\theta_j)}{\Gamma(k_j)\theta_j^{k_j}} \\
+    &\propto \prod_{j=1}^n x^{k_j-1} \exp(-x/\theta_j) \\
+    &= x^{\sum_{j=1}^n k_j-1} \exp(-x\sum_{j=1}^n \frac{1}{\theta_j}) \\
+    &= x^{\bar{k}-1} \exp(-x/\bar{\theta}),
+\end{align*}
+%
+where we set
+%
+$$
+\bar{k} := 1 + \sum_{j=1}^n k_j-1,
+$$
+%
+and
+%
+$$
+\bar{\theta} := \Big( \sum_{j=1}^n \frac{1}{\theta_j} \Big)^{-1}.
+$$
+%
+Thus, the product prior is again a Gamma distribution with parameters $\bar{k}$ and $\bar{\theta}$!
+
+\subsection{Fitting posterior distributions for rates}
+
+The psychometric function model includes two rate parameters, the guessing rate $\gamma$ that describes the lower asymptote and the lapse rate $\lambda$ that describes the upper asymptote.
+A very reasonable model for rates is the Beta distribution (cite Ferrari?).
+The Beta distribution lives on the unit interval $(0,1)$ and takes the density
+%
+\begin{equation}
+    f ( x | \alpha, \beta ) = \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)} x^{\alpha-1} (1-x)^{\beta-1}.
+    \label{eq:BetaDensity}
+\end{equation}
+%
+Here, we can use the same trick as with the Gamma distribution to derive a sensible product prior:
+We assume that we fitted $n$ sets of parameters $(\alpha_j,\beta_j)_{j=1}^n$ and want to combine these to obtain a prior for the $n+1$-th condition.
+The product prior in this case is
+%
+\begin{align*}
+    \bar{f}(x) &= \prod_{j=1}^n f_j(x) = \prod_{j=1}^n \frac{\Gamma(\alpha_j+\beta_j)}{\Gamma(\alpha_j)\Gamma(\beta_j)} x^{\alpha_j-1} (1-x)^{\beta_j-1}\\
+    &\propto \prod_{j=1}^n x^{\alpha_j-1} (1-x)^{\beta_j-1} \\
+    &= x^{\sum_{j=1}^n \alpha_j-1} (1-x)^{\sum_{j=1}^n\beta_j-1} \\
+    &= x^{\bar{\alpha}-1} (1-x)^{\bar{\beta}-1},
+\end{align*}
+%
+where $\bar{\alpha}:= 1+ \sum_{j=1}^n\alpha_j-1$ and $\bar{\beta}:=1+\sum_{j=1}^n\beta_j-1$.
+
+Thus, the product prior in this case, is again a Beta distribution, with parameters $\bar{\alpha}$ and $\bar{\beta}$.
+
+\subsection{Fitting posterior distributions for thresholds}
+
+In some, very rare situations, we might also be interested in having equal posterior distributions for thresholds.
+A reasonable approximation for posterior threshold distributions is often the Normal distribution.
+Interestingly, the procedure used to derive the product prior in the preceeding paragraphs does not work well for the Normal distribution.
+Assume, we fitted the posteriors in conditions $j=1,\dots,n$ with Normal densities $(f_j)_{j=1}^n$ with parameters $(\mu_j,\sigma_j)_{j=1}^n$.
+The product is then
+%
+\begin{align*}
+    \bar{f}(x) &= \prod_{j=1}^n f_j(x) = \prod_{j=1}^n \frac{1}{\sqrt{2\pi}\sigma_j} \exp ( - \frac{(x-\mu_j)^2}{2\sigma_j^2})\\
+    &\propto \prod_{j=1}^n \exp ( - \frac{(x-\mu_j)^2}{2\sigma_j^2})\\
+    &= \exp ( - \sum_{j=1}^n \frac{(x-\mu_j)^2}{2\sigma_j^2} ) \\
+    &= \exp ( - \frac{1}{2} \big( \sum_{j=1}^n \frac{x^2}{\sigma_j^2} - \sum_{j=1}^n 2\frac{x\mu_j}{\sigma_j^2} + \sum_{j=1}^n \frac{\mu_j^2}{\sigma_j^2} \big) )\\
+    &\propto\exp ( - \frac{1}{2} \big( \sum_{j=1}^n \frac{x^2}{\sigma_j^2} - \sum_{j=1}^n 2\frac{x\mu_j}{\sigma_j^2}\big) ) \\
+    &= \exp ( - \frac{1}{2} \big( x^2\sum_{j=1}^n \frac{1}{\sigma_j^2} - 2x\sum_{j=1}^n 2\frac{\mu_j}{\sigma_j^2} \big) ) \\
+    &= \exp ( - \frac{1}{2} \underbrace{\sum_{j=1}^n \frac{1}{\sigma_j^2}}_{=:\bar{\sigma}^{-2}} \big( x^2 - 2x\underbrace{\frac{\sum_{j=1}^n \frac{\mu_j}{\sigma_j^2}}{\sum_{j=1}^n \frac{1}{\sigma_j^2}}}_{=:\bar{\mu}}\big) ) \\
+    &\propto \frac{1}{\sqrt{2\pi}\bar{\sigma}} \exp( - \frac{(x-\bar{\mu})^2}{2\bar{\sigma}^2}).
+\end{align*}
+%
+Thus, comparing coefficients with the Normal density, we end up with a new Normal distribution with parameters
+%
+$$
+\bar{\sigma}^2 := \big(\sum_{j=1}^n \frac{1}{\sigma_j^2}\big)^{-1},
+$$
+%
+$$
+\bar{\mu} := \frac{\sum_{j=1}^n\frac{\mu_j}{\sigma_j^2}}{\sum_{j=1}^n\frac{1}{\sigma_j^2}}.
+$$
+%
+\end{document}

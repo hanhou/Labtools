@@ -1,0 +1,2 @@
+useDynLib (rpsignifit)
+export(PsigniSetup,bootstrap.goodness.of.fit,bayes.goodness.of.fit,MAPestimation,PsigBootstrap,PsigBayes,PsigDiagnostics,PsigEvaluate)

@@ -1,0 +1,139 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc}
+
+\title{Correction of confidence limits for bad observers}
+\author{Ingo Fründ}
+\date{\today}
+
+\def\Binomial{\operatorname{Binom}}
+\def\Beta{\operatorname{Beta}}
+\def\p{\partial}
+
+\begin{document}
+
+\maketitle
+% Your text here
+Assume we have sampled detection data from an observer at $m$ different intensity levels $(x_i)_{i=1}^m$.
+At each intensity level a number of $n_i$ trials was presented and the observer made $k_i$ correct responses (or reported $k_i$ detections or \dots), $i=1,\dots,m$.
+Typically, we would model $k_i$ using a binomial distribution as
+%
+\begin{equation}
+    \label{eq:1}
+    k_i \sim \Binomial ( n_i, \Psi( x_i | \theta ) ).
+\end{equation}
+%
+This is a useful model to obtain point estimates of the parameter vector $\theta$.
+In using equation \eqref{eq:1} we implicitely assume that the $n_i$ trials at stimulus level $x_i$ are statistically independent.
+Unfortunately, this is not necessarily the case in real psychophysical data.
+
+If trials depend on each others, the effective number of trials will be lower:
+With sufficiently strong dependencies, it will eventually be possible to predict the outcome on some trials from the outcome on other trials.
+In that case, the predicted trials will add no further information to the estimated parameter vector $\theta$.
+In particular estimates of the variance of $\theta$ are based on the number of trials that added information to the estimation process.
+If there have been less trials than we actually thought, the variance will be underestimated.
+I am going to present a method to estimate the reduction of independent trials and suggest two ways to correct credibility intervals for $\theta$.
+
+We believe that instead of $n_i$ trials, we actually only recorded $\nu n_i$ trials at stimulus level $x_i$, $\nu\in(0,1)$.
+We assume that inter-trial dependencies do not depend on the stimulus level $x_i$.
+Thus, we assume a scalar factor $\nu$.
+
+To determine $\nu$, we consider residuals of the model \eqref{eq:1}:
+%
+$$
+r_i = \frac{k_i}{n_i} - \Psi ( x_i | \theta )
+$$
+%
+A sensible model for the residuals is the beta distribution,
+%
+$$
+\Beta ( \alpha_i, \beta_i ),\quad\alpha_i,\beta_i>0.
+$$
+%
+The beta distribution $\Beta (\alpha,\beta)$, can be interpreted as the posterior distribution for the success probability of a binomial model
+after observing $\alpha-1$ successes and $\beta-1$ failures.
+We can thus write from equation \eqref{eq:1} (with the number of trials as $\nu n_i$)
+%
+\begin{equation}
+    p_i := \frac{k_i}{n_i} \sim \Beta ( \alpha_i, \beta_i ) = \Beta \big( \Psi(x_i|\theta)\nu n_i, (1-\Psi(x_i|\theta))\nu n_i\big).
+    \label{eq:2}
+\end{equation}
+%
+If we know a value for $\theta$, this distribution still depends on one free parameter $\nu$.
+To derive a correction factor $\nu$, we can fix $\theta=\hat{\theta}$ at the (constrained) maximum likelihood estimate of $\theta$ based
+on the assumption of binomial variance, i.e. equation \eqref{eq:1}.
+The log likelihood function for $\nu$ is then
+%
+\begin{equation}
+    \begin{split}
+\ell (\nu) &= \sum_{i=1}^m \log ( f ( p_i; \hat{\Psi}_i, \nu n_i) ) \\
+&= \sum_{i=1}^m \log ( \Gamma ( \nu n_i+2)) - \log ( \Gamma ( \hat{\Psi}_i \nu n_i +1 ) ) - \log ( \Gamma ( (1-\hat{\Psi}_i) \nu n_i + 1 )) \\
+&\qquad + \hat{\Psi}_i \nu n_i \log (p_i) + (1-\hat{\Psi}_i) \nu n_i \log ( 1-p_i).
+\end{split}
+\label{eq:3}
+\end{equation}
+%
+Here, we set $f: (0,1) \to \mathbb{R}^+$ as the densitiy of the beta distribution parameterized in terms of observed success rate and total number of trials,
+and $\hat{\Psi}_i := \Psi ( x_i | \hat{\theta} )$.
+
+Analytical maximization of $\ell ( \nu)$ is difficult due to the $\Gamma$ function.
+In particular, the derivative of equation \eqref{eq:3} involves the digamma function of 0-th order $\psi_0 = \frac{d}{dx} \log\Gamma(x)$:
+%
+\begin{equation}
+    \begin{split}
+        \frac{\p\ell}{\p \nu} (\nu) &= \sum_{i=1}^m n\psi_0 ( \nu n_i + 2 )
+            - \hat{\Psi}_i n_i \psi_0 ( \nu \hat{\Psi}_i n_i + 1)
+            - (1-\hat{\Psi}_i) n_i \psi_0 ( \nu (1-\hat{\Psi}_i) n_i + 1) \\
+            &\qquad + \hat{\Psi}_i n_i \log (p_i) + (1-\hat{\Psi}_i) n_i log (1-p_i).
+    \end{split}
+    \label{eq:4}
+\end{equation}
+%
+To find a maximum of $\ell$, we can use newton iterations of the form
+%
+$$
+\nu_0=1,\quad\nu_{k+1} = \nu_{k} - \frac{\ell\prime(\nu_k)}{\ell\prime\prime(\nu_k)},
+$$
+%
+where $\ell\prime := \p\ell/\p\nu$ and
+%
+\begin{equation}
+    \begin{split}
+        \ell\prime\prime ( \nu ) &:= \frac{\p^2\ell}{\p\ell^2} ( \nu) \\
+        &= \sum_{i=1}^m n_i^2 \psi_1 ( \nu n_i + 2 ) - \hat{\Psi}_i^2 n_i^2 \psi_1 ( \nu \hat{\Psi}_i n_i + 1 ) - (1-\hat{\Psi}_i)^2 n_i^2 \psi_1 ( \nu (1-\hat{\Psi}_i) n_i + 1 )
+    \end{split}
+    \label{eq:5}
+\end{equation}
+%
+After a couple of steps, $\nu_k$ should be a reasonably good estimate of $\nu^*$, the desired maximum.
+
+We can use the estimated value $\nu^*$ in two ways to correct the confidence intervals:
+%
+\begin{enumerate}
+    \item We modify our data and set
+        $$
+        k_i\mapsto \lfloor\nu^* k_i\rfloor,\quad n_i\mapsto \lfloor\nu^* n_i\rfloor,\quad i=1,\dots,m.
+        $$
+        Here $\lfloor x\rfloor, x\in\mathbb{R}$ is the largest integer $n\leq x$.
+        With these modified trial numbers, we perform inference as usual, i.e. we determine confidence intervals based on bootstrap or determine
+        a posterior distribution.
+    \item We modify our confidence limits
+        %
+        $$
+        c \mapsto \frac{c-\hat{\theta}}{\sqrt{\nu}} + \hat{\theta},
+        $$
+        %
+        where $c$ is the desired confidence limit.
+        For Bayesian inference, we will typically have to scale every sample $\theta^{(j)}$ according to
+        %
+        $$
+        \theta^{(j)} \mapsto \frac{\theta^{(j)} - \hat{\theta}}{\sqrt{\nu}} + \hat{\theta}.
+        $$
+        %
+\end{enumerate}
+%
+It is not obvious, which strategy provides better coverage.
+This should be tested in simulations.
+
+\end{document}

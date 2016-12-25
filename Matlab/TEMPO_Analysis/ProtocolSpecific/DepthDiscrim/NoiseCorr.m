@@ -1,0 +1,145 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- NoiseCorr.m -- Calculates noise correlation between 2 different spike channels.
+%--	TU, 4/18/03
+%-----------------------------------------------------------------------------------------------------------------------
+function [NoiseCorr, NoiseCorrPval] = NoiseCorr(data, Protocol, Analysis, SpikeChan, SpikeChan2, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+TEMPO_Defs;		%needed for defines like IN_T1_WIN_CD
+Path_Defs;
+ProtocolDefs;	%needed for all protocol specific functions - contains keywords - BJP 1/4/01
+
+%define the 2 spike channels to compare.
+%SpikeChan1 = 1;   
+%SpikeChan2 = 3;
+SpikeChan1 = SpikeChan;   
+SpikeChan2 = SpikeChan2;
+
+Pref_HDisp = data.one_time_params(PREFERRED_HDISP);
+
+%get the column of values of horiz. disparities in the dots_params matrix
+h_disp = data.dots_params(DOTS_HDISP,:,PATCH1);
+unique_hdisp = munique(h_disp');
+
+%get the binocular correlations
+binoc_corr = data.dots_params(DOTS_BIN_CORR, :, PATCH1);
+unique_bin_corr = munique(binoc_corr');
+
+%get signed binocular correlations
+sign = (h_disp == Pref_HDisp)*2 - 1;	%=1 if preferred disparity, -1 if null disparity
+signed_bin_corr = binoc_corr .* sign;
+unique_signed_bin_corr = munique(signed_bin_corr');
+
+%now, get the firing rates for all the trials for each spike channel
+spike_rates1 = data.spike_rates(SpikeChan1, :);
+spike_rates2 = data.spike_rates(SpikeChan2, :);
+%start_offset = -200; % start of calculation relative to stim onset, ms
+%window_size = 200;  % window size, ms
+%spike_rates = ComputeSpikeRates(data, length(h_disp), StartCode, StartCode, start_offset+30, start_offset+window_size+30);
+    
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (binoc_corr == data.one_time_params(NULL_VALUE)) );
+
+%now, select trials that fall between BegTrial and EndTrial
+trials = 1:length(binoc_corr);		% a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+%get the random seed for each trial of the Patch1 dots
+%check to see if there is a fixed seed and store this for later if there is.
+if (size(data.dots_params,1) >= DOTS_BIN_CORR_SEED)  %for backwards compatibility with old files that lack this
+    seeds = data.dots_params(DOTS_BIN_CORR_SEED, :, PATCH1);
+    select_fixed_seeds = logical(seeds == data.one_time_params(FIXED_SEED));
+else 
+    select_fixed_seeds = [];
+end
+if (sum(select_fixed_seeds) >= 1)
+    fixed_seed = data.one_time_params(FIXED_SEED);
+else
+    fixed_seed = NaN;
+end
+
+
+%now, Z-score the spike rates for each bin_corr and disparity condition
+%These Z-scored responses will be used to calculate noise correlation
+Z_Spikes1 = spike_rates1;
+Z_Spikes2 = spike_rates2;
+for i=1:length(unique_bin_corr)
+    for j=1:length(unique_hdisp)
+        select = (binoc_corr == unique_bin_corr(i)) & (h_disp == unique_hdisp(j));
+        z_dist1 = spike_rates1(select);
+        z_dist1 = (z_dist1 - mean(z_dist1))/std(z_dist1);
+        Z_Spikes1(select) = z_dist1;
+
+        z_dist2 = spike_rates2(select);
+        z_dist2 = (z_dist2 - mean(z_dist2))/std(z_dist2);
+        Z_Spikes2(select) = z_dist2;
+    end
+end
+
+%high-pass filter the Z-scored responses
+Filt_Zspikes1 = FIR_Filter(Z_Spikes1, 20, 100, 'high', 20, 0);
+Filt_Zspikes2 = FIR_Filter(Z_Spikes2, 20, 100, 'high', 20, 0);
+Filt_Zspikes1 = Filt_Zspikes1(11:length(Filt_Zspikes1));
+Filt_Zspikes2 = Filt_Zspikes2(11:length(Filt_Zspikes2));
+
+%[Z_R,Z_P]=CORRCOEF(Z_Spikes1,Z_Spikes2);
+[Z_R,Z_P]=CORRCOEF(Filt_Zspikes1,Filt_Zspikes2);
+  
+figure;
+%plot(Z_Spikes1', Z_Spikes2', 'ro');
+plot(Filt_Zspikes1', Filt_Zspikes2', 'ro');
+
+%figure;
+%plot(trials, Z_Spikes2, 'b');
+%hold on;
+%plot(trials, Filt_Zspikes2, 'r');
+
+%calculate noise correlation for VAR and NOVAR conditions separetely
+if isnan(fixed_seed)	% this run didn't have NOVAR conditions
+else    
+    if (unique_hdisp(1) == Pref_HDisp)
+        select = (binoc_corr == unique_bin_corr(1)) & (h_disp == unique_hdisp(1));
+        NOVAR_dist1 = spike_rates1(select);
+        NOVAR_dist2 = spike_rates2(select);
+        [NOVAR_R, NOVAR_P]=CORRCOEF(NOVAR_dist1, NOVAR_dist2);
+        
+        select = (binoc_corr == unique_bin_corr(1)) & (h_disp == unique_hdisp(2));
+        VAR_dist1 = spike_rates1(select);
+        VAR_dist2 = spike_rates2(select);
+        [VAR_R, VAR_P]=CORRCOEF(VAR_dist1, VAR_dist2);
+    else
+        select = (binoc_corr == unique_bin_corr(1)) & (h_disp == unique_hdisp(2));
+        NOVAR_dist1 = spike_rates1(select);
+        NOVAR_dist2 = spike_rates2(select);
+        [NOVAR_R, NOVAR_P]=CORRCOEF(NOVAR_dist1, NOVAR_dist2);
+        
+        select = (binoc_corr == unique_bin_corr(1)) & (h_disp == unique_hdisp(1));
+        VAR_dist1 = spike_rates1(select);
+        VAR_dist2 = spike_rates2(select);
+        [VAR_R, VAR_P]=CORRCOEF(VAR_dist1, VAR_dist2);                
+    end
+end
+
+    
+%-----------------------------------------------------------------------------------------------------------------------------------------------------------
+%now print out some summary parameters to the screen and to a cumulative file
+if isnan(fixed_seed)	% this run didn't have NOVAR conditions
+    str = sprintf('%s %6.2f %6s %6s %6.4f', FILE, unique_bin_corr(1), '--', '--', Z_R(1,2));      
+else
+    str = sprintf('%s %6.2f %6.4f %6.4f %6.4f', FILE, unique_bin_corr(1), VAR_R(1,2), NOVAR_R(1,2), Z_R(1,2));      
+end
+
+printflag = 0;
+outfile = [BASE_PATH 'ProtocolSpecific\DepthDiscrim\MUnoisecorr.dat'];
+if (exist(outfile, 'file') == 0)    %file does not yet exist
+    printflag = 1;
+end
+fsummid = fopen(outfile, 'a');
+if (printflag)
+    fprintf(fsummid, 'FILE\t lo_corr\t NCvar\t NCnovar\t NCZspikes\t');
+    fprintf(fsummid, '\r\n');
+end
+fprintf(fsummid, str);
+fprintf(fsummid, '\r\n');
+fclose(fsummid);
+
+return;

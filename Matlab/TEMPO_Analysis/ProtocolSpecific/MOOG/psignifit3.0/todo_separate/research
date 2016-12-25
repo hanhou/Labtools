@@ -1,0 +1,3 @@
+- Nonstationarity for single trials (e.g. randomized presentations, conditions interleaved)
+- Determine a prior that is "flat in function space" i.e. with flat slope. Can we feed back the derivative information to determine this prior analytically?
+- Blockwise adaptive

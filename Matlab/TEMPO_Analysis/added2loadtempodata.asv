@@ -1,0 +1,30 @@
+l = length(FILE);
+lpt=length(PATH);
+
+for i=lpt:1
+    if
+
+if (FILE(l-3:l) == '.htb')	% .htb extension already there
+    myfilename = [PATH 'Plexon\sorted\' FILE(1:l-3) 'bplx'];
+else
+    myfilename = [PATH 'Plexon\sorted\' FILE '.bplx'];   %the HTB data file
+end
+
+if (exist(myfilename,'file'))
+    fid=fopen(myfilename,'r');
+    fseek(fid,-4*3,'eof');
+    mysize=fread(fid,3,'int');
+    
+    mydata=ones(mysize(1),mysize(2),mysize(3));
+    
+    fseek(fid,0,'bof');
+    for i=1:mysize(1)
+        for j=1:mysize(2)
+            for k=1:mysize(3)
+                mydata(i,j,k)=fread(fid,1,'uchar');
+            end
+        end
+    end
+    fclose(fid);
+    good_data.spike_data=[good_data.spike_data;mydata];
+end

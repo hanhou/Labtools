@@ -1,0 +1,54 @@
+
+
+Combine Database record: 05-May-2014 11:38:43
+
+
+================================================
+Input Files:
+Z:\Data\MOOG\HeTao\raw\m2c159r3.log
+Z:\Data\MOOG\HeTao\raw\m2c159r7.log
+
+Output File:
+z:\labtools\Matlab\TEMPO_Analysis\m2c159r3_7.log
+
+Following is different between log file headers:
+m2c159r3.log: 	SOFT_CAL_LEYE_HORIZ 12.522707  1.500000  0.000000
+m2c159r7.log: 	SOFT_CAL_LEYE_HORIZ 12.726288  1.500000  0.000000
+
+m2c159r3.log: 	SOFT_CAL_LEYE_VERT  4.433613  1.500000  0.000000
+m2c159r7.log: 	SOFT_CAL_LEYE_VERT  4.559619  1.500000  0.000000
+
+User selected header parameters:
+SOFT_CAL_LEYE_HORIZ 12.522707  1.500000  0.000000
+SOFT_CAL_LEYE_VERT  4.433613  1.500000  0.000000
+
+Skip FIXED_SEED checking
+
+Combine successful!
+
+
+Combine Database record: 10-Feb-2015 16:48:06
+
+
+================================================
+Input Files:
+Z:\Data\MOOG\Polo\raw\m5c175r4.log
+Z:\Data\MOOG\Polo\raw\m5c175r6.log
+
+Output File:
+Z:\Labtools\Matlab\TEMPO_Analysis\m5c175r4_6.log
+
+Following is different between log file headers:
+m5c175r4.log: 	SOFT_CAL_LEYE_HORIZ -0.729066 -1.751000  0.030000
+m5c175r6.log: 	SOFT_CAL_LEYE_HORIZ -1.263999 -1.751000  0.030000
+
+m5c175r4.log: 	SOFT_CAL_LEYE_VERT 23.726574 -1.750000  0.003000
+m5c175r6.log: 	SOFT_CAL_LEYE_VERT 23.230831 -1.750000  0.003000
+
+User selected header parameters:
+SOFT_CAL_LEYE_HORIZ -0.729066 -1.751000  0.030000
+SOFT_CAL_LEYE_VERT 23.726574 -1.750000  0.003000
+
+Skip FIXED_SEED checking
+
+Combine successful!

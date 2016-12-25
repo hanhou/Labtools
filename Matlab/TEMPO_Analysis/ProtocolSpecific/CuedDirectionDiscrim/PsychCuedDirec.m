@@ -1,0 +1,263 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- PsychCuedDirec.m -- Plots psychometric curve for various cue types 
+%--	VR, 6/2/05
+%-----------------------------------------------------------------------------------------------------------------------
+function PsychCuedDirec(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+
+TEMPO_Defs;		
+Path_Defs;
+ProtocolDefs;	%needed for all protocol specific functions - contains keywords - BJP 1/4/01
+
+%parameters for bootstrapping to get confidence intervals
+ComputeCI = 0; %boolean to compute CI around threshold
+nboot = 100;
+alpha = .05;
+
+%get the column of values of directions in the dots_params matrix
+direction = data.dots_params(DOTS_DIREC,:,PATCH1);
+unique_direction = munique(direction');
+
+%get the motion coherences
+coherence = data.dots_params(DOTS_COHER, :, PATCH1);
+unique_coherence = munique(coherence');
+
+Pref_direction = data.one_time_params(PREFERRED_DIRECTION);
+
+%get the cue validity
+cue_val = data.cue_params(CUE_VALIDITY,:,PATCH2);
+cue_direc = data.cue_params(CUE_DIREC, :, PATCH1);
+% cue_val = zeros(size(cue_direc));
+% cue_val( (cue_direc == Pref_direction) | (cue_direc == Pref_direction - 360) ) = 1;
+% cue_val(cue_direc == Pref_direction - 180) = -1;
+unique_cue_val = munique(cue_val');
+
+%compute cue types - 0=neutral, 1=directional, 2=cue_only
+cue_type = abs(cue_val); %note that invalid(-1) and valid(+1) are directional
+unique_cue_type = munique(cue_type');
+
+%get indices of any NULL conditions (for measuring spontaneous activity)
+null_trials = logical( (coherence == data.one_time_params(NULL_VALUE)) );
+
+%now, select trials that fall between BegTrial and EndTrial
+trials = 1:length(coherence);
+%a vector of trial indices
+select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
+
+%[direction' coherence' spike_rates' null_trials' select_trials']
+%keyboard
+
+figure;
+set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [250 50 500 573], 'Name', 'Psychometric Function');
+subplot(2, 1, 2);
+
+symbols = {'bo', 'rx', 'g>'};
+lines = {'b-', 'r--', 'g:'};
+names = {'NoCue','Invalid','Neutral','Valid','CueOnly'};
+%% *********** LOGISTIC PSYCHOMETRIC ANALYSIS ****************************
+    
+pct_correct = []; N_obs = []; fit_data = [];
+monkey_alpha = []; monkey_beta = []; monkey_thresh = [];
+legend_str = 'legend(Handl, ';
+
+%this computes the percent of responses in the preferred direction
+%combining across redundant conditions within each cue validity.
+for i=1:sum(unique_cue_val~=2)
+    for j=1:length(unique_direction)
+        for k=1:length(unique_coherence)
+            ind = k + (j-1)*length(unique_coherence);
+            ok_values = logical( (direction == unique_direction(j)) & (coherence == unique_coherence(k)) ...
+                & (cue_val == unique_cue_val(i)) );
+            pct_pd(i,ind) = sum(ok_values & (data.misc_params(OUTCOME, :) == CORRECT))/sum(ok_values);
+            if (unique_direction(j) ~= Pref_direction)
+                pct_pd(i,ind) = 1-pct_pd(i,ind);
+            end
+        end
+    end
+end
+
+%plot the raw data
+hold on;
+for i=1:length(unique_cue_type) %loop through cue type
+    signed_coherence = [-unique_coherence' unique_coherence'];
+    [sorted_coherence{i}, I{i}] = sort(signed_coherence);
+    plot(sorted_coherence{i}, pct_pd(i,I{i}), symbols{i});
+end
+%keyboard
+%now fit these data to logistic function and plot fits
+for i=1:sum(unique_cue_val~=2)
+    n_obs = sum(cue_val == unique_cue_val(i))./length(unique_coherence).*ones(size(sorted_coherence{i}));
+    [monkey_alpha(i) monkey_beta(i)] = logistic_fit([sorted_coherence{i}' pct_pd(i,I{i})' n_obs']);
+    monkey_thresh(i) = get_logistic_threshold([monkey_alpha(i) monkey_beta(i)]);
+    str = sprintf('%s cue: alpha(slope) = %5.3f, beta(bias) = %5.3f', names{unique_cue_val(i)+3}, monkey_alpha(i), monkey_beta(i));
+    hold on
+    fit_x = min(xlim):1:max(xlim);
+    fit_y(i,:) = logistic_curve([min(xlim):1:max(xlim)],[monkey_alpha(i) monkey_beta(i)]);
+    Handl(i) = plot([min(xlim):1:max(xlim)], fit_y(i,:), lines{i});
+    legend_str = strcat(legend_str, sprintf(' ''%s'',',names{unique_cue_val(i   )+3}));
+    disp(str)
+end
+
+xlabel('Coherence x Direction');
+ylabel('Fraction Choices in Preferred Direction');
+legend_str = strcat(legend_str, ' ''Location'', ''SouthEast'');');
+eval(legend_str);
+YLim([0 1]);
+%comment out the next 2 lines if you want the plot to be on a LINEAR X-axis
+%set(gca, 'XScale', 'log');
+
+%compute fraction correct on cue_only trials
+cue_only_trials = (select_trials & (cue_val==2));
+cue_only_correct = (cue_only_trials & (data.misc_params(OUTCOME, :) == CORRECT) );
+cue_only_pct_corr = sum(cue_only_correct)/sum(cue_only_trials);
+
+
+%% ********************* BOOSTRAP FITS ***************************
+trials_outcomes = logical (data.misc_params(OUTCOME,:) == CORRECT);
+if (ComputeCI) %flag set at top of file
+    tic;
+    for i = 1:sum(unique_cue_val~=2)
+        for j = 1:nboot
+            for k = 1:length(signed_coherence)
+                boot_outcomes = [];
+                if (k <= length(signed_coherence)/2) %get direction
+                    direc = Pref_direction - 180;
+                else
+                    direc = Pref_direction;
+                end
+                select_boot{i,j,k} = logical( (cue_val == unique_cue_val(i)) & (coherence == abs(signed_coherence(k))) & (direction == direc) );
+                behav_select{i,j,k} = trials_outcomes(select_boot{i,j,k});
+                for m = 1:length(behav_select)    %loop to generate bootstrap
+                    boot_shuffle = behav_select{i,j,k}(randperm(length(behav_select{i,j,k})));
+                    boot_outcomes{i,j,k}(m) = boot_shuffle(1);
+                end
+                boot_pct(j,k) = sum(boot_outcomes{i,j,k})./length(boot_outcomes{i,j,k});
+                if (direc ~= Pref_direction) %for null use 1-pct
+                    boot_pct(j,k) = 1-boot_pct(j,k);
+                end
+                n_obs(j,k) = length(boot_outcomes{i,j,k});
+            end
+            [bootlog_params{i,j}(1) bootlog_params{i,j}(2)] = logistic_fit([signed_coherence' boot_pct(j,:)' n_obs(j,:)']);
+            bootlog_thresh(i,j) = get_logistic_threshold(bootlog_params{i,j});
+        end
+    end
+    toc
+
+    %now compute confidence intervals
+    bootlog_CI = zeros(sum(unique_cue_val ~= 2),2);
+    for i = 1:sum(unique_cue_val ~= 2)
+        sorted_thresh = sort(bootlog_thresh(i,:));
+        bootlog_CI(i,:) = [sorted_thresh(floor( nboot*alpha/2 )) ...
+            sorted_thresh(ceil( nboot*(1-alpha/2) ))];
+    end
+else
+    for i=1:sum(unique_cue_val ~= 2) %fill 95% CI with zeros if not computed
+        bootlog_CI(i,:) = [0 0];
+    end
+end
+
+%compute performance from valid at 0% and 3% coherences
+tv0 = sum(logical( (coherence == 0) & (cue_val == 1) ));
+cv0 = sum(trials_outcomes(logical( (coherence == 0) & (cue_val == 1) )));
+tv3 = sum(logical( (coherence == 3) & (cue_val == 1) ));
+cv3 = sum(trials_outcomes(logical( (coherence == 3) & (cue_val == 1) )));
+ti0 = sum(logical( (coherence == 0) & (cue_val == -1) ));
+ci0 = sum(trials_outcomes(logical( (coherence == 0) & (cue_val == -1) )));
+ti3 = sum(logical( (coherence == 3) & (cue_val == -1) ));
+ci3 = sum(trials_outcomes(logical( (coherence == 3) & (cue_val == -1) )));
+
+pct_str = sprintf('Valid 0%% %d/%d, Valid 3%% %d/%d, Invalid 0%% %d/%d, Invalid 3%% %d/%d', cv0,tv0,cv3,tv3,ci0,ti0,ci3,ti3)
+
+for i = 1:length(unique_cue_val)
+    pct_correct(i) = sum(trials_outcomes(cue_val(select_trials)==unique_cue_val(i))) ./ sum(cue_val(select_trials)==unique_cue_val(i));
+end
+
+
+
+%% ********************** PRINT INFO *****************************
+%now, print out some useful information in the upper subplot
+subplot(2, 1, 1);
+PrintGeneralData(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+start_time = find(data.event_data(1, :, 1) == VSTIM_ON_CD);
+stop_time = find(data.event_data(1, :, 1) == VSTIM_OFF_CD);
+stim_duration = stop_time - start_time
+
+%now, print out some specific useful info.
+xpos = -10; ypos = 25;
+font_size = 8;
+bump_size = 6;
+for j = 1:sum(unique_cue_val~=2)
+    line = sprintf('CueStatus = %s, slope = %6.2f, bias = %6.2f%%', ...
+        names{unique_cue_val(j)+3}, monkey_alpha(j), monkey_beta(j) );
+    text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+end
+for j = 1:sum(unique_cue_val~=2)
+    line = sprintf('CueStatus = %s, thresh = %6.2f%%, %d%% CI = [%6.2f%% %6.2f%%]', ...
+        names{unique_cue_val(j)+3}, monkey_thresh(j), 100*(1-alpha), bootlog_CI(j,1), bootlog_CI(j,2));
+    text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+end
+line = sprintf('Pct Correct:');
+for j = 1:length(unique_cue_val)
+    line = strcat(line, sprintf(' %s = %4.2f%%;',names{unique_cue_val(j)+3},pct_correct(j)*100));
+end
+%line = sprintf('Cue Only Trials, Pct Correct = %6.2f %%', cue_only_pct_corr*100 );
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+line = sprintf('Directions tested: %6.3f, %6.3f deg', unique_direction(1), unique_direction(2) );
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+% line = sprintf('Stimulus Duration: %5d', stim_duration );
+% text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+line = pct_str;
+text(xpos,ypos,line,'FontSize',font_size);		ypos = ypos - bump_size;
+
+
+%keyboard
+
+% %some temporary stuff to save out raw data to a text file so cleaner graphs
+% %can be made in origin
+% savename = sprintf('Z:\\Data\\Tempo\\Baskin\\Analysis\\Unfolded_CuedDirecDiscrim_Psych\\Psych-%s.txt',FILE(1:8));
+% temp = sorted_coherence{1};
+% save(savename, 'temp', '-ascii'); %this saves a row containing the values of unique_coherence
+% for i = 1:3
+%     temp = pct_pd(i,I{i});
+%     save(savename, 'temp', '-ascii', '-append'); %this saves 3 lines - each containing the pct correct at each coherence for a single validity (invalid, neutral, valid)
+% end
+% temp = fit_x;
+% save(savename, 'temp', '-ascii', '-append'); %this saves the x-values of the best fit logistic curves
+% temp = fit_y;
+% save(savename, 'temp', '-ascii', '-append'); %this saves the three lines (one for each validity) of y-values of the best fit logistic curves
+
+
+
+output = 0;
+if (output)
+    %------------------------------------------------------------------------
+    %write out all relevant parameters to a cumulative text file, VR 11/21/05
+    outfile = [BASE_PATH 'ProtocolSpecific\CuedDirectionDiscrim\Psycho_Curve_summary.dat'];
+    printflag = 0;
+    if (exist(outfile, 'file') == 0)    %file does not yet exist
+        printflag = 1;
+    end
+    fid = fopen(outfile, 'a');
+    if (printflag)
+        fprintf(fid, 'FILE\t PrDir\t PrSpd\t PrHDsp\t RFX\t RFY\t RFDiam\t InvPct\t NeuPct\t ValPct\t CuePct\t InvTh\t NeuTh\t ValTh\t InvCILow\t InvCIHi\t NeuCILow\t NeuCIHi\t ValCILow\t ValCIHi\t InvSl\t InvBi\t NeuSl\t NeuBi\t ValSl\t ValBi\t MaxCorr\t Ntrials\t');
+        %fprintf(fid, 'FILE\t\t PrDir\t PrSpd\t PrHDsp\t RFX\t RFY\t RFDiam\t MThr\t MSlp\t DspLo\t DspHi\t Ntrials\t HCorr\t Durat\t');
+        fprintf(fid, '\r\n');
+        printflag = 0;
+    end
+    inval = find(unique_cue_val==-1);   neu = find(unique_cue_val==0);   val = find(unique_cue_val==1);  cue = find(unique_cue_val==2);
+    buff = sprintf('%s\t %6.1f\t %6.2f\t %6.3f\t %6.2f\t %6.2f\t %6.2f\t %6.1f\t %6.1f\t %6.1f\t %6.1f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.2f\t %6.1f\t %4d\t',...
+        FILE, data.neuron_params(PREFERRED_DIRECTION, 1), data.neuron_params(PREFERRED_SPEED, 1), data.neuron_params(PREFERRED_HDISP, 1), data.neuron_params(RF_XCTR, 1), data.neuron_params(RF_YCTR, 1), data.neuron_params(RF_DIAMETER, 1),...
+        pct_correct(inval)*100,pct_correct(neu)*100,pct_correct(val)*100,pct_correct(cue)*100,monkey_thresh(inval),monkey_thresh(neu),monkey_thresh(val),...
+        bootlog_CI(inval,1),bootlog_CI(inval,2),bootlog_CI(neu,1),bootlog_CI(neu,2),bootlog_CI(val,1),bootlog_CI(val,2),...
+        monkey_alpha(inval),monkey_beta(inval),monkey_alpha(neu),monkey_beta(neu),monkey_alpha(val),monkey_beta(val),max(unique_coherence),(1+EndTrial-BegTrial) );
+    %buff = sprintf('%s\t %6.1f\t %6.2f\t %6.3f\t %6.2f\t %6.2f\t %6.2f\t %6.3f\t %6.4f\t %6.3f\t %6.3f\t %4d\t %6.3f\t %5d\t', ...
+    %    FILE, data.neuron_params(PREFERRED_DIRECTION, 1), data.neuron_params(PREFERRED_SPEED, 1), data.neuron_params(PREFERRED_HDISP, 1), data.neuron_params(RF_XCTR, 1), data.neuron_params(RF_YCTR, 1), data.neuron_params(RF_DIAMETER, 1),...
+    %    monkey_alpha,monkey_beta,unique_direction(1), unique_direction(2), (1+ EndTrial - BegTrial), unique_coherence(length(unique_coherence)), stim_duration );
+    fprintf(fid, '%s', buff);
+    fprintf(fid, '\r\n');
+    fclose(fid);
+    %------------------------------------------------------------------------
+end
+
+return;

@@ -1,0 +1,13 @@
+
+Curvefit_cos_tuning_7p_halfrectmodel.m - new rectified model
+Curvefit_head_centered_7p_asp_half_ng - be careful of two components here
+Curvefit_head_centered_bounds_half_ng
+
+var_mean_fit.m (possibly renamed) - contains code for heading discrimination
+
+this part is not from zack (models used pre-zack):
+Curvefit_cos_tuning_7p.m
+Curvefit_eye_centered_ng.m
+Curvefit_eye_centered_bounds_ng.m
+Curvefit_head_centered_ng.m
+Curvefit_head_centered_bounds_ng.m

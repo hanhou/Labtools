@@ -1,0 +1,296 @@
+'this program reads *.vs.smr files (VSGmarker fixed with fixVSGandStrip.s2s) and analyze waveform amplitude.
+'computes the mean and the standard deviation of amplitude distribution as well as m+3*std and m+4*std values
+'to determine the amplitude threshold for spike sorting.
+'11/24/04
+
+const DEBUG%:=0;	'debug flag
+const GRAPH%:=0;
+
+const MAXAMPBINSIZE%:=403;
+var ampBin%[MAXAMPBINSIZE%];
+const MAXAMP%:=5000;
+const binwidth:=2*MAXAMP%/(MAXAMPBINSIZE%-3);
+var totaln%, mean, std;
+
+const MAXNUMFILES%:=1024;
+const SPIKE2DATAFILE%:=0; 'file type
+const DATAFILETOBEPROCESSED$:="mf???a??.??.???.vs.smr";
+
+var ret;
+var numfiles%;
+var n%;
+var filenameList$[MAXNUMFILES%];
+var openedfilename$;
+var openedfilePath$;
+var fpLog%;
+var fpData%;
+var logfileName$;
+const LOGFILEEXTENSION$:="wfamp";
+const EXTERNALTEXTFILE%:=8;
+const READONLY%:=0;
+const CREATE%:=1;
+
+
+'
+'program starts here
+'
+
+	'obtain a list of files to process
+	ret:=FilePathSet(""); 'open a dialog to set a path
+	if ret=0 then
+		'path selected
+		openedfilePath$:=FilePath$();
+		numfiles%:=FileList(filenameList$[], SPIKE2DATAFILE%, DATAFILETOBEPROCESSED$);
+
+		if DEBUG% then
+			PrintLog("numfiles %d\n", numfiles%);
+			for n%:=0 to numfiles%-1 do
+				PrintLog("%s\n", filenameList$[n%]);
+			next;
+		endif;
+
+		if numfiles% = 0 then
+			filenameList$[0]:=DATAFILETOBEPROCESSED$;
+			numfiles%:=1;
+		endif;
+
+		for n%:=0 to numfiles%-1 do
+
+			'open a data file
+			fpData%:=FileOpen(filenameList$[n%], SPIKE2DATAFILE%);
+			if fpData%<0 then
+				'failed to open a data file
+				PrintLog("Failed to open a data file.\n");
+			else
+
+				openedfilename$:=FileName$();
+				openedfilePath$:=FilePath$();
+				openedfilename$:=DelStr$(openedfilename$,0,Len(openedfilePath$));
+
+				'open a log file
+				logfileName$:=Left$(openedfilename$, 18); 'the first 18 characters, i.e. mf000a00.00.00g.vs
+				logfileName$:=logfileName$+"."+LOGFILEEXTENSION$;
+				fpLog%:=FileOpen(logfileName$,EXTERNALTEXTFILE%,CREATE%);
+				if fpLog%<0 then
+					'failed to open a log file
+					PrintLog("Failed to open a log file %s.\n", logfileName$);
+				else
+
+					'analyze amplitude
+					processData(openedfilename$);
+
+					'close the log file
+					View(fpLog%);
+					FileClose();
+
+				endif;
+
+				'close the data file
+				View(fpData%);
+				FileClose();
+
+			endif;
+
+		next;
+
+	endif;
+
+halt;
+
+Proc processData(datafilename$)
+'VSGmarker corrected data file channel designation
+const CHSPIKEWAVEFORM%:=1;	'Spike Waveform channel
+const CHBAKSPIKE%:=2;		'BAKspike channel
+const CHKEYBOARD%:=3;	'Keyboard channel
+const CHVSGMARKER%:=4;	'VSGmarker channel
+const CHVSGFIX%:=5;	'VSGfix channel
+
+var eventTime;
+var startOfRecTime;
+var endOfRecTime;
+
+const ENABLEWRITING%:=0;		'enable writing
+const DISABLEWRITING%:=1;	'disable writing
+const MARKERCODESIZE%:=4;
+var code%[MARKERCODESIZE%];
+
+var wavemark%[1024];
+var WMpoints%;
+var preTrigPoints%;
+var scale;
+var offset;
+
+const SAMPLINGFREQ%:=25000; '25KHz
+var spikewaveform[20*SAMPLINGFREQ%]; '20sec worth of data points
+var ndata%;
+
+var i%;
+
+	'initialize variables
+	totaln%:=0;
+	mean:=0.0;
+	std:=0.0;
+	for i%:=0 to MAXAMPBINSIZE%-1 do
+		ampBin%[i%]:=0;
+	next;
+	View(fpData%);
+	WMpoints%:=MarkInfo(CHSPIKEWAVEFORM%,preTrigPoints%);
+	scale:=ChanScale(CHSPIKEWAVEFORM%);
+	offset:=ChanOffset(CHSPIKEWAVEFORM%);
+
+	'process the data file
+	repeat 'until the end of file
+
+		'find the first enablewrite marker
+		repeat
+			eventTime:=NextTime(CHKEYBOARD%, eventTime, code%[]);
+			'PrintLog("%f: %d\n", eventTime, code%[0]);
+		until eventTime < 0 or code%[0] = ENABLEWRITING%;
+
+		if eventTime < 0 then 'no more enable write
+			PrintLog("The end of the file reached.\n");
+		else 'enable write found
+
+			startOfRecTime:=eventTime;
+			'find the next disablewrite marker
+			repeat
+				eventTime:=NextTime(CHKEYBOARD%, eventTime, code%[]);
+				'PrintLog("%f: %d\n", eventTime, code%[0]);
+			until eventTime < 0 or code%[0] = DISABLEWRITING%;
+
+			if eventTime < 0 then 'no disable write found
+				PrintLog("No disable write marker found.\n");
+			else 'disable write found
+
+				'a valid recording segment found
+				endOfRecTime:=eventTime;
+
+				if LCase$(Left$(datafilename$,5))="mf101" then
+					'For mf101, spikes were recorded as wavemark, not waveform.
+					eventTime:=startOfRecTime;
+					eventTime:=NextTime(CHSPIKEWAVEFORM%, eventTime, code%[], wavemark%[]);
+					while eventTime>0 and eventTime<endOfRecTime do
+						for i%:=0 to WMpoints%-1 do
+							spikewaveform[i%]:=wavemark%[i%]*scale/6553.6+offset;
+						next;
+						amplitudeAnalysis(spikewaveform[0:WMpoints%],WMpoints%);
+						eventTime:=NextTime(CHSPIKEWAVEFORM%, eventTime, code%[], wavemark%[]);
+					wend;
+				else
+					ndata%:=ChanData(CHSPIKEWAVEFORM%,spikewaveform[],startOfRecTime,endOfRecTime);
+					amplitudeAnalysis(spikewaveform[0:ndata%],ndata%);
+				endif;
+
+				'finished analyzing one recording segment
+				eventTime:=endOfRecTime;
+
+			endif; 'disable write found
+
+		endif; 'enable write found
+
+	until eventTime < 0; 'the end of the file
+
+	'compute mean and standard deviation
+	if totaln%>1 then
+		mean:=mean/totaln%;
+		std:=std/(totaln%-1)-mean*mean*totaln%/(totaln%-1);
+		std:=sqrt(std);
+		PrintLog("%s: m=%8.3f s=%8.3f m+3*s=%8.3f m+4*s=%8.3f\n",datafilename$,mean,std,mean+3*std,mean+4*std);
+		View(fpLog%).Print("%s: m=%8.3f s=%8.3f m+3*s=%8.3f m+4*s=%8.3f\n",datafilename$,mean,std,mean+3*std,mean+4*std);
+	else
+		PrintLog("%s: not enough samples (%d)\n",datafilename$,totaln%);
+		View(fpLog%).Print("%s: not enough samples (%d)\n",datafilename$,totaln%);
+	endif;
+
+	if GRAPH% then
+		'plot the amplitude distribution
+		plotAmpDist();
+	endif;
+
+	return;
+end;
+
+Proc amplitudeAnalysis(waveform[],n%)
+var i%;
+var np%;
+var index%;
+var diff1[n%];
+var diff2[n%];
+
+	'extract peaks and troughs
+	ArrConst(diff1[0:n%],waveform[0:n%]); 'copy waveform array
+	ArrDiff(diff1[0:n%]); 'first derivative, diff1[0] not changed
+	for i%:=0 to n%-2 do 'sign(diff1);
+		diff2[i%]:=(diff1[i%+1]>0)-(diff1[i%+1]<0);
+	next;
+	ArrDiff(diff2[0:n%-1]); 'second derivative, diff2[0] not changed
+	np%:=0;
+	for i%:=1 to n%-2 do
+		if diff2[i%]<>0 then
+			diff1[np%]:=waveform[i%];
+			np%+=1;
+		endif
+	next;
+	totaln%:=totaln%+np%;
+	mean:=mean+ArrSum(diff1[0:np%]); 'cummulative sum
+	std:=std+ArrDot(diff1[0:np%],diff1[0:np%]); 'cummulative sum of squares
+
+	'bin the data to create a histogram
+	if GRAPH% then
+		for i%:=0 to np%-1 do
+			if diff1[i%]>=binwidth/2 then
+				index%:=(diff1[i%]-binwidth/2)/binwidth+1;
+				if index%>(MAXAMPBINSIZE%-3)/2 then
+					index%:=(MAXAMPBINSIZE%-3)/2+1;
+				endif;
+			else
+				if diff1[i%]<=-binwidth/2 then
+					index%:=(diff1[i%]+binwidth/2)/binwidth-1;
+					if index%<-(MAXAMPBINSIZE%-3)/2 then
+						index%:=-(MAXAMPBINSIZE%-3)/2-1;
+					endif;
+				else
+					index%:=0;
+				endif;
+			endif;
+			index%:=index%+(MAXAMPBINSIZE%-3)/2+1;
+			ampBin%[index%]:=ampBin%[index%]+1;
+		next;
+	endif;
+
+	return;
+end;
+
+Proc plotAmpDist()
+var xy%;
+var i%;
+
+		xy%:=FileNew(12,1);
+		XYSetChan(1,MAXAMPBINSIZE%,0,1);
+		for i%:=0 to MAXAMPBINSIZE%-1 do
+			XYAddData(1,(i%-(MAXAMPBINSIZE%-3)/2-1)*binwidth,ampBin%[i%]);
+		next;
+		XYDrawMode(1,2,0);	'no dots, just a line
+		XYDrawMode(1,3,0);	'solid line
+		XYDrawMode(1,4,2);	'line thickness=2
+		XYDrawMode(1,5,0);	'axis expansion mode
+
+		XYSetChan(0,1);
+		XYAddData(2,mean,0);
+		XYDrawMode(2,1,5);
+		XYDrawMode(2,2,20);
+		XYSetChan(0,2);
+		XYAddData(3,mean-std*3,0);
+		XYAddData(3,mean+std*3,0);
+		XYDrawMode(3,1,8);
+		XYDrawMode(3,2,20);
+		XYSetChan(0,2);
+		XYAddData(4,mean-std*4,0);
+		XYAddData(4,mean+std*4,0);
+		XYDrawMode(4,1,8);
+		XYDrawMode(4,2,20);
+		Draw();
+
+	return;
+end;
+

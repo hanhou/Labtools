@@ -1,0 +1,131 @@
+var v34%; 'View created by SetEvtCrl
+var v30% := FrontView();
+var ch2%; 'Duplicate channel
+var ch1%; 'Duplicate channel
+var ch3%; 'Memory channel created by MeasureToChan
+
+View(v30%);
+ch1% := ChanDuplicate(32); 'Auxiliary channel
+ch2% := ChanDuplicate(32); 'Create a duplicate
+
+var alignMarker% := 7;  ' Saccade onset
+var auxiliaryMarker%:= 4;  ' Visual on
+
+' Ch32: Align to which marker? 
+MarkMask(32, -1, 1, -1); 'Clear filter
+MarkMask(32, 0, -1, -1); 'Invert all code
+MarkMask(32, 0, 1, alignMarker%);
+
+' Ch1%: Auxiliary
+MarkMask(ch1%, -1, 1, -1); 'Clear filter
+MarkMask(ch1%, 0, -1, -1); 'Invert all code
+MarkMask(ch1%, 0, 1, auxiliaryMarker%);  
+
+CursorVisible(0,1);
+CursorNew(0.1,1);
+                                                                                                 
+
+var numCondition%:=2;     var i%;    var maxT:=MaxTime();
+'var numCondition%:=11;     var i%;    var maxT:=MaxTime();
+
+for i%:=1 to numCondition% do
+    View(v30%);
+    
+    ' Ch2%: Classfied marker
+    MarkMask(ch2%, -1, 1, -1); 
+    MarkMask(ch2%, 0, -1, -1); 
+    
+    MarkMask(ch2%, 0, 1, 8+i%-1);  ' Different Choices (08/09)
+    'MarkMask(ch2%, 0, 1, 48+i%-1);  ' Different Headings (condition number)
+    
+    ' Classfy auxiliary channel (cursor 0: ch2%, cursor 1: ch1% )
+    CursorActive(0,14, ch2%, 0, "", "", 1);   'Data points
+    CursorActive(1,14, ch1%, "Cursor(0)", "Cursor(0)-2", "Cursor(0)", 1);   'Data points
+    
+    MeasureX(102, 1, "Cursor(1)", "0");
+    MeasureY(100, 1, "Cursor(0)", "0");
+    ch3% := MeasureToChan(400+i%, "Channel 1", 3,14, ch2%, 0, 1, 0, 1);
+    Process(0.0, maxT, 0, 1, ch3%);
+    
+    
+    v34%:=SetEvtCrl(5,350,0.01,1.8, 32,11, ch3%,-3,0);
+    'v34%:=SetEvtCrl(5,300,0.01,1.8, 32,11, ch2%,0,2);
+    
+    WindowVisible(1);
+    Process(0.0, maxT, 0, 1);
+    Window(5.96659, 11.2994,35.6205, 75.8192);
+    Window(6.26492, 4.40678,35.9189, 68.9266);
+    
+    DrawMode(1,1,0,1); 'Set Histogram
+    ChanColourSet(801, 1,0,0,0);   'Set channel colour
+    ChanColourSet(1, 1,0,0,0);   'Set channel colour
+    ChanColourSet(801, 2,0,0,0);   'Set channel colour
+    ChanColourSet(1, 2,0,0,0);   'Set channel colour
+    
+    FontSet("Times New Roman",15, 0); 'set view font
+    XAxisStyle(1, 5, 0);
+    XAxisAttrib(0);
+    Window(0, 0,40.3938, 68.9266);
+    ChanNumbers(0);
+    YAxisMode(5, 1,8, 0);
+    DrawMode(801,9,1,16,1); 'Set Raster
+    
+    CursorNew(XToBin(0), 7);
+    CursorLabelPos(7, 51.0917);
+    CursorLabel(4,7,"S On");
+    CursorLabelPos(7, 49.1266);
+    
+    CursorNew(XToBin(0.150), 8);
+    Cursor(8, XToBin(0.150));
+    CursorLabelPos(8, 59.9598);
+    CursorLabel(4,8,"'S Off'");
+    
+    CursorNew(XToBin(-0.190374), 5);
+    CursorLabel(4,5,"'V Off'");
+    CursorLabelPos(5, 0.201207);
+    
+    CursorNew(XToBin(-1.190374), 4);
+    CursorLabel(4,4,"'V On'");
+    CursorLabelPos(4, 0.201207);
+
+    
+    View(v30%);
+    ChanDelete(ch3%);
+    
+next;
+
+ChanDelete(ch2%);
+ChanDelete(ch1%);
+
+' Time shifts
+
+'FrontView(v30%);
+'ch1% := ChanDuplicate(32); 'Create a duplicate
+'ch2% := ChanDuplicate(32); 'Create a duplicate
+'
+'MarkMask(32, -1, 1, -1); 'Clear filter
+'MarkMask(32, 0, -1, -1); 'Invert all code
+'MarkMask(32, 0, 1, 7);
+'
+'MarkMask(ch1%, -1, 1, -1); 'Clear filter
+'MarkMask(ch1%, 0, -1, -1); 'Invert all code
+'MarkMask(ch1%, 0, 1, 5);
+'
+'MarkMask(ch2%, -1, 1, -1); 'Clear filter
+'MarkMask(ch2%, 0, -1, -1); 'Invert all code
+'MarkMask(ch2%, 0, 1, 3);
+'
+'SetEvtCrl(ch1%,600,0.005,1.5, 32,0);
+'WindowVisible(1);
+'Process(0.0, 1716.32, 0, 1);
+'Window(8.35322, 13.1073,91.9451, 82.0339);
+'
+'FrontView(v30%);
+'SetEvtCrl(ch2%,600,0.005,1.5, 32,0);
+'WindowVisible(1);
+'Process(0.0, 1716.32, 0, 1);
+'
+'
+'ChanDelete(ch2%);
+'ChanDelete(ch1%);
+'

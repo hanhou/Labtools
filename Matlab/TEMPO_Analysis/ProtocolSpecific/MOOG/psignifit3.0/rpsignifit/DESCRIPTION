@@ -1,0 +1,11 @@
+Package: rpsignifit
+Version: 0.0
+Date: 2009-27-11
+Title: R interface to psignifit 2.0
+Author: Ingo Fründ <ingo.fruend@tu-berlin.de>, Valentin Haenel <valentin.haenel@mailbox.tu-berlin.de>
+Maintainer: Ingo Fründ <ingo.fruend@tu-berlin.de>
+Depends: R (>= 2.0.1)
+Suggests: coda
+Description: The package offers an R interface to psignifit 2.0. It makes advanced routines for estimation
+    and inference on psychometric functions available.
+License: MIT

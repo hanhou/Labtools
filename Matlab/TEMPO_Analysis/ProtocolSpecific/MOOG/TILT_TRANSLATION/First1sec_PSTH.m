@@ -1,0 +1,437 @@
+%----------------------------------------------------------------------------------------------------------------------
+%-- PSTH.m -- Plots Post Stimulus Time Histogram for MOOG 3D tuning expt
+%--	Yong, 6/27/03 Modified by Katsu 2/14/06
+%-----------------------------------------------------------------------------------------------------------------------
+
+function Rotation_PSTH(data, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE, Protocol);
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(ROT_AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ROT_ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(TT_MODE,:,MOOG); 
+temp_spike_data = data.spike_data(1,:);
+temp_spike_rates = data.spike_rates(SpikeChan, :); 
+
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_elevation);		% a vector of trial indices
+select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+
+azimuth = temp_azimuth(~null_trials & select_trials);
+elevation = temp_elevation(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+
+% stim_duration = length(temp_spike_data)/length(temp_azimuth);
+% spike_data = data.spike_data(1, ((BegTrial-1)*stim_duration+1):EndTrial*stim_duration);
+spike_rates= temp_spike_rates(~null_trials & select_trials);
+% notice that this bad_trials is the number without spon trials 
+
+% calculate spontaneous firing rate
+spon_found = find(null_trials==1); 
+spon_resp = mean(temp_spike_rates(spon_found));
+% added by Katsu 111606
+% spon_std = std(temp_spike_rates(spon_found))
+
+
+
+unique_azimuth = munique(azimuth');
+unique_elevation = munique(elevation');
+unique_stim_type = munique(stim_type');
+
+condition_num = stim_type;
+h_title{1}='Tilt+Trans';
+h_title{2}='Tilt-Trans';
+h_title{3}='Tilt only';
+h_title{4}='Trans only ';
+
+% class{1}='mean';
+% class{2}='sum';
+% class{3}='normalize';
+
+unique_condition_num = munique(condition_num');
+
+% add parameters here
+% timebin for plot PSTH
+timebin=50;
+% sample frequency depends on test duration
+frequency=length(temp_spike_data)/length(select_trials);  
+% length of x-axis
+x_length = frequency/timebin;
+% x-axis for plot PSTH
+x_time=1:(frequency/timebin);
+
+% find spontaneous trials which azimuth,elevation,stim_type=-9999
+spon_found = find(null_trials==1);     
+
+% remove null trials, bad trials, and trials outside Begtrial~Engtrial
+stim_duration = length(temp_spike_data)/length(temp_elevation);
+Discard_trials = find(null_trials==1 | temp_spike_rates > 3000 | trials <BegTrial | trials >EndTrial);
+for i = 1 : length(Discard_trials)
+    temp_spike_data( 1, ((Discard_trials(i)-1)*stim_duration+1) :  Discard_trials(i)*stim_duration ) = 9999;
+end
+spike_data = temp_spike_data( temp_spike_data~=9999 );
+
+% count spikes from raster data (spike_data)
+max_count = 1;
+time_step=1;
+for k=1: length(unique_condition_num)
+    
+        for i=1: length(unique_azimuth)
+            select = logical( (azimuth==unique_azimuth(i))  & (condition_num==unique_condition_num(k)) );            
+            % get rid off -90 and 90 cases
+            if (sum(select) > 0)
+                
+                resp(k,i)= mean(spike_rates(select));% later compare the value!!
+                
+                act_found = find( select==1 );
+                % count spikes per timebin on every same condition trials
+                for repeat=1:length(act_found) 
+                    for n=1:(x_length)
+                        temp_count(repeat,n)=sum(spike_data(1,(frequency*(act_found(repeat)-1)+time_step):(frequency*(act_found(repeat)-1)+n*timebin)));
+                        time_step=time_step+timebin;
+                    end
+                    time_step=1;                    
+                end
+%                 count_y_trial{k,i}(:,:) = temp_count;  % each trial's PSTH 
+                % get the average of the total same conditions if repetion is > 1
+           %     if (length(act_found) > 1);
+                dim=size(temp_count);
+                if dim(1) > 1;
+                   count_y{k,i} = mean(temp_count);
+%                    count_y_sum{k,i} = sum(temp_count);
+                   max_y(k,i,:) = mean(temp_count);% for calcualte y-axis max
+%                    max_y_sum(k,i,:) = sum(temp_count);
+                else
+                   count_y{k,i}= temp_count;
+%                    count_y_sum{k,i}(:) = temp_count;% for only one repetition cases
+                   max_y(k,i,:)= temp_count;
+%                    max_y_sum(k,i,:) = temp_count;
+                end
+               
+             else
+                resp(k,i) = 0; 
+                count_y{k,i}(:)=count_y{k,1}(:);
+%                 count_y_sum{k,i}(:) = count_y_sum{k,1}(:);
+            end   
+             
+
+             
+        end
+    
+        
+ 
+end
+
+%%%%%%%%%%%% Fingd Max %%%%%%%%%
+max_y=max(max_y(:));% mean_PSTH is enough to analysis, sum, normalize are same results.
+% max_y_sum=max(max_y_sum(:))
+
+
+
+
+%    %%%%%%%%%%%% normalize count_y   %%%%%%%%%%%%%%%%%%
+%    for k=1: length(unique_condition_num)    
+%         for i=1: length(unique_azimuth)
+%             
+%              if max(count_y{k,i})~=0;
+%                 count_y_norm{k,i}=count_y{k,i}/ max_y;
+%              else
+%                 count_y_norm{k,i}=0;
+%              end
+%              
+%         end
+%    end
+
+
+%%%%%%%%% Change Color %%%%%%%%%%%
+
+% color(1)=[0 0 1];% T+T = blue
+% color(2)=[0 1 0];% T-T = green
+% color(3)=[0 0 0];% Tilt= black
+% color(4)=[1 0 0];% Trans = red
+color=[0 0 1;0 1 0;0 0 0;1 0 0];
+
+
+% LINE Start-End %%%%%%
+% get the largest count_y so that make the scale in each figures equal    
+% plot two lines as stimulus start and stop marker
+% x_start = [StartEventBin(1,1)/timebin, StartEventBin(1,1)/timebin];
+% x_stop =  [StopEventBin(1,1)/timebin,  StopEventBin(1,1)/timebin];
+% y_marker=[0,max_count];
+%---------------------------------------------------------------------------------------------------------------------------------------
+%%%%%%%%%%%%%%%%%%%  Firing Rates   %%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+resp
+
+rate=zeros(length(unique_condition_num),length(unique_azimuth));%%definition
+
+for k=1:length(unique_condition_num)      
+    for i=1:length(unique_azimuth)
+        rate(k,i)=sum(count_y{k,i}(20:40));%%20:40 / 1:100 means 1 sec
+    end
+end
+
+rate
+
+Max_FR=max(max(rate))
+Min_FR=min(min(rate))
+
+if spon_resp<Min_FR
+    Min_FR=spon_resp
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% Translation Scale figure
+
+figure(3);
+set(3,'Position', [5,5 1000,700], 'Name', 'Tilt_Translation (Translation Scale)');
+orient landscape;
+title(FILE);
+axis off;
+
+% output some text 
+axes('position',[0 0 1 0.9]); 
+xlim([-50,50]);
+ylim([-50,50]);
+% for i=1:3  
+%     text(-48,65-22.5*i, class{i} );
+% end
+
+
+
+text(-50,12, 'Rotation Azimuth:          180                  135                    90                    45                     0                     315                 270                   225                180');
+% text(-50,-35, 'Rotation Azimuth:        0                  45                  90                 135                   180                   225                  270                 315');
+text(-50,14, 'Tilt/Trans Direction:        270                  225                   180                   135                   90                     45                   0                    315               270');
+% text(-50,-37, 'Tilt/Trans Direction:   270                315                   0                   45                    90                   135                  180                 225');
+
+text(-30, 47,'Tilt + Trans = Blue,         Tilt - Trans = Green,           Tilt = Black,            Trans = Red');
+
+
+text(-10,-45, 'Tilt / Translation');
+axis off;
+hold on;
+
+%%%%%%%%%%%%%%%%%% usual mean PSTH %%%%%%%%%%%%%%%%%%%%%%%%5
+for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+    for i=1:length(unique_azimuth)+1
+%        axes('position',[0.01+0.09*i  (1.0-0.2*k)  0.085 0.085])
+       axes('position',[0.01+0.09*i  0.6  0.085 0.2]);%%K=1 position fixed
+        if (i < 6)                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+%             bar( x_time,count_y{k, 6-i}(:) );
+                                     % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+            plot( x_time,count_y{k, 6-i}(:),'color',color(k,:) );                       
+                                     %         elseif(i>=2)
+%             bar( x_time,count_y{10-i,j}(1,:) ); 
+        else
+%             bar( x_time,count_y{k,14-i}(:) );
+            plot( x_time,count_y{k,14-i}(:),'color',color(k,:) ); 
+        end
+        hold on;
+%         plot( x_start, y_marker, 'r-');
+%         plot( x_stop,  y_marker, 'r-');
+        set( gca, 'xticklabel', ' ' ); 
+        set( gca, 'color','none');
+        if (i~=1)
+            set (gca, 'yticklabel','');
+        else
+            ylabel('PSTH (counts / 50ms)');
+        end
+        % set the same scale for all plot
+%        xlim([0,x_length]);
+       xlim([20,40]); %  only 1 sec
+       ylim([0,max_y]);
+    end 
+    
+end 
+
+%%%%%%%%%%%%%%%%%%%%%  Firing Rates   1 sec    %%%%%%%%%%%%%%%%%%%%
+
+for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+    for i=1:length(unique_azimuth)+1
+% Re-arrange from 270-225-180----0---,-90      
+        if (i < 6)   
+            rate_270(k,i)=rate(k,6-i);
+        else
+            rate_270(k,i)=rate(k,14-i);
+        end       
+    end    
+end 
+for k=1:length(unique_condition_num)
+axes('position',[0.142  0.1  0.72 0.4]);
+plot(rate_270(k,:),'color',color(k,:));hold on;
+xlim( [1, length(unique_azimuth)+1] );
+    set(gca, 'XTickMode','manual');
+    set(gca, 'xtick',[1,2,3,4,5,6,7,8,9]);
+    set( gca, 'xticklabel','270|225|180|135|90|45|0|315|270' ); 
+    set( gca, 'color','none');
+ylim([Min_FR-4,Max_FR]);ylabel('mean Firing Rates of 1 sec.(spike/sec)');
+end
+plot([1,9],[spon_resp,spon_resp],'m--');
+hold off
+
+
+% % Rotation Azimuth Scale figure
+% figure(2);
+% set(2,'Position', [5,5 1000,700], 'Name', 'Tilt_Translation (Rotation scale)');
+% orient landscape;
+% title(FILE);
+% axis off;
+% 
+% % output some text 
+% axes('position',[0 0 1 0.9]); 
+% xlim([-50,50]);
+% ylim([-50,50]);
+% for i=1:length(unique_condition_num)   
+%     text(-48,65-22.5*i, h_title{i} );
+% end
+% text(-50,-35, 'Rotation Azimuth:        270                  225                  180                  135                   90                     45                  0                  315                270');
+% % text(-50,-35, 'Rotation Azimuth:        0                  45                  90                 135                   180                   225                  270                 315');
+% text(-50,-37, 'Tilt/Trans Direction:       0                  315                    270                   225                 180                     135                 90                  45                0');
+% % text(-50,-37, 'Tilt/Trans Direction:   270                315                   0                   45                    90                   135                  180                 225');
+% text(-10,-40, 'Tilt / Translation (Rotation Azimuth Scale)');
+% axis off;
+% hold on;
+% 
+% 
+% for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+%     for i=1:length(unique_azimuth)+1
+%        axes('position',[0.01+0.09*i  (1.0-0.2*k)  0.085 0.085])
+% %         if (i < 8 )                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+% %             plot( x_time,count_y{8-i,k}(1,:),'o-' );    % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+% %         elseif(i==8)
+% %             plot( x_time,count_y{i,k}(1,:),'o-' ); 
+% %         else
+% %             plot( x_time,count_y{7,k}(1,:),'o-' ); 
+% %         end
+%         if (i < 8 )                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+%             plot( x_time,count_y{k, 8-i}(:),'o-' );    % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+%         elseif(i==8)
+%             plot( x_time,count_y{k, i}(:),'o-' );  % no care if no (:)
+%         else
+%             plot( x_time,count_y{k, 7}(:),'o-' ); 
+%         end
+%         hold on;
+% %         plot( x_start, y_marker, 'r-');
+% %         plot( x_stop,  y_marker, 'r-');
+%         set( gca, 'xticklabel', ' ' );        
+%         % set the same scale for all plot
+% %        xlim([0,x_length]);  %ORIGINAL
+%        xlim([20,40]); %  only 1 sec
+%        ylim([0,max_y]);
+%     end    
+% end 
+%--------------------------------------------------------------------------------------------------------------------------------------
+% % Compare mean sum normalize PSTH in Translation Scale figure
+% figure(3);
+% set(3,'Position', [5,5 1000,700], 'Name', 'Tilt_Translation (Translation Scale)');
+% orient landscape;
+% title(FILE);
+% axis off;
+% 
+% % output some text 
+% axes('position',[0 0 1 0.9]); 
+% xlim([-50,50]);
+% ylim([-50,50]);
+% for i=1:3  
+%     text(-48,65-22.5*i, class{i} );
+% end
+% text(-50,-37, 'Rotation Azimuth:          180                  135                    90                    45                     0                     315                 270                225               180');
+% % text(-50,-35, 'Rotation Azimuth:        0                  45                  90                 135                   180                   225                  270                 315');
+% text(-50,-35, 'Tilt/Trans Direction:        270                  225                   180                   135                   90                     45                   0                 315              270');
+% % text(-50,-37, 'Tilt/Trans Direction:   270                315                   0                   45                    90                   135                  180                 225');
+% text(-10,-40, 'Tilt / Translation Direction Scale');
+% axis off;
+% hold on;
+% 
+% %%%%%%%%%%%%%%%%%% usual mean PSTH %%%%%%%%%%%%%%%%%%%%%%%%5
+% for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+%     for i=1:length(unique_azimuth)+1
+% %        axes('position',[0.01+0.09*i  (1.0-0.2*k)  0.085 0.085])
+%        axes('position',[0.01+0.09*i  (1.0-0.2*1)  0.085 0.085]);%%K=1 position fixed
+%         if (i < 6)                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+% %             bar( x_time,count_y{k, 6-i}(:) );
+%                                      % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+%             plot( x_time,count_y{k, 6-i}(:),'color',color(k,:) );                       
+%                                      %         elseif(i>=2)
+% %             bar( x_time,count_y{10-i,j}(1,:) ); 
+%         else
+% %             bar( x_time,count_y{k,14-i}(:) );
+%             plot( x_time,count_y{k,14-i}(:),'color',color(k,:) ); 
+%         end
+%         hold on;
+% %         plot( x_start, y_marker, 'r-');
+% %         plot( x_stop,  y_marker, 'r-');
+%         set( gca, 'xticklabel', ' ' ); 
+%         set( gca, 'color','none');
+%         % set the same scale for all plot
+% %        xlim([0,x_length]);
+%        xlim([20,40]); %  only 1 sec
+%        ylim([0,max_y]);
+%     end 
+%     
+% end 
+% 
+% 
+% %%%%%%%%%%%%%%%%%%% Sum PSTH %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+%     for i=1:length(unique_azimuth)+1
+% %        axes('position',[0.01+0.09*i  (1.0-0.2*k)  0.085 0.085])
+%        axes('position',[0.01+0.09*i  (1.0-0.2*2)  0.085 0.085]);%%K=2 position fixed
+%         if (i < 6)                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+% %             bar( x_time,count_y{k, 6-i}(:) );
+%                                      % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+%             plot( x_time,count_y_sum{k, 6-i}(:),'color',color(k,:) );                       
+%                                      %         elseif(i>=2)
+% %             bar( x_time,count_y{10-i,j}(1,:) ); 
+%         else
+% %             bar( x_time,count_y{k,14-i}(:) );
+%             plot( x_time,count_y_sum{k,14-i}(:),'color',color(k,:) ); 
+%         end
+%         hold on;
+% %         plot( x_start, y_marker, 'r-');
+% %         plot( x_stop,  y_marker, 'r-');
+%         set( gca, 'xticklabel', ' ' ); 
+%         set( gca, 'color','none');
+%         % set the same scale for all plot
+% %        xlim([0,x_length]);
+%        xlim([20,40]); %  only 1 sec
+%        ylim([0,max_y_sum]);
+%     end 
+%     
+% end 
+% 
+% %%%%%%%%%%%%% normalize PSTH %%%%%%%%%%%%%%%%%%%%%%%%%5
+% for k=1:length(unique_condition_num)      % aizmuth 270 are plotted two times in order to make circular data
+%     for i=1:length(unique_azimuth)+1
+% %        axes('position',[0.01+0.09*i  (1.0-0.2*k)  0.085 0.085])
+%        axes('position',[0.01+0.09*i  (1.0-0.2*3)  0.085 0.085]);%%K=3 position fixed
+%         if (i < 6)                                 % temporarilly line output figure with contour one, so that the middle panel corresponds to 90 deg,                             
+% %             bar( x_time,count_y{k, 6-i}(:) );
+%                                      % which is forward motion and the lateral edges correspond to 270 deg which is backward motion
+%             plot( x_time,count_y_norm{k, 6-i}(:),'color',color(k,:) );                       
+%                                      %         elseif(i>=2)
+% %             bar( x_time,count_y{10-i,j}(1,:) ); 
+%         else
+% %             bar( x_time,count_y{k,14-i}(:) );
+%             plot( x_time,count_y_norm{k,14-i}(:),'color',color(k,:) ); 
+%         end
+%         hold on;
+% %         plot( x_start, y_marker, 'r-');
+% %         plot( x_stop,  y_marker, 'r-');
+%         set( gca, 'xticklabel', ' ' ); 
+%         set( gca, 'color','none');
+%         % set the same scale for all plot
+% %        xlim([0,x_length]);
+%        xlim([20,40]); %  only 1 sec
+%        ylim([0,1]);
+%     end 
+%     
+% end 
+
+return;

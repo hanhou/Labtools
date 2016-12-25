@@ -1,0 +1,444 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- psychometric function for heading discrimination task
+%--	07/16/04 GY, edited by AZ 2011
+%-----------------------------------------------------------------------------------------------------------------------
+
+function Psychometric_Adaptation_Adam(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+PLOT=0;
+overtimeplot = 1;  % whether to calcuate performance over time
+span = 6;  % for overtimeplot: calculate over ? repeats;
+slide = 1;  % for overtimeplot: slide with increment of ? repeats;
+global monkey_no monkey
+RESULTS_DIR = 'C:\Documents and Settings\Adam\My Documents\Adam\monkey\Visual-vestibular adaptation\results\';
+TEMPO_Defs;
+Path_Defs; %AZ: takes too much time (and I don't like that it places Z:\ stuff above my work stuff) - replaced by a dummy in my path
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+%TBD load the sorted plexon data
+
+%AZ this is in order to get the PRE thresholds in order to use a 'prior' for calculating POSTadapt thresh (if there is only one datapoint POST)
+load(strcat(RESULTS_DIR,'monkey_XLSlist.mat'))
+monk=find(str2num(FILE((strfind(FILE,'m')+1):(strfind(FILE,'c')-1)))==monkey_no);
+list=cell2mat(eval(sprintf('%s_list',upper(monkey{monk}))));
+id=find(all(cell2mat(arrayfun(@(x)(x.htb_file==FILE(1:end-4)),list,'uniformoutput',false)'),2)); %AZ find which file in the list we are currently testing
+if list(id).block==3 %AZ if this is the POST adaptation block
+    PRIORid=find(arrayfun(@(x)(x.session==list(id).session & x.block==1),list)); %AZ find PRE block of the session
+    load(strcat(RESULTS_DIR,'Psychometric_adapt.mat'),list(PRIORid).htb_file) %AZ I assume that the PRE data is calculated/saved already
+    PRIORthresh95CI=eval(sprintf('%s.Thresh95CI_psy',list(PRIORid).htb_file));
+    clear(list(PRIORid).htb_file)
+end
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuthM = data.moog_params(AZIMUTH,:,MOOG);
+temp_azimuthC = data.moog_params(AZIMUTH,:,CAMERAS); %added by AZ (to deduce selection of visual/vest from tempo)
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_heading   = data.moog_params(HEADING, :, MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_duration = data.moog_params(DURATION,:,MOOG); %added by AZ 2/21/11
+temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
+temp_motion_coherence = data.moog_params(COHERENCE,:,MOOG);
+temp_total_trials = data.misc_params(OUTCOME, :);
+temp_mask_status = data.moog_params(MASK_STATUS,:,MOOG);
+temp_mask_radius = data.moog_params(MASK_RADIUS,:,MOOG);
+temp_microstim = data.moog_params(MICROSTIM,:,MOOG);
+temp_delta = data.moog_params(VESTIB_HEADING_OFFSET,:,MOOG); %added by AZ
+if SpikeChan, temp_spike_data = data.spike_data(SpikeChan,:,:);   end % spike rasters, added by AZ 2/21/11
+
+trials = 1:length(temp_heading);		% a vector of trial indices
+select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) );
+stim_type = temp_stim_type( select_trials );
+heading = temp_heading( select_trials );
+amplitude= temp_amplitude( select_trials );
+duration= temp_duration( select_trials );
+num_sigmas= temp_num_sigmas( select_trials );
+motion_coherence = temp_motion_coherence(select_trials);
+total_trials = temp_total_trials( select_trials);
+mask_status= temp_mask_status( select_trials );
+mask_radius= temp_mask_radius( select_trials );
+microstim = temp_microstim(select_trials );
+delta = temp_delta(select_trials ); %added by AZ
+azimuthM = temp_azimuthM(select_trials ); %added by AZ
+azimuthC = temp_azimuthC(select_trials ); %added by AZ
+
+unique_stim_type = munique(stim_type');
+unique_heading = munique(heading');
+unique_amplitude = munique(amplitude');
+unique_duration = munique(duration');
+unique_num_sigmas = munique(num_sigmas');
+unique_motion_coherence = munique(motion_coherence');
+unique_mask_status = munique(mask_status');
+unique_mask_radius = munique(mask_radius');
+unique_microstim = munique(microstim');
+unique_heading_nonzero = unique_heading(unique_heading~=0);
+unique_delta = munique(delta'); %added by AZ
+unique_azimuthM_comb = munique(azimuthM(stim_type==3)'); %added by AZ (only looking at combined trials)
+unique_azimuthC_comb = munique(azimuthC(stim_type==3)'); %added by AZ (only looking at combined trials)
+
+%AZ: find meanDelta_OnOff (used the mean of the visual/vestibular stimuli as heading) and VestVisual (=0 rewarded by vestibular cue; =1 rewarded by visual cue)
+%AZ: the test below should use '==', but there are sometimes some small (0.05) differences due to the way it is saved (only allows 5 digits o/w truncates), hence the '<' comparison.
+if all(abs(sort(unique_azimuthM_comb)-sort(90-unique_heading-unique_delta))<0.1) & all(abs(sort(unique_azimuthC_comb)-sort(90-unique_heading))<0.1)
+    meanDelta_OnOff=0; VestVisual=1;
+elseif all(abs(sort(unique_azimuthM_comb)-sort(90-unique_heading))<0.1) & all(abs(sort(unique_azimuthC_comb)-sort(90-unique_heading+unique_delta))<0.1)
+    meanDelta_OnOff=0; VestVisual=0;
+elseif all(abs(sort(unique_azimuthM_comb)-sort(90-unique_heading-0.5*unique_delta))<0.1) & all(abs(sort(unique_azimuthC_comb)-sort(90-unique_heading+0.5*unique_delta))<0.1)
+    meanDelta_OnOff=1; VestVisual=1;
+elseif all(abs(sort(unique_azimuthM_comb)-sort(90-unique_heading+0.5*unique_delta))<0.1) & all(abs(sort(unique_azimuthC_comb)-sort(90-unique_heading-0.5*unique_delta))<0.1)
+    meanDelta_OnOff=1; VestVisual=0;
+else, error('AZ: unable to determine whether rewarded by vestibular/visual cue.')
+end
+
+% 'one repetition' is different when values are added (i.e., extra stim types to
+% increase ratio of combined to vestibular trials)  [** currently only works for 2 stim types **]  -CRF 12/2009
+num_extras = 0;
+if length(unique_stim_type) == 2 && sum(stim_type == unique_stim_type(1)) ~= sum(stim_type == unique_stim_type(2))
+    if sum(stim_type == unique_stim_type(1)) > sum(stim_type == unique_stim_type(2))
+        duplicated_stim = 1;
+        other_stim = 2;
+    else
+        duplicated_stim = 2;
+        other_stim = 1;
+    end
+    num_extras = round(sum(stim_type == unique_stim_type(duplicated_stim))/sum(stim_type == unique_stim_type(other_stim))) - 1;
+end
+
+if length(unique_motion_coherence)==1
+    one_repetition = length(unique_heading)*(length(unique_stim_type)+num_extras);
+else
+    one_repetition = length(unique_heading)*length(unique_stim_type)*length(unique_motion_coherence)-length(unique_heading);
+end
+repetition = floor( length(heading)/one_repetition ); % take minimum repetition
+
+if SpikeChan
+    %added by AZ 2/21/11 - recalculate 'spike_rates' based on 'spike_data'
+    spike_data(SpikeChan,:) = temp_spike_data( SpikeChan, :, select_trials);
+    spike_data(SpikeChan, find(spike_data(SpikeChan,:)>10) ) = 1; % YG something is absolutely wrong. %AZ - why would this happen?
+    StartEventBin(1)=996; %the data recording is started 996ms before visual stimulus onset
+    stim_delay=115; %average stimulus delay
+    for ss =  trials % ss marks the index of trial
+        if unique_duration == 2000 % use the middle 1 second
+            spike_rates(ss) = sum( spike_data(SpikeChan,(StartEventBin(1)+500+5000*(ss-1) : StartEventBin(1)+1500+5000*(ss-1))+stim_delay) ) ; %there is a ~115 sec delay between the systems
+            PST(ss,:)=spike_data(SpikeChan,(StartEventBin(1)-1000+5000*(ss-1) : StartEventBin(1)+unique_duration+500+5000*(ss-1))+stim_delay); %to create PSTH/raster/SDF
+        elseif unique_duration == 1000 % use the whole 1 second
+            spike_rates(ss) = sum( spike_data(SpikeChan,(StartEventBin(1)+5000*(ss-1) : StartEventBin(1)+1000+5000*(ss-1))+stim_delay)) ;
+            PST(ss,:)=spike_data(SpikeChan,(StartEventBin(1)-1000+5000*(ss-1) : StartEventBin(1)+unique_duration+500+5000*(ss-1))+stim_delay); %to create PSTH/raster/SDF (Event_start - 1s_before_trial + trial_time: ...) + av_stim_delay
+        end
+    end
+end
+
+%determine for each trial whether monkey chooses leftward(target1) or rightward(tarket2)
+LEFT = 1;
+RIGHT = 2;
+for i= 1 : length(total_trials)
+    temp = data.event_data(1,:,i + BegTrial-1);
+    events = temp(temp>0);  % all non-zero entries
+    if (sum(events == IN_T1_WIN_CD) > 0)
+        choice(i) = RIGHT;
+    elseif (sum(events == IN_T2_WIN_CD) > 0)
+        choice(i) = LEFT;
+    else
+        choice(i) = 0;
+        %disp('Neither T1 or T2 chosen.  This should not happen!.  File must be bogus.');
+    end
+end
+
+fixation=0; %AZ: for fixation blocks, the monkey makes no choice (only for combined visual/vestibular stimuli). Rather he is rewarded for fixation alone.
+correct_rate = [];
+for c = 1:length(unique_motion_coherence) % different coherence level
+    for k = 1:length(unique_stim_type)
+        if unique_stim_type(k)==3 %combined condition
+            fixation = ~sum(choice(stim_type==unique_stim_type(k))); %AZ: if monkey made no choice fixation=1. i.e. rewarded for fixation alone
+        end
+        for i = 1:length(unique_heading)
+            if unique_stim_type(k) == 1 % for vestibular condition, take all the data regardless of visual coherence
+                trials_select =logical( (heading == unique_heading(i)) & (stim_type==unique_stim_type(k)) ) ;
+            else
+                trials_select =logical( (heading == unique_heading(i)) & (stim_type==unique_stim_type(k)) & (motion_coherence==unique_motion_coherence(c)) ) ;
+            end
+            rightward_trials = (trials_select & (choice == RIGHT) );
+            rightward_rate = 1*sum(rightward_trials) / sum(trials_select);
+            fit_data_psycho_cum{c,k}(i, 1) = unique_heading(i);
+            fit_data_psycho_cum{c,k}(i, 2) = rightward_rate;
+            fit_data_psycho_cum{c,k}(i, 3) = sum(trials_select);
+
+            if SpikeChan %str2num(FILE((findstr('c',FILE)+1):(findstr('r',FILE)-1))); % if there is neuronal recording
+                %Added by AZ 2/21/11
+                resp{c,k,i} = spike_rates(trials_select);
+                resp_mat{c,k}(i) = mean(resp{c,k,i});  % the mean firing rate for each heading
+                resp_mat_std{c,k}(i)= std(resp{c,k,i});
+                resp_mat_err{c,k}(i) = std(resp{c,k,i}) / sqrt(repetition);
+                raster{c,k}(i,:,:) = PST(trials_select,:); % raster matrix (headings,trials,spikes)
+            end
+        end
+        %          halfheading = length(unique_heading_nonzero/2);
+        %          for j = 1: halfheading
+        %              trials_left = find( (heading==unique_heading_nonzero(halfheading+1-j)) & (choice==LEFT) & (stim_type==unique_stim_type(k))  ) ;
+        %              trials_right  = find( (heading==unique_heading_nonzero(halfheading+j)) & (choice==RIGHT) & (stim_type==unique_stim_type(k))  ) ;
+        %              trials_all = find( ((heading==unique_heading_nonzero(halfheading+1-j)|(heading==unique_heading_nonzero(halfheading+j)) & (stim_type==unique_stim_type(k)) );
+        %              correct_rate(k,j) = (length(trials_right)+length(trials_left))/length(trials_all);
+        %              % for later weibull fit
+        %              fit_valid_weibull{c,k}(j,1) = unique_heading_nonzero(halfheading+j);
+        %              fit_valid_weibull{c,k}(j,2) = correct_rate(k,j);
+        %              fit_valid_weibull{c,k}(j,3) = fit_data_psycho_cum{c,k}(aa,3);
+        %          end
+        % the correct rate does not take coherence into account,temporarily 05/29/09
+        trials_rightward = find( (heading > 0) & (choice==RIGHT) & (stim_type==unique_stim_type(k))  ) ;
+        trials_leftward  = find( (heading < 0) & (choice==LEFT) & (stim_type==unique_stim_type(k))  ) ;
+        trials_all = find( ((heading < 0)|(heading > 0)) & (stim_type==unique_stim_type(k)) ); %exclude 0 headings
+        correct_proportion(k) = (length(trials_rightward)+length(trials_leftward))/length(trials_all);
+
+        aa = find(fit_data_psycho_cum{c,k}(:,2)>-99); % sometime it could be NaN due to the absence of that heading conditions
+        fit_valid{c,k}(:,1) = fit_data_psycho_cum{c,k}(aa,1);
+        fit_valid{c,k}(:,2) = fit_data_psycho_cum{c,k}(aa,2);
+        fit_valid{c,k}(:,3) = fit_data_psycho_cum{c,k}(aa,3);
+
+        %          % for later weibull fit use
+        %          fit_valid_weibull{c,k}(:,1) = unique_heading( unique_heading>0) );
+        %          fit_valid_weibull{c,k}(:,2) = correct_rate(k,:);
+        %          fit_valid_weibull{c,k}(:,3) = fit_data_psycho_cum{c,k}(aa,3);
+    end
+end
+
+% If combined trials are fixation-only, remove that stim type for all subsequent analyses/plots -- CRF 1-28-10
+if unique_stim_type(end) == 3 & fixation %AZ added "& fixation"...may be redundant
+    index = find(unique_stim_type==3);
+    if sum(fit_valid{1,index}(:,2)) == 0
+        unique_stim_type(end) = [];
+    end
+end
+
+%%%%%% use Wichman's MLE method to estimate threshold and bias
+for c = 1:length(unique_motion_coherence) % different coherence level
+    for k = 1:length(unique_stim_type)
+        valid_thresh{c,k}=sum(~(fit_valid{c,k}(1:end,2)==0 | fit_valid{c,k}(1:end,2)==1))>1; %AZ the threshold calculated from pfit is only valid if there are >1 data points that aren't 1 or 0
+        if valid_thresh{c,k} | ~exist('PRIORthresh95CI') | unique_stim_type(k)==3, thresh_prior='';, else thresh_prior=sprintf('-cosine %f %f',PRIORthresh95CI{k}(1),PRIORthresh95CI{k}(4)); end %AZ if the fit will be based on one data point, use PREthresh as a 'prior'
+        fit_valid{c,k}(fit_valid{c,k}(1:end,2)==0,2)=1e-32; %AZ pfit program doesn't like pefect 0s
+        fit_valid{c,k}(fit_valid{c,k}(1:end,2)==1,2)=1-(1e-32); %AZ pfit program doesn't like perfect 1s
+        [wichman_psy wichman_Full] = pfit(fit_valid{c,k}(1:end,:),'plot_opt','no plot','shape','cumulative gaussian','n_intervals',1,'BETA_PRIOR',thresh_prior,'FIX_LAMBDA',0.001,'LAMBDA_EQUALS_GAMMA',1,'sens',0,'compute_stats','false','verbose','false','CONF',[0.025 0.159 0.841 0.975]); %95 percent and 1SD equivalent
+        Thresh_psy{c,k} = wichman_psy.params.est(2);
+        Thresh95CI_psy{c,k} = prctile(wichman_Full.params.sim(:,2),[2.5 15.9 84.1 97.5]'); %AZ I calculate percentile to prevent getting NaNs (vs. wichman_psy.params.lims(:,2);)
+        Bias_psy{c,k} = wichman_psy.params.est(1);
+        Bias95CI_psy{c,k} = wichman_psy.params.lims(:,1);
+        under=prctile(wichman_Full.params.sim(:,1),0.25); %remove the most extreme 0.5 percent incase the bootstrap gave far outliers (due to the limited # of datapoints) which would bias the SD
+        over=prctile(wichman_Full.params.sim(:,1),99.75);
+        BiasSD_psy{c,k}=std(wichman_Full.params.sim(wichman_Full.params.sim(:,1)>=under & wichman_Full.params.sim(:,1)<=over,1));
+        psy_perf{c,k} = [wichman_psy.params.est(1),wichman_psy.params.est(2)];
+        gamma{c,k} = wichman_psy.params.est(3);
+        lambda{c,k} = wichman_psy.params.est(4);
+
+        %AZ Goodness-of-fit
+        pfitcurve_dir_only = cum_gaussfit(psy_perf{c,k} , fit_valid{c,k}(:,1)); %the model values only at the actual directions used (used to calc. the R-square)
+        SStot = sum((fit_valid{c,k}(:,2)-mean(fit_valid{c,k}(:,2))).^2);
+        SSerr = sum((pfitcurve_dir_only(:) - fit_valid{c,k}(:,2)).^2);
+        Rsquare{c,k} = 1-SSerr/SStot;
+
+        %     %   similar way to fit data
+        %         [bb,tt] = cum_gaussfit_max1(fit_valid{c,k});
+        %         Thresh_psy{c,k} = tt;
+        %         Bias_psy{c,k} = bb;
+        %         psy_perf{c,k} =[bb,tt];
+
+    end
+end
+% this is the output, you can use it for plot of example cells
+for k = 1:length(unique_stim_type)
+    step=(max(fit_valid{c,k}(:,1))-min(fit_valid{c,k}(:,1)))/99; %AZ to consistently have 100 points
+    xi{k} = min(fit_valid{c,k}(:,1)) : step : max(fit_valid{c,k}(:,1));
+    yi{k} = cum_gaussfit(psy_perf{k}, xi{k});
+end
+if length(unique_stim_type) == 3
+    Thresh_pred = sqrt( Thresh_psy{1}^2*Thresh_psy{2}^2/(Thresh_psy{1}^2+Thresh_psy{2}^2) ); % now this is the prediction when there are three stimuli conditions
+    % if length(unique_stim_type) == 3 && skip_combined == 0
+    yi_pred = cum_gaussfit([Bias_psy{3},Thresh_pred], xi{3}); % smoothed line for prediction with PSE at actual combined condition
+end
+
+% % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % plot psychometric, neurometric, CP over time
+% % run the slide threshold over time, see whether performance fluctuate across time
+% not work for coherence, temporarily 05/29/09
+if overtimeplot == 1
+    BegTrial_shift = BegTrial;
+    EndTrial_shift = BegTrial_shift + span*one_repetition-1;
+    n=0;
+    if EndTrial_shift > EndTrial, EndTrial_shift=EndTrial; end %incase there are not enough trials (i.e. < span), get at least one value for psy_thresh_shift and psy_bias_shift
+    while EndTrial_shift <= EndTrial
+        n = n + 1;
+        select_trials_shift = ( (trials >= BegTrial_shift) & (trials <= EndTrial_shift) );
+        stim_type_shift = temp_stim_type( select_trials_shift );
+        mask_status_shift = temp_mask_status( select_trials_shift );
+        heading_shift = temp_heading( select_trials_shift );
+        unique_stim_type_shift = munique(stim_type_shift');
+        unique_mask_status_shift = temp_mask_status( select_trials_shift );
+        unique_heading_shift = munique(heading_shift');
+        total_trials_shift = temp_total_trials( select_trials_shift);
+        if find(unique_mask_status == 1) > 1
+            condition_shift = mask_status_shift;
+            unique_condition_shift = unique_mask_status_shift;
+        else
+            condition_shift = stim_type_shift;
+            unique_condition_shift = unique_stim_type_shift;
+        end
+        for k = 1:length(unique_condition_shift)
+            for i = 1:length(unique_heading)
+                trials_shift =logical( (heading_shift == unique_heading(i)) & (condition_shift == unique_condition_shift(k)) ) ;
+                correct_trials_shift = (trials_shift & (total_trials_shift == CORRECT) );
+                % make 'S' curve by using the rightward choice for y-axis
+                if sum(trials_shift)>0
+                    if ( unique_heading(i) < 0 )
+                        correct_rate_shift(i) = 1 - 1*sum(correct_trials_shift) / sum(trials_shift);
+                    else
+                        correct_rate_shift(i) = 1*sum(correct_trials_shift) / sum(trials_shift);
+                    end
+                end
+                Trials_num(i) = sum(trials_shift);
+            end
+            aa = find(correct_rate_shift >-1 );
+            for j = 1:length(aa)
+                fit_data_psycho_cum_shift{k}(j, 1) = fit_data_psycho_cum{k}(aa(j), 1);
+                fit_data_psycho_cum_shift{k}(j, 2) = correct_rate_shift(aa(j));
+                fit_data_psycho_cum_shift{k}(j, 3) = Trials_num(aa(j));
+            end
+            % this fixes a strange error: cum_gaussfit/pfit sometimes fail when pct choices are all 0's or 1's -CRF 8-13-08
+            if fit_data_psycho_cum_shift{k}(:,2)==0 | fit_data_psycho_cum_shift{k}(:,2)==1
+                fit_data_psycho_cum_shift{k}(fit_data_psycho_cum_shift{k}(:,2)==0,2) = 1e-32; %AZ - updated a little
+                fit_data_psycho_cum_shift{k}(fit_data_psycho_cum_shift{k}(:,2)==1,2) = 1-(1e-32);
+            end
+            [bb,tt] = cum_gaussfit_max1(fit_data_psycho_cum_shift{k}); % to save time, use a different fit method
+            psy_thresh_shift(k,n) = tt;
+            psy_bias_shift(k,n) = bb;  % added Bias, CRF 11-5-09
+            %             wichman_psy = pfit(fit_data_psycho_cum_shift{k},'plot_opt','plot','shape','cumulative gaussian','n_intervals',1,'FIX_LAMBDA',0.001,'sens',0,'compute_stats','false','verbose','false');
+            %             psy_thresh_shift(k,n) = wichman_psy.params.est(2);
+            %             psy_bias_shift(k,n) = wichman_psy.params.est(1);
+        end
+        BegTrial_shift = BegTrial_shift + slide*one_repetition;
+        EndTrial_shift = BegTrial_shift + span*one_repetition-1;
+    end
+end
+
+if PLOT
+    % plot psychometric function here
+    symbo{1,1} = 'bo';    symbo{1,2} = 'ro';    symbo{1,3} = 'go';
+    symbo{2,1} = 'b*';    symbo{2,2} = 'm*';    symbo{2,3} = 'g*';
+    fitline{1,1} = 'b-';    fitline{1,2} = 'r-';    fitline{1,3} = 'g-';
+    fitline{2,1} = 'b--';    fitline{2,2} = 'r--';    fitline{2,3} = 'g--';
+
+    f=figure;
+    set(f,'Units','normalized','Position',[0.025 0.05 0.95 0.85], 'Name','Heading Discrimination-Vestibular');
+    axes('position',[0.2,0.47, 0.3,0.4] ); hold on; % fit data with cumulative gaussian and plot both raw data and fitted curve
+    % fit data with cumulative gaussian and plot both raw data and fitted curve
+    legend_txt = [];
+    for c = 1:length(unique_motion_coherence) % different coherence level
+        for k = 1:length(unique_stim_type)
+            plot(fit_valid{c,k}(:,1), fit_valid{c,k}(:,2), symbo{c,k},  xi{k}, cum_gaussfit(psy_perf{c,k}, xi{k}),  fitline{c,k} );
+            xlabel('Heading Angles');
+            ylim([0,1]);
+            ylabel('Rightward Choices');
+            set(gca, 'YTickMode','auto');
+            set(gca, 'xTickMode','auto');
+            hold on;
+            legend_txt{k*2-1} = [num2str(unique_stim_type(k))];
+            legend_txt{k*2} = [''];
+        end
+    end
+    % output some text of basic parameters in the figure
+    axes('position',[0.2,0.83, 0.3,0.15] );
+    xlim( [0,50] );
+    ylim( [2,10] );
+    text(0, 10, FILE);
+    text(15,10,'coherence =');
+    text(30,10,'repeats =');
+    %text(45,10,'maskradius =');
+    text(25,10,num2str(unique_motion_coherence) );
+    text(40,10,num2str(repetition) );
+    %text(55,10,num2str(unique_mask_radius) );
+    text(10,8, 'u                   sigma             correct rate');
+
+    for c = 1:length(unique_motion_coherence) % different coherence level
+        for k = 1:length(unique_stim_type)
+            text(0,8-k-(c-1)*3, num2str(unique_stim_type(k)));  % non-microstim
+            text(10,8-k-(c-1)*3,num2str(Bias_psy{c,k}) );
+            text(20,8-k-(c-1)*3,num2str(Thresh_psy{c,k}) );
+            text(30,8-k-(c-1)*3,num2str(correct_proportion(k)) );
+        end
+    end
+    axis off;
+
+    %plot FR vs. heading - added by AZ 2/21/11
+    axes('position',[0.6,0.47, 0.3,0.4] ); hold on; % fit data with cumulative gaussian and plot both raw data and fitted curve
+    for c = 1:length(unique_motion_coherence) % different coherence level
+        for k = 1:length(unique_stim_type)
+            errorbar(unique_heading, resp_mat{c,k}(:), resp_mat_err{c,k}(:),strcat(symbo{c,k},'-') );
+            xlabel('Heading Angle (deg)'); ylabel('Firing rate(spikes/s)');
+            %xlim([min(unique_heading),max(unique_heading)]);
+        end
+    end
+
+    % % plot psycho over time
+    if overtimeplot ==1
+        axes('position',[0.2,0.26, 0.3,0.16] );
+        for k = 1:length(unique_stim_type)
+            plot(psy_thresh_shift(k,:), fitline{1,k});
+            % semilogy(psy_thresh_shift(k,:), f{k});
+            hold on;
+            xlabel('Repetition');
+            ylabel('Threshold');
+            xlim([0, n]);
+            %  ylim( [min(min(psy_thresh_shift(:,:))), max(max(psy_thresh_shift(:,:)))] );
+        end
+        % added Bias, CRF 11-5-09
+        axes('position',[0.2,0.05, 0.3,0.16] );
+        for k = 1:length(unique_stim_type)
+            plot(psy_bias_shift(k,:), fitline{1,k});
+            % semilogy(psy_thresh_shift(k,:), f{k});
+            hold on;
+            xlabel('Repetition');
+            ylabel('Bias');
+            xlim([0, n]);
+            %  ylim( [min(min(psy_thresh_shift(:,:))), max(max(psy_thresh_shift(:,:)))] );
+        end
+    end
+    orient tall;
+end
+
+outfile = [RESULTS_DIR 'Psychometric_adapt.mat'];
+var=FILE(1:end-4);
+stim={'Ves' 'Vis' 'Comb'};
+for k = 1:length(unique_stim_type) %NB assuming one level of coherence
+    eval(sprintf('%s.dir%s=fit_valid{1,k}(:,1);',var,stim{unique_stim_type(k)}))
+    eval(sprintf('%s.right%s=fit_valid{1,k}(:,2);',var,stim{unique_stim_type(k)}))
+    eval(sprintf('%s.Xi%s=xi{k};',var,stim{unique_stim_type(k)}))
+    eval(sprintf('%s.pfitcurve%s=cum_gaussfit(psy_perf{1,k}, xi{k});',var,stim{unique_stim_type(k)}))
+    if str2num(FILE((findstr('c',FILE)+1):(findstr('r',FILE)-1))); % if there is neuronal recording
+        eval(sprintf('%s.FR%s=resp_mat{1,k};',var,stim{unique_stim_type(k)}))%FR response of the neuron
+        eval(sprintf('%s.FR_err%s=resp_mat_err{1,k};',var,stim{unique_stim_type(k)}))
+        % eval(sprintf('%s.raster%s=raster{1,k};',var,stim{unique_stim_type(k)})); % raster matrix (headings,trials,spikes) - TBD not saved to spare memory
+        if max(resp_mat{1,k})<1, eval(sprintf('%s.sdf%s(1:%u,:)=NaN;',var,stim{unique_stim_type(k)},length(unique_heading))); %the cell did not fire
+        else % calculated the spike density function
+            sig=1000/mean(resp_mat{1,k}); %use the mean ISI as the guassian sigma for SDF
+            for i = 1:length(unique_heading)
+                eval(sprintf('%s.sdf%s(i,:)=downsample(mean(sdf(sig,1000,squeeze(raster{1,k}(i,:,:)),1,0),1),10);',var,stim{unique_stim_type(k)})); % spike density function (sigma,sfreq,spikes,kernal flag,graph flag)
+            end
+        end
+    end
+end
+eval(sprintf('%s.Bias_psy=Bias_psy;',var))
+eval(sprintf('%s.Bias95CI_psy=Bias95CI_psy;',var))
+eval(sprintf('%s.BiasSD_psy=BiasSD_psy;',var))
+eval(sprintf('%s.Thresh_psy=Thresh_psy;',var))
+eval(sprintf('%s.Thresh95CI_psy=Thresh95CI_psy;',var))
+eval(sprintf('%s.gamma=gamma;',var))
+eval(sprintf('%s.valid_thresh=valid_thresh;',var))
+eval(sprintf('%s.Rsquare=Rsquare;',var))
+eval(sprintf('%s.coherence=unique_motion_coherence;',var))
+eval(sprintf('%s.unique_stim_type=unique_stim_type;',var))
+eval(sprintf('%s.unique_heading=unique_heading;',var))
+eval(sprintf('%s.psy_thresh_shift=psy_thresh_shift;',var))
+eval(sprintf('%s.psy_bias_shift=psy_bias_shift;',var))
+eval(sprintf('%s.delta=delta;',var))
+eval(sprintf('%s.unique_delta=unique_delta;',var))
+eval(sprintf('%s.meanDelta_OnOff=meanDelta_OnOff;',var))
+eval(sprintf('%s.VestVisual=VestVisual;',var))
+eval(sprintf('%s.fixation=fixation;',var))
+
+if (exist(outfile, 'file') == 0), save(outfile,var)    %file does not yet exist
+else, save(outfile,var,'-append'); end

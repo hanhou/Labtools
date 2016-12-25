@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings name="parallel" xmlns="urn:mathworks.matlab.settings" xsi:schemaLocation="urn:mathworks.matlab.settings settings.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <settings name="client">
+    </settings>
+    <settings name="internal">
+        <settings name="profilesWithReadOnlySched">
+        </settings>
+    </settings>
+    <settings name="profiles">
+        <settings name="local" visible="true">
+        </settings>
+    </settings>
+    <settings name="projectcomponents">
+    </settings>
+    <settings name="schedulercomponents">
+        <settings name="Generic" visible="true">
+        </settings>
+        <settings name="HPCServer" visible="true">
+        </settings>
+        <settings name="LSF" visible="true">
+        </settings>
+        <settings name="Local" visible="true">
+            <settings name="localSchedulerComponent" visible="true">
+            </settings>
+        </settings>
+        <settings name="MJS" visible="true">
+        </settings>
+        <settings name="MJSComputeCloud" visible="true">
+        </settings>
+        <settings name="Mpiexec" visible="true">
+        </settings>
+        <settings name="PBSPro" visible="true">
+        </settings>
+        <settings name="Torque" visible="true">
+        </settings>
+    </settings>
+</settings>

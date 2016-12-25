@@ -1,0 +1,156 @@
+2011-10-28
+
+* bugfix: NaN bug in optimizer fixed
+* new features: ASIR resampling can be accessed from python
+* fixed a couple of minor bugs and typos
+
+2011-08-27
+
+* Fixed bug in sensitivity analysis
+
+2011-08-18
+
+* Refactoring optimizer to be more robust
+* fixing segfaults in ASIR inference
+* fixing most unit tests
+* updates in documentation
+* removed psipy
+
+2011-07-04
+
+* Various documentation changes
+* ASIR inference uses finer grid, moment matching and avoids numerical
+  integration in 3/4d.
+* Bugfix: Speed issues in psignifit-bootstrap -- jackknife used to call
+  getstart unnessessarily often.
+
+2011-06-07
+
+* Updating documentation
+* bugfix: no status messages any more to make matlab interface working
+* posterior oversampling factor for ASIRInference can be specified from python
+
+2011-05-17
+
+* New strategy for Bayesian inference: Numerical integration of posterior,
+  fitting marginal distributions and sampling importance resampling in python
+  object ASIRInference
+* plotJoint distribution
+* various bugfixes
+
+2011-05-05
+
+* Updated documentation
+* changed distribution targets
+* a number of small bugfixes
+* improvements of matlab interface
+
+2011-03-24
+
+* Bugfix: command line interface checks ALL output for NaN
+* A couple of typos and documentations updates
+
+2011-03-11
+
+* Bugfix: cut can be a float
+* Swig function to get the points of a grid
+
+2011-02-02
+
+* A couple of bugfixes mainly with the matlab interface
+
+2010-12-21
+
+* New: version numbers in psignifit can be displayed in scripts
+  e.g. pypsignifit.version
+* Bugfix: stimulus intensities for bootstrap are always double
+* Bugfix: switched off tunesampler in MCMC -> used to give weired behavior
+  we now got back to Laplace approximations
+
+2010-12-16
+
+* Mersenne Twister is faster for MCMC
+
+2010-12-15
+
+* Improving grid search to also work with very narrow priors
+* Using results from grid search to set initial simplex size
+* Optimized MCMC --- reduced data sets are created only once
+
+2010-12-10
+
+* Zoom-in grid search for robust starting value determination
+
+2010-12-08
+
+* Bugfixes: Slope handling was wrong due to an error in documentation
+* Bugfixes:  documentation is fixed and slope handling, too.
+
+2010-12-06
+
+* Added BCa confidence intervals for slope to the high level interface
+* Checking command line arguments based on docstring
+
+2010-11-29
+
+* Bugfix: cuts is checked to be iterable in constructor
+* Bugfix: if ConvergenceMCMC has less then three chains, Rhat is not printed
+* Bugfix: axes limits are set to lists to be mutable
+* Makefile flexibility increased
+
+2010-11-12
+
+* Bugfixes: In coverage.py script and in PsiPsychometric::getStart
+
+2010-10-27
+
+* Bugfix in matlab interface: nafc is actually used
+* bugfix in coverage script: default values
+* matlab interface has default priors
+
+2010-10-21
+
+* Old matplotlib versions require fake iterables for plotting
+
+2010-10-21
+
+* Fixed warnings for the dependency on matplotlib to be suppressable
+
+2010-10-21
+
+* Allowing older versions of matplotlib (spines are not required)
+* added some examples for the python interface
+
+2010-10-18
+
+* Fixed bug with NaN in matlab interface (seems to be crucial only on windows)
+
+2010-10-13
+
+* Fixed bug with tmp-files to (mainly a windows issue)
+
+2010-09-17
+
+* Fixed segmentation fault in random number generator
+* Enabled automatic upload to sourceforge
+
+2010-09-10
+
+* Adds Windows Installer and more installation stuff in Makefile
+* Adds matlab interface
+
+2010-09-09
+
+* fixes some bugs with the plotting engine
+
+2010-09-03
+
+* enables gamma==lambda constraints from high level python interface
+
+2010-07-16
+
+* Activates new interface layer swignifit
+* Fixes a number of memory leaks
+* Overhall of build system
+* Makes available Beta-regression for psychometric functions (so far only via
+  swig/C++)

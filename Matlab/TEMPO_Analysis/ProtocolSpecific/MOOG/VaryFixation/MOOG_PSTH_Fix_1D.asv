@@ -1,0 +1,472 @@
+%-----------------------------------------------------------------------------------------------------------------------
+%-- MOOG_PSTH_Fix_1D.m -- Plots Post Stimulus Time Histograms for MOOG 1D_VaryFixation expt
+%--	orig -- GCD, 6/27/03
+%-- Modified for Vary_Fixation protocol  CRF, 1/06/04 -- and for 1D data (9/05)
+%-- Modified for Anuk's model fitting, 10/05
+%-----------------------------------------------------------------------------------------------------------------------
+
+function MOOG_PSTH_Fix_1D(data, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE, Protocol);
+FILE
+tic
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG); 
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG); 
+temp_fix_x    =  data.moog_params(FIX_X,:,MOOG);
+temp_fix_y    =  data.moog_params(FIX_Y,:,MOOG);
+temp_spike_data = data.spike_data(1,:);
+temp_spike_rates = data.spike_rates(SpikeChan, :);
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% a vector of trial indices
+bad_trials = find(temp_spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+if ( bad_trials ~= NaN)
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) & (trials~=bad_trials) );
+else 
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+end
+
+azimuth = temp_azimuth(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+fix_x     = temp_fix_x(~null_trials & select_trials);
+fix_y     = temp_fix_y(~null_trials & select_trials);
+spike_rates= temp_spike_rates(~null_trials & (trials >= BegTrial) & (trials <= EndTrial));
+% notice that this bad_trials is the number without spon trials 
+bad_trials = find(spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+
+unique_azimuth  = munique(azimuth');
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+unique_fix_x    =  munique(fix_x');
+unique_fix_y    =  munique(fix_y');
+if length(unique_fix_y) == 1
+   condition_num = fix_x;
+   temp_condition_num = temp_fix_x;
+else
+   condition_num = fix_y; 
+   temp_condition_num = temp_fix_y;
+end
+unique_condition_num = munique(condition_num');
+
+%baseline firing rate
+spon_found = find(null_trials(BegTrial:EndTrial)==1);
+for k = 1:length(unique_condition_num)
+    spon_resp(k) = mean(temp_spike_rates(spon_found(temp_condition_num(spon_found) == unique_condition_num(k))));
+end
+
+% add titles
+titles{1} = 'Vestibular, ';
+titles{2} = 'Visual, ';
+titles{3} = 'Combined, ';
+for n=1: length(unique_stim_type)
+    for k=1: length(unique_condition_num)
+        h_title{k,n} = [titles{unique_stim_type(n)}, num2str(unique_condition_num(k))];
+    end
+end
+
+% add parameters here
+% timebin for plot PSTH
+timebin=50;
+% sample frequency depends on test duration
+frequency=length(temp_spike_data)/length(select_trials);  
+% length of x-axis
+x_length = frequency/timebin;
+% x-axis for plot PSTH
+x_time=1:(frequency/timebin);
+
+% remove null trials, bad trials, and trials outside Begtrial~Endtrial
+Discard_trials = find(null_trials==1 | trials <BegTrial | trials >EndTrial);
+for i = 1 : length(Discard_trials)
+    temp_spike_data( 1, ((Discard_trials(i)-1)*frequency+1) :  Discard_trials(i)*frequency ) = 9999;
+end
+spike_data = temp_spike_data( temp_spike_data~=9999 );
+
+% count spikes from raster data (spike_data)
+max_count = 1;  % NOT SURE ABOUT THIS (w/r/t plot)
+time_step=1;
+
+for n=1:length(unique_stim_type)
+    for k=1: length(unique_condition_num)
+        for i=1:length(unique_azimuth)
+            
+            select = logical( (azimuth==unique_azimuth(i)) & (condition_num==unique_condition_num(k)) & (stim_type==unique_stim_type(n)) ); 
+            resp{n}(k,i) = mean(spike_rates(select));
+            act_found = find( select==1 );
+            % count spikes per timebin on every same condition trials
+            for repeat=1:length(act_found)
+                for m=1:(x_length)
+                    temp_count(repeat,m) = sum(spike_data(frequency * (act_found(repeat) - 1) + time_step : frequency * (act_found(repeat) - 1) + m * timebin));
+                    time_step = time_step + timebin;
+                end
+                time_step=1;
+            end
+            count_y_trial{i,n,k}(:,:) = temp_count;  % each trial's PSTH 
+            % get the average of the total same conditions if repetion is > 1
+            if (length(act_found) > 1);
+                count_y{i,n,k} = mean(temp_count);
+            else
+                count_y{i,n,k}= temp_count;     % for only one repetition cases
+            end
+            
+            % normalize count_y
+            if max(count_y{i,n,k})~=0;
+                count_y_norm{i,n,k} = count_y{i,n,k} / max(count_y{i,n,k});
+            else
+                count_y_norm{i,n,k} = 0;
+            end
+            
+        end    
+
+    end
+    
+    % now find the peak
+    [row_max, col_max] = find( resp{n} == max(max(resp{n})) );
+    % it is likely there are two peaks with same magnitude, choose the first one arbitraly
+    row_m{n}=row_max(1);
+    col_m{n}=col_max(1);
+    if max(count_y{col_max(1), n, row_max(1)})~=0;
+        count_y_max{n} = count_y{col_max(1), n, row_max(1)} / max(count_y{col_max(1), n, row_max(1)});
+    else
+        count_y_max{n} =0;
+    end
+    % find the largest y to set scale later
+    if max(count_y{col_max(1), n, row_max(1)}) > max_count
+        max_count = max(count_y{col_max(1), n, row_max(1)});
+    end
+    
+end
+
+% plot PSTH now
+showplot = 1;
+if showplot
+
+% get the largest count_y so that make the scale in each figures equal
+max_count_plot = max( cat(2, count_y{:}) ); 
+
+% % OR scale each set of histograms differently
+% for n = 1:length(unique_stim_type)
+%     for k = 1:length(unique_condition_num) 
+%         max_count_plot(k,n) = max( cat(2, count_y{:,n,k}) ); 
+%     end
+% end
+
+% plot two lines as stimulus start and stop marker
+x_start = [StartEventBin(1,1)/timebin, StartEventBin(1,1)/timebin];
+x_stop =  [StopEventBin(1,1)/timebin,  StopEventBin(1,1)/timebin];
+y_marker =  [0,  max(max(max_count_plot))];
+
+% define figure
+figure(2);
+orient landscape;
+set(2,'Position', [5,25 1200,900], 'Name', '1D VaryFix PSTH');
+title(FILE);
+axis off;
+
+for n = 1:length(unique_stim_type)
+    for k = 1:length(unique_condition_num) 
+
+        xoffset = (n-1) * 0.33;
+        yoffset = (k-1) * -0.30;
+        axes('position',[0.02+xoffset 0.62+yoffset 0.28 0.28]);
+
+        theta = (unique_azimuth*pi/180)';
+        rho = ones(1,length(theta));
+        polar(theta,rho);
+        
+        hold on;
+        % azi:  0            45               90               135          180          225          270          315 
+        xpos = [0.22+xoffset 0.20+xoffset NaN 0.14+xoffset NaN 0.08+xoffset 0.05+xoffset 0.08+xoffset 0.14+xoffset 0.20+xoffset];
+        ypos = [0.74+yoffset 0.82+yoffset NaN 0.86+yoffset NaN 0.82+yoffset 0.74+yoffset 0.65+yoffset 0.62+yoffset 0.65+yoffset];
+        
+        for i=1:length(unique_azimuth)
+            if (i~=3) & (i~=5)  % the 67.5 and 112.5 headings won't fit on the circular plot
+                axes('position',[xpos(i) ypos(i) 0.055 0.055]);
+                bar( x_time,count_y{i,n,k}(1,:) ); 
+                hold on;
+                plot( x_start, y_marker, 'r-');
+                plot( x_stop,  y_marker, 'r-');
+                xlim([0,x_length]);
+                ylim([0,max_count_plot]);
+%                 ylim([0,max_count_plot(k,n)]);
+                set(gca, 'xticklabel',' ');
+            end
+        end 
+        
+    end
+end
+
+% print
+close
+
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Anuk's code for DFT, etc.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% order in which the directions are plotted
+plot_col = [1 1 1 2 2 2 3 3 3 4 4 4 5 5 5 6 6 6 7 7 7 8 8 8 9 9 9 10 10 10];
+plot_row = [1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3];
+
+
+%calls rand_spikes which generates 1000 random distributions of the
+%original data and returns the median of the stds of the 1000 trials
+
+% is_empty = zeros(1,40);
+% for i = 1:40
+%     total_visual_spikes{plot_col(i), plot_row(i)} = sum(total_visual_spikes{plot_col(i), plot_row(i)});
+%     
+%     if sum(total_visual_spikes{plot_col(i), plot_row(i)}) == 0
+%         total_visual_spikes{plot_col(i), plot_row(i)} = zeros(1,100);
+%     end
+%     spikes{i} = total_visual_spikes{plot_col(i), plot_row(i)}(24:60);
+%     if sum(spikes{i}) == 0
+%         ratio(i) = 0;
+%         is_empty(i) = 1;
+%     else
+%         ratio(i) = std(spikes{i})/rand_spikes(sum(spikes{i}));
+%     end
+% end
+
+for n = 1:length(unique_stim_type)
+    gaustime=[x_time(24):x_time(60)];
+    gausstime=0.05*gaustime;
+
+	for j=1:30
+        gdat = count_y_norm{plot_col(j), n, plot_row(j)};
+        %take data from only middle 2 sec (stimulus duration) exlcuding first
+        %150ms to exclude reation to onset of visual stimulus
+        for k=1:37
+            gaussdata(k)=gdat(k+23);
+        end
+
+        if n == 1
+            gauss_dat_1{j} = gaussdata;
+            gauss_dat_temp = gaussdata;
+        elseif n == 2
+            gauss_dat_2{j} = gaussdata;
+            gauss_dat_temp = gaussdata;
+        else
+            gauss_dat_3{j} = gaussdata;
+            gauss_dat_temp = gaussdata;
+        end
+        
+        %calculate DFT ratio
+        DC_norm(n,j) = (spon_resp(plot_row(j))*0.05)/max(count_y{plot_col(j), n, plot_row(j)});
+        [f, amp] = FT(gausstime, gauss_dat_temp, 37, 1, 0);
+        f1 = mean(amp(2:4));
+        f2 = mean(amp(5:end));
+        if f2 == 0
+            f_rat = 100;
+        else
+            f_rat = f1/f2;
+        end
+            
+        if n == 1
+            dat1{j} = [gausstime', gauss_dat_1{j}'];
+        elseif n == 2
+            dat2{j} = [gausstime', gauss_dat_2{j}'];
+        else
+            dat3{j} = [gausstime', gauss_dat_3{j}'];
+        end
+        fourier_ratio(n,j) = f_rat;
+	end
+end
+
+for n = 1:length(unique_stim_type)
+	reject{n} = zeros(1,30);
+	for j = 1:30
+        if fourier_ratio(n,j) <= 3
+            reject{n}(j) = 1;
+        end
+	end  
+end
+
+for n = 1:length(unique_stim_type)
+	if max(fourier_ratio(n,:)) < 3
+        no_fit(n) = 0;
+	else
+        no_fit(n) = 1;
+	end
+end
+
+% calculate the preferred direction using vector sum
+for n = 1:length(unique_stim_type)
+	DFT_ratio{n} = zeros(3,10);
+	for j = 1:30
+        if sum(fourier_ratio(n,j)) > 0
+            DFT_ratio{n}(plot_row(j), plot_col(j)) = fourier_ratio(n,j);
+        end
+	end
+end
+
+for n = 1:length(unique_stim_type)
+    for k = 1:length(unique_condition_num)
+        [pref_az(k,n) pref_el(k,n) pref_amp(k,n)] = vectorsum([DFT_ratio{n}(k,1:2) DFT_ratio{n}(k,4) DFT_ratio{n}(k,6:10)]);
+    	[yong_pref_az(k,n) yong_pref_el(k,n) yong_pref_amp(k,n)] = vectorsum([resp{n}(k,1:2) resp{n}(k,4) resp{n}(k,6:10)]);
+    end
+end
+
+% now fit + plot
+figure(12); title([FILE '  Visual']); orient landscape; set(12,'Position', [25,50 1250,750]);
+out_values_vis = gaussfit_new_1D(dat2, row_m{2}, col_m{2}, FILE, DC_norm(2,:), fourier_ratio(2,:), reject{2}, plot_col, plot_row, no_fit(2));
+figure(11); title([FILE '  Vestibular']); orient landscape; set(11,'Position', [25,50 1250,750]);
+out_values_ves = gaussfit_new_1D(dat1, row_m{1}, col_m{1}, FILE, DC_norm(1,:), fourier_ratio(1,:), reject{1}, plot_col, plot_row, no_fit(1));
+figure(13); title([FILE '  Combined']); orient landscape; set(13,'Position', [25,50 1250,750]);
+out_values_comb = gaussfit_new_1D(dat3, row_m{3}, col_m{3}, FILE, DC_norm(3,:), fourier_ratio(3,:), reject{3}, plot_col, plot_row, no_fit(3));
+
+
+% ---------------------------------------------------------------------------------------
+% Write out data to cumulative summary files
+sprint_txt = ['%s\t     %d\t        %d\t          %1.4f\t     %2.5f\t      %2.5f\t      %1.5f\t         %1.5f\t             %1.5f\t          %1.5f\t             %1.5f\t          %1.5f\t          %1.5f\t         %1.5f\t          %1.5f\t       %1.5f\t          %1.5f\t         %1.5f\t          %1.5f\t        %1.5f  '];
+
+if no_fit(1)
+    for i = 1:length(out_values_ves)
+        buff = sprintf(sprint_txt, FILE, out_values_ves{i}(1), out_values_ves{i}(2), out_values_ves{i}(3), out_values_ves{i}(4), out_values_ves{i}(5), out_values_ves{i}(6), out_values_ves{i}(7), ... 
+            out_values_ves{i}(8), out_values_ves{i}(9), out_values_ves{i}(10), out_values_ves{i}(11), out_values_ves{i}(12), out_values_ves{i}(13), out_values_ves{i}(14), out_values_ves{i}(15), ...
+            out_values_ves{i}(16), out_values_ves{i}(17), out_values_ves{i}(18), out_values_ves{i}(19)); 
+        
+        outfile = [BASE_PATH 'ProtocolSpecific\MOOG\VaryFixation\PSTH_fit_ves.dat'];
+        printflag = 0;
+        if (exist(outfile, 'file') == 0)    %file does not yet exist
+            printflag = 1;
+        end
+        fid = fopen(outfile, 'a');
+        if (printflag)
+            fprintf(fid, 'FILE\t        Azimuth\t   Gaze\t   P_Value\t   VAF(combined)\t   VAF(vel)\t   DC(combined)\t   b(vel component)\t   tau(combined)\t   sigma(combined)\t   a(acc commponent)\t   DC(vel)\t    K\t     tau(vel)\t   sigma(vel)\t    DC(vel_unc)\t    K\t     tau(vel_unc)\t   sigma(vel_unc)\t  ratio\t ');
+            fprintf(fid, '\r\n');
+        end
+        
+        fprintf(fid, '%s', buff);
+        fprintf(fid, '\r\n');
+        fclose(fid);
+    end
+else 
+    do_nothing = 1;
+end
+
+if no_fit(2)
+    for i = 1:length(out_values_vis)
+        buff = sprintf(sprint_txt, FILE, out_values_vis{i}(1), out_values_vis{i}(2), out_values_vis{i}(3), out_values_vis{i}(4), out_values_vis{i}(5), out_values_vis{i}(6), out_values_vis{i}(7), ... 
+            out_values_vis{i}(8), out_values_vis{i}(9), out_values_vis{i}(10), out_values_vis{i}(11), out_values_vis{i}(12), out_values_vis{i}(13), out_values_vis{i}(14), out_values_vis{i}(15), ...
+            out_values_vis{i}(16), out_values_vis{i}(17), out_values_vis{i}(18), out_values_vis{i}(19)); 
+        
+        outfile = [BASE_PATH 'ProtocolSpecific\MOOG\VaryFixation\PSTH_fit_vis.dat'];
+        printflag = 0;
+        if (exist(outfile, 'file') == 0)    %file does not yet exist
+            printflag = 1;
+        end
+        fid = fopen(outfile, 'a');
+        if (printflag)
+            fprintf(fid, 'FILE\t        Azimuth\t   Gaze\t   P_Value\t   VAF(combined)\t   VAF(vel)\t   DC(combined)\t   b(vel component)\t   tau(combined)\t   sigma(combined)\t   a(acc commponent)\t   DC(vel)\t    K\t     tau(vel)\t   sigma(vel)\t    DC(vel_unc)\t    K\t     tau(vel_unc)\t   sigma(vel_unc)\t  ratio\t ');
+            fprintf(fid, '\r\n');
+        end
+        
+        fprintf(fid, '%s', buff);
+        fprintf(fid, '\r\n');
+        fclose(fid);
+    end
+else 
+    do_nothing = 1;
+end
+
+if no_fit(3)
+    for i = 1:length(out_values_comb)
+        buff = sprintf(sprint_txt, FILE, out_values_comb{i}(1), out_values_comb{i}(2), out_values_comb{i}(3), out_values_comb{i}(4), out_values_comb{i}(5), out_values_comb{i}(6), out_values_comb{i}(7), ... 
+            out_values_comb{i}(8), out_values_comb{i}(9), out_values_comb{i}(10), out_values_comb{i}(11), out_values_comb{i}(12), out_values_comb{i}(13), out_values_comb{i}(14), out_values_comb{i}(15), ...
+            out_values_comb{i}(16), out_values_comb{i}(17), out_values_comb{i}(18), out_values_comb{i}(19)); 
+        
+        outfile = [BASE_PATH 'ProtocolSpecific\MOOG\VaryFixation\PSTH_fit_comb.dat'];
+        printflag = 0;
+        if (exist(outfile, 'file') == 0)    %file does not yet exist
+            printflag = 1;
+        end
+        fid = fopen(outfile, 'a');
+        if (printflag)
+            fprintf(fid, 'FILE\t        Azimuth\t   Gaze\t   P_Value\t   VAF(combined)\t   VAF(vel)\t   DC(combined)\t   b(vel component)\t   tau(combined)\t   sigma(combined)\t   a(acc commponent)\t   DC(vel)\t    K\t     tau(vel)\t   sigma(vel)\t    DC(vel_unc)\t    K\t     tau(vel_unc)\t   sigma(vel_unc)\t  ratio\t ');
+            fprintf(fid, '\r\n');
+        end
+        
+        fprintf(fid, '%s', buff);
+        fprintf(fid, '\r\n');
+        fclose(fid);
+    end
+else 
+    do_nothing = 1;
+end
+
+% ---------------------------------------------------------------------------------------
+
+FILE
+toc
+return;
+
+
+
+% sprint_txt = ['%s\t     %d\t        %d\t    %f\t        %f\t    %f\t        %f\t'];
+% buff = sprintf(sprint_txt, FILE, col_m{1}, row_m{1}, pref_az, pref_el, yong_pref_az, yong_pref_el);
+% 
+% outfile = [BASE_PATH 'ProtocolSpecific\MOOG\3Dtuning\Anuk_Analysis_vestibular2.dat'];
+% printflag = 0;
+% if (exist(outfile, 'file') == 0)
+%     printflag = 1;
+% end
+% fid = fopen(outfile, 'a');
+% if (printflag)
+%     fprintf(fid, 'FILE\t    yong_max_az\t   yong_max_el\t   pref_az\t   pref_el\t   yong_pref_az\t  yong_pref_el\t ')
+%     fprintf(fid, '\r\n');
+% end
+% 
+% fprintf(fid, '%s', buff);
+% fprintf(fid, '\r\n');
+% fclose(fid);
+
+
+
+% figure
+% k = 1;
+% for i = 1:8
+%     for j = 1:5
+%         
+%         h = subplot('position',[(.02+(i-1)/8.08) (0.04+(j-1)/5.2) 1/9 1/6.5]);
+%         plot(freq{k}, ampl{k})
+%         if is_empty(k) == 0
+%             scale = ceil(max(ampl{k})) + 1;
+%             axis([0, 10, 0, scale]) 
+%             text(6, scale-0.5, num2str(sprintf('%1.4f', fourier_ratio{k})))
+%         end
+%         
+%         if k == 20
+%             text(-.9, 0.5, FILE)
+%         end
+%       
+%         k=k+1;
+%     end
+% end
+% orient landscape
+% print -dwinc
+% close
+
+
+
+% % Stimulus characteristics
+% t = 0:.05:5;
+% ampl = 0.13;
+% % sigma approximately equal to .17-.18
+% num_sigs = 6;
+% pos = ampl*0.5*(erf(2*num_sigs/3*(t-1)) + 1);
+% veloc = diff(pos)/0.05;
+% norm_veloc= veloc./max(veloc);
+% accel = diff(veloc)/0.05;
+% norm_accel= accel./max(accel);
+% 
+% 

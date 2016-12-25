@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<quick_access_configuration>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="CpyFig" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="CombDB" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="loadSpk2" toolset_id="matlab_shortcut_toolset"/>
+   <tool context_id="Editor" display_condition="always" section_id="navigate" tab_id="editor" tool_id="back" toolset_id="editor_toolset">
+      <ancestor tool_id="forward_back" toolset_id="editor_toolset"/>
+   </tool>
+   <tool context_id="Editor" display_condition="always" section_id="navigate" tab_id="editor" tool_id="forward" toolset_id="editor_toolset">
+      <ancestor tool_id="forward_back" toolset_id="editor_toolset"/>
+   </tool>
+   <tool display_condition="always" section_id="general" tab_id="shortcuts" tool_id="Inspect" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="ClearSer" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="setFigure" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" section_id="general" tab_id="shortcuts" tool_id="setFig" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="GetPos" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="printEPS" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="clear" toolset_id="matlab_shortcut_toolset"/>
+   <separator/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="GROUP_GUI" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="BATCH_GUI" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="loadSortedData" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="CombineDB" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="TEMPO_GUI" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="DrawMapping" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="RF" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" label_visible="true" section_id="general" tab_id="shortcuts" tool_id="loadSortData" toolset_id="matlab_shortcut_toolset"/>
+   <tool display_condition="always" section_id="house_keeping" tab_id="shortcuts" tool_id="new_shortcut" toolset_id="matlab_shortcut_toolset"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="save" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="cut" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="copy" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="paste" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="undo" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="redo" toolset_id="common_tools"/>
+   <tool display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="switch_windows" toolset_id="common_tools"/>
+   <tool common="true" display_condition="always" section_id="common_section" tab_id="common_tab" tool_id="help" toolset_id="common_tools"/>
+</quick_access_configuration>

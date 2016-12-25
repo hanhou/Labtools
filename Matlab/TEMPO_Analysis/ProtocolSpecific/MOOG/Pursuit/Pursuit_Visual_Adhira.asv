@@ -1,0 +1,376 @@
+function Pursuit_Visual_Adhira(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffsetBin, StopOffsetBin, StartEventBin, StopEventBin, PATH, FILE);
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+
+temp_pursuit_type = data.moog_params(PURSUIT_TYPE,:,MOOG);
+
+temp_pursuit_bg_dirt = data.moog_params(PURSUIT_BG_DIRT,:,MOOG);
+temp_pursuit_bg_vel = data.moog_params(PURSUIT_BG_VEL,:,MOOG);
+temp_pursuit_target_dirt = data.moog_params(PURSUIT_TARGET_DIRT,:,MOOG);
+temp_pursuit_target_vel = data.moog_params(PURSUIT_TARGET_VEL,:,MOOG);
+temp_pursuit_target_dur = data.moog_params(PURSUIT_TARGET_DUR,:,MOOG);
+temp_step_ramp_deg = data.moog_params(STEP_RAMP_DEG,:,MOOG);
+
+%now, get the firing rates for all the trials 
+% temp_spike_rates = data.spike_rates(SpikeChan, :);                                                                                                                             
+null_trials = logical( (temp_pursuit_bg_vel ==0 & temp_pursuit_target_vel == 0 ) );
+
+[StartOffsetBin StopOffsetBin StartEventBin StopEventBin] = CheckTimeOffset(data, size(data.event_data, 3), 4, 5, 500, -500, data.UseSyncPulses);
+
+for ii = 1: length(temp_pursuit_type)
+    if temp_pursuit_type(ii) == 0
+        seltime = [StartEventBin(ii)+250+100  :  StartEventBin(ii)+250+400];
+    else
+        seltime = [StartEventBin(ii)+ (floor((temp_step_ramp_deg(ii)/temp_pursuit_target_vel(ii)) * 1000)):  StartEventBin(ii)+ (floor((temp_step_ramp_deg(ii)/temp_pursuit_target_vel(ii)) * 1000))+1000];
+        m_seltime = seltime;
+    end
+    temp_spike_rates(ii) = mean(data.spike_data(SpikeChan, seltime , ii))*1000;
+end
+%get indices of any NULL conditions (for measuring spontaneous activity
+
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_pursuit_type);		% a vector of trial indices
+bad_tri = find(temp_spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+if ( bad_tri ~= NaN)
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) & (trials~=bad_tri) );
+else 
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+end
+
+azimuth = temp_azimuth(~null_trials & select_trials);
+elevation = temp_elevation(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+
+pursuit_bg_dirt = temp_pursuit_bg_dirt(~null_trials & select_trials);
+pursuit_bg_vel = temp_pursuit_bg_vel(~null_trials & select_trials);
+pursuit_target_dirt = temp_pursuit_target_dirt(~null_trials & select_trials);
+pursuit_target_vel = temp_pursuit_target_vel(~null_trials & select_trials);
+pursuit_target_dur = temp_pursuit_target_dur(~null_trials & select_trials);
+step_ramp_deg = temp_step_ramp_deg(~null_trials & select_trials);
+pursuit_type = temp_pursuit_type(~null_trials & select_trials);
+
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+
+unique_azimuth = munique(azimuth');
+unique_elevation = munique(elevation');
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+
+unique_pursuit_bg_dirt = munique(pursuit_bg_dirt');
+unique_pursuit_bg_vel = munique(pursuit_bg_vel');
+unique_pursuit_target_vel = munique(pursuit_target_vel');
+unique_pursuit_target_dirt = munique(pursuit_target_dirt');
+unique_condition = munique(pursuit_type');
+
+
+unique_pursuit_bg_vel = unique_pursuit_bg_vel(unique_pursuit_bg_vel>0);
+unique_pursuit_target_vel = unique_pursuit_target_vel(unique_pursuit_target_vel>0);
+
+% for ii = 1 : length(unique_condition)
+%     if unique_condition(ii) == 0  ||  unique_condition(ii)  ==  1 
+%         for jj = 1 : length(unique_pursuit_bg_vel)
+%             m_condition = (ii-1)*2 + jj;
+%             for kk = 1 : length(unique_pursuit_bg_dirt)
+%                 selind = find(pursuit_type==unique_condition(ii)  &  pursuit_bg_vel==unique_pursuit_bg_vel(jj) &  pursuit_bg_dirt==unique_pursuit_bg_dirt(kk));
+%                 tempresp = spike_rates(selind);
+%                 resp(m_condition,  kk) = mean(tempresp);
+%                 resp_err(m_condition,  kk) = std(tempresp)/sqrt(length(selind));
+%             end
+%         end
+%     else
+%           m_condition = 4 + unique_condition(ii)-1;
+%             for kk = 1 : length(unique_pursuit_target_dirt)
+%                 selind = find(pursuit_type==unique_condition(ii)  &   pursuit_target_dirt==unique_pursuit_target_dirt(kk));
+%                 tempresp = spike_rates(selind);
+%                 resp(m_condition,  kk) = mean(tempresp);
+%                 resp_err(m_condition,  kk) = std(tempresp)/sqrt(length(selind));
+%             end
+% 
+%     end
+% end
+clear resp resp_err m_purvel m_purvel_e;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% be care of which eye to use.
+m_lreye = 2 % 1 left eye; 2 right eye;
+
+if m_lreye == 1
+      Hori=1;
+      Vert=2;
+else
+      Hori=3;
+      Vert=4;
+end
+
+% aa=-1:1;
+% bb=-1:1;
+% cc=-aa;
+% FigureIndex=2;
+% figure(FigureIndex);
+% set(gcf,'PaperPosition', [.2 .2 10 10], 'Position', [50 100 800 800], 'Name', 'Eeymovement');
+% orient landscape;
+% m_outfile = [];
+% m_outfile = strvcat(m_outfile,  FILE);
+% text(-0.05,1.05, m_outfile); 
+% axis off;
+% axes('position',[0.3 0.35 0.4 0.4]);
+% plot(aa, bb);
+% hold on;
+% plot(aa, cc);
+
+
+for ii = 1 : length(unique_condition)
+    m_condition = unique_condition(ii)+1;
+    if unique_condition(ii) == 0 
+        for kk = 1 : length(unique_pursuit_bg_dirt)
+                selind = find(pursuit_type==unique_condition(ii)   &  pursuit_bg_dirt==unique_pursuit_bg_dirt(kk) & pursuit_target_vel == 0);
+                tempresp = spike_rates(selind);
+                resp(m_condition,  kk) = mean(tempresp);
+                resp_err(m_condition,  kk) = std(tempresp)/sqrt(length(selind));
+                resp_mat1(:,kk) = tempresp';
+         
+        end
+    else
+         
+            for kk = 1 : length(unique_pursuit_target_dirt)
+                selind = find(pursuit_type==unique_condition(ii)  &   pursuit_target_dirt==unique_pursuit_target_dirt(kk));
+                tempresp = spike_rates(selind);
+                resp(m_condition,  kk) = mean(tempresp);
+                resp_err(m_condition,  kk) = std(tempresp)/sqrt(length(selind));
+%                 if  m_condition == 2
+%                     resp_mat2(:,kk) = tempresp';
+%                 else
+%                     if m_condition == 3
+%                         resp_mat3(:,kk) = tempresp';
+%                     end
+%                 end
+                selind_pur = find(temp_pursuit_type==unique_condition(ii)  &   temp_pursuit_target_dirt==unique_pursuit_target_dirt(kk));
+                Hpos (ii, kk, :) =  mean( squeeze( data.eye_data(Hori, floor((m_seltime(1))/5) : floor(m_seltime(end)/5), selind_pur))' );
+                Vpos (ii, kk, :)=  mean( squeeze( data.eye_data(Vert, floor((m_seltime(1))/5) : floor(m_seltime(end)/5), selind_pur))' );
+                Hrep = mean( squeeze( data.eye_data(Hori, floor((m_seltime(1))/5) : floor(m_seltime(end)/5), selind_pur))' );
+                Vrep = mean( squeeze( data.eye_data(Vert, floor((m_seltime(1))/5) : floor(m_seltime(end)/5), selind_pur))' );
+                
+%                 Hvel_true (ii, kk, :) = diff (Hrep)./0.005;
+%                 Vvel_true (ii, kk, :) = diff (Vrep)./0.005;
+%                 Vel_Sum (ii, kk, :)=  sqrt ((Hvel_true (ii, kk, :)).^2 + (Vvel_true (ii, kk, :)).^2);
+                
+                Hvel (ii, kk, :)= fderiv(Hrep, 5, 200);
+                Vvel (ii, kk, :)= fderiv(Vrep, 5, 200);
+                
+                Hvel_true (ii, kk, :) = Hvel (ii, kk, 6:end-6);
+                Vvel_true (ii, kk, :) = Vvel (ii, kk, 6:end-6);
+                Vel_Sum (ii, kk, :)=  sqrt ((Hvel_true (ii, kk, :)).^2 + (Vvel_true (ii, kk, :)).^2);
+                
+                
+                m_purvel(floor(m_condition-1), kk) =  sqrt( mean(Hvel(6:end-6))^2 +  mean(Vvel(6:end-6))^2)/unique_pursuit_target_vel(1);
+
+                m_purvel_1(floor(m_condition-1), kk) =  sqrt( mean(Hvel(6:end-6))^2 +  mean(Vvel(6:end-6))^2);
+
+                
+            end
+
+    end
+end
+% do plot of eyemovement Displacement for each direction
+aa=-1:1;
+bb=-1:1;
+cc=-aa;
+FigureIndex=2;
+figure(FigureIndex);
+set(gcf,'PaperPosition', [.2 .2 10 10], 'Position', [50 100 1000 1000], 'Name', 'Eeymovement');
+orient landscape;
+m_outfile = [];
+m_outfile = strvcat(m_outfile,  FILE);
+text(-0.05,1.05, m_outfile); 
+axis off;
+axes('position',[0.35 0.35 0.32 0.32]);
+plot(aa, bb);
+axis off;
+hold on;
+plot(aa, cc);
+hold on;
+dd=[0 0 0];
+hold on;
+plot(aa, dd);
+plot(dd, aa);
+hold on;
+% the positions of axis for each direction
+axi_Hpos = cell (8, 1);
+axi_Vpos = cell (8, 1);
+axi_Hpos {1} = [0.7 0.53 0.14 0.14];
+axi_Hpos {2} = [0.65 0.85 0.14 0.14];
+axi_Hpos {3} = [0.44 0.85 0.14 0.14];
+axi_Hpos {4} = [0.23 0.85 0.14 0.14];
+axi_Hpos {5} = [0.18 0.53 0.14 0.14];
+axi_Hpos {6} = [0.23 0.19 0.14 0.14];
+axi_Hpos {7} = [0.44 0.19 0.14 0.14];
+axi_Hpos {8} = [0.65 0.19 0.14 0.14];
+axi_Vpos {1} = [0.7 0.36 0.14 0.14];
+axi_Vpos {2} = [0.65 0.7 0.14 0.14];
+axi_Vpos {3} = [0.44 0.7 0.14 0.14];
+axi_Vpos {4} = [0.23 0.7 0.14 0.14];
+axi_Vpos {5} = [0.18 0.36 0.14 0.14];
+axi_Vpos {6} = [0.23 0.04 0.14 0.14];
+axi_Vpos {7} = [0.44 0.04 0.14 0.14];
+axi_Vpos {8} = [0.65 0.04 0.14 0.14];
+Legend_string{1}='pursuit+moving(Hor)';
+Legend_string{2}='pursuit+static(Hor)';
+Legend_string{3}='pursuit+moving(Ver)';
+Legend_string{4}='pursuit+static(Ver)';
+Legend_string1{1}='pursuit+moving(Hor)';
+Legend_string1{2}='pursuit+static(Hor)';
+Legend_string1{3}='pursuit+moving(Ver)';
+Legend_string1{4}='pursuit+static(Ver)';
+time_plot = 0:0.005:1;
+time_plot_vel = 0:1/189:1;
+for kk =1:8
+        Hpos_plot_sta = squeeze (Hpos (1, kk, :));
+        Hpos_plot_sti = squeeze (Hpos (2, kk, :));
+        Vpos_plot_sta = squeeze (Vpos (1, kk, :));
+        Vpos_plot_sti = squeeze (Vpos (2, kk, :));
+        axes('position', axi_Hpos {kk});
+        plot (time_plot, Hpos_plot_sta,'r',  time_plot, Hpos_plot_sti, 'b', time_plot, Vpos_plot_sta, 'g',  time_plot, Vpos_plot_sti, 'k');
+        set(gca, 'xtick', []);
+        ylim([-10 10]);
+        if kk == 1
+            title('Displacement', 'position', [0.3 4]);
+        end
+        if kk == 2
+            title('Displacement', 'position', [0.3 4]);
+            legend(Legend_string,'Location','EastOutside');
+        end
+%         SumVelocity_Moving = squeeze ( Vel_Sum (1, kk, :));
+%         SumVelocity_Static = squeeze ( Vel_Sum (2, kk, :));
+        Hvel_plot_moving = squeeze (Hvel_true (1, kk, :));
+        Hvel_plot_static = squeeze (Hvel_true (2, kk, :));
+        Vvel_plot_moving = squeeze (Vvel_true (1, kk, :));
+        Vvel_plot_static = squeeze (Vvel_true (2, kk, :));
+
+
+        axes('position', axi_Vpos {kk});
+        plot (time_plot_vel, Hvel_plot_moving, 'r',  time_plot_vel, Hvel_plot_static, 'b' , time_plot_vel, Vvel_plot_moving,  'g' , time_plot_vel, Vvel_plot_static, 'k' );
+%         plot (time_plot_vel, SumVelocity_Moving,'r',  time_plot_vel, SumVelocity_Static, 'b');
+        ylim([-25 25]);
+        if kk == 1
+            title('Velocity', 'position', [0.3 9]);
+        end
+         if kk == 2
+             title('Velocity', 'position', [0.3 2]);
+            legend(Legend_string1,'Location','EastOutside');
+        end
+end
+
+        
+p1 = anova1(resp_mat1, '', 'off');
+p2 = anova1(resp_mat2, '', 'off');
+p3 = anova1(resp_mat3, '', 'off');
+
+FigureIndex=2;
+figure(FigureIndex);
+set(gcf,'PaperPosition', [.2 .2 8 10.7], 'Position', [50 100 900 800], 'Name', 'Pursit_1');
+orient landscape;
+m_outfile = [];
+m_outfile = strvcat(m_outfile,  FILE);
+text(-0.05,1.05, m_outfile); 
+axis off;
+
+% m_outfile = [];
+% m_outfile = strvcat(m_outfile,  FILE);
+% text(-0.05,1.05, m_outfile); 
+% axis off;
+axes('position',[0.15 0.55 0.7 0.37]);
+f{1}='r.-'; f{2}='b.-'; f{3}='g.-';
+resp(:, end+1) = resp(:,1);
+resp_err(:, end+1) = resp_err(:,1);
+
+
+for ii = 1 : length(resp(:,1))
+    direction = 0 : 45 : 360;
+    plot(direction, resp(ii,:), f{ii});
+%     errorbar(direction,  resp_err(ii,:), f{ii})
+    hold on;
+end
+
+
+
+xlim([-5 365]);
+ylim([0  20 + ceil((max(max(resp)))/10)*10]);
+% ylim([0 max(max(resp))+10]);
+set(gca, 'XTick', [0 90 180 270 360]);
+if p1 < 0.001
+    p1 = 0;
+    legend1 = ['backgroud(sp=20) p = ' num2str(p1)];
+else
+    legend1 = ['backgroud(sp=20) p = ' num2str(p1, '%0.3f')];
+end
+if p2 < 0.001
+    p2 = 0;
+    legend2 = ['pursuit + background(sp=20) p = ' num2str(p2)];
+else
+    legend2 = ['pursuit + background(sp=20) p = ' num2str(p2, '%0.3f')];
+end
+if p3 < 0.001
+    p3 = 0;
+    legend3 = ['pursuit+static background p = '  num2str(p3)];
+else
+    legend3 = ['pursuit+static background p = '  num2str(p3, '%0.3f')];
+end
+
+
+legend(legend1 , legend2, legend3, 'Location','NorthEastOutside');
+xlabel('Direction');
+ylabel('Firing rate (spikes/s)');
+plot([0 180 360],  [mean(temp_spike_rates(null_trials)) mean(temp_spike_rates(null_trials)) mean(temp_spike_rates(null_trials))], 'k-.');
+
+hold on;
+m_purvel(:,end+1) = m_purvel(:,1);
+m_purvel_1(:,end+1) = m_purvel_1(:,1);
+% m_purvel_e(:,end+1) = m_purvel_e(:,1);
+plot(direction, m_purvel(1,:),  'b:' );
+hold on;
+plot(direction, m_purvel(2,:),  'g:' );
+% plot(direction, m_purvel_e,  'b:' );
+% hold on;
+
+
+
+
+% axes('position',[0.62 0.65 0.3 0.22]);
+
+% out=[];
+% out = strvcat(out, sprintf('background (sp=20)'));    
+% out=strvcat(out, sprintf('pursuit + static backgroud'));
+% out=strvcat(out, sprintf(''));
+
+
+m_path = 'Z:\Users\Adhira';
+saveas(gcf,[m_path FILE(1:end-4)],'png');
+saveas(gcf,[m_path FILE(1:end-4)]);
+close(FigureIndex); 
+% f{1}='b-'; f{2}='b-'; f{3}='g-'; f{4}='g-'; f{5}='r-'; f{6}='k-';
+% figure
+% for ii = 1 : length(resp(:,1))
+%     if ii == 1  || ii == 3
+%         continue;
+%     end
+%     
+%     direction = 0 : 45 : 360-1;
+% %     plot((direction, resp(ii,:), f{ii});
+%     errorbar(direction, resp(ii,:), resp_err(ii,:), f{ii})
+%     hold on;
+% end
+% 
+% 
+% legend('backgroud speed = 64',  'pursuit+backgroud speed = 64',  'pursuit + stationary background ', 'pursuit only');
+
+
+
+return;

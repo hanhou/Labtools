@@ -1,0 +1,99 @@
+Z:\Data\MOOG\Que\Raw\ m3c195r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c196r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c197r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c198r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c201r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c202r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c206r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c208r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c210r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c215r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves!? (one bad point)] [2 reps, but okay (and same frame, congruent!)]
+Z:\Data\MOOG\Que\Raw\ m3c219r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c220r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c221r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c222r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [tuning not clear, but SR vis and comb still near 1]
+Z:\Data\MOOG\Que\Raw\ m3c224r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves] [just short of 3 reps, but can't curvefit w/ incomplete rep]
+Z:\Data\MOOG\Que\Raw\ m3c226r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [ves 0 fit not converging, but +/- good]
+Z:\Data\MOOG\Que\Raw\ m3c227r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c229r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze 
+Z:\Data\MOOG\Que\Raw\ m3c230r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c231r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c233r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves, weird vis at +22.5]
+Z:\Data\MOOG\Que\Raw\ m3c234r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [good 2 peaker]
+Z:\Data\MOOG\Que\Raw\ m3c236r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c237r1.htb 'Plot 1D Fixation PSTH' 94 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves] [1st rep bad iso]
+Z:\Data\MOOG\Que\Raw\ m3c238r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [2 reps, 2 peaks]
+Z:\Data\MOOG\Que\Raw\ m3c240r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell, but only partial shift]
+Z:\Data\MOOG\Que\Raw\ m3c241r2.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c243r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c244r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [ves not sig, but looks eye-cent!]
+Z:\Data\MOOG\Que\Raw\ m3c245r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c247r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [nice]
+Z:\Data\MOOG\Que\Raw\ m3c249r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c250r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [vis totally weird, comb and ves head-cent]
+Z:\Data\MOOG\Que\Raw\ m3c251r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Que\Raw\ m3c252r1.htb 'Plot 1D Fixation PSTH' 187 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [head-cent all around!]
+Z:\Data\MOOG\Que\Raw\ m3c253r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [actually not bad] [MANUAL SR]
+Z:\Data\MOOG\Que\Raw\ m3c255r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [nice]
+Z:\Data\MOOG\Que\Raw\ m3c257r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [ves eye-cent! (but zero nonsig)]
+Z:\Data\MOOG\Que\Raw\ m3c259r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [nice (partial)]
+Z:\Data\MOOG\Que\Raw\ m3c260r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [only one sig ves; FIT NEEDS WORK]
+Z:\Data\MOOG\Que\Raw\ m3c264r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E-cell]
+Z:\Data\MOOG\Que\Raw\ m3c265r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Que\Raw\ m3c266r1.htb 'Plot 1D Fixation PSTH' 1 186 4 600 5 -600 1 1 %MOOG: 1D Az Direction Tuning Gaze [only reps 1-2 (3-5 different cell, and bad)]
+Z:\Data\MOOG\Zebulon\Raw\ m1c386r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c387r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Zebulon\Raw\ m1c388r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [not sure which reps]
+Z:\Data\MOOG\Zebulon\Raw\ m1c389r1.htb 'Plot 1D Fixation PSTH' 1 186 4 600 5 -600 1 1 %MOOG: 1D Az Direction Tuning Gaze [temp: 0 sig only w/ +/- 600]
+Z:\Data\MOOG\Zebulon\Raw\ m1c391r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [huge bimodal enhancement!] [only reps 1-3 (iso)] [ASYMMETRIC]
+Z:\Data\MOOG\Zebulon\Raw\ m1c393r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [ASYMMETRIC]
+Z:\Data\MOOG\Zebulon\Raw\ m1c394r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [bimodal suppression!]
+Z:\Data\MOOG\Zebulon\Raw\ m1c396r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [use only reps 1-3 (bumps/iso)]
+Z:\Data\MOOG\Zebulon\Raw\ m1c400r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Zebulon\Raw\ m1c406r1.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Zebulon\Raw\ m1c409r2.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell]
+Z:\Data\MOOG\Zebulon\Raw\ m1c412r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c419r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Zebulon\Raw\ m1c420r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Zebulon\Raw\ m1c426r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [reps 1-4 only (bump)]
+Z:\Data\MOOG\Zebulon\Raw\ m1c434r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell]
+Z:\Data\MOOG\Zebulon\Raw\ m1c435r2.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c440r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell for all EYE-cent]
+Z:\Data\MOOG\Zebulon\Raw\ m1c442r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c445r1.htb 'Plot 1D Fixation PSTH' 94 558 4 600 5 -700 1 1 %MOOG: 1D Az Direction Tuning Gaze [omit 1st rep (iso)] [weird timecourse (accel and decel response) causes two peaks, unless use -700 stop offset] [E cell for all HEAD-cent]
+Z:\Data\MOOG\Zebulon\Raw\ m1c456r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c457r2.htb 'Plot 1D Fixation PSTH' 1 372 4 550 5 -450 1 1 %MOOG: 1D Az Direction Tuning Gaze [reps 1-4 only (diff. cell 5-8)]
+Z:\Data\MOOG\Zebulon\Raw\ m1c457r2.htb 'Plot 1D Fixation PSTH' 373 744 4 550 5 -450 1 1 %MOOG: 1D Az Direction Tuning Gaze [reps 5-8, diff. cell]
+Z:\Data\MOOG\Zebulon\Raw\ m1c460r1.htb 'Plot 1D Fixation PSTH' 1 651 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [ASYMMETRIC] -- super E cell for MATCHED frames
+Z:\Data\MOOG\Zebulon\Raw\ m1c473r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell, by Zeb's standards]
+Z:\Data\MOOG\Zebulon\Raw\ m1c491r2.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell, by Zeb's standards]
+Z:\Data\MOOG\Zebulon\Raw\ m1c492r2.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [clear 2-peak MSI (but also weird timecourses]
+Z:\Data\MOOG\Zebulon\Raw\ m1c519r2.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Zebulon\Raw\ m1c521r1.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c193r4.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell]
+Z:\Data\MOOG\Azrael\Raw\ m2c194r1.htb 'Plot 1D Fixation PSTH' 280 651 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [only reps 4-7 (iso)]
+Z:\Data\MOOG\Azrael\Raw\ m2c195r3.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [needs careful fitting (2 peaks)]
+Z:\Data\MOOG\Azrael\Raw\ m2c199r3.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c200r3.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell]
+Z:\Data\MOOG\Azrael\Raw\ m2c202r3.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c205r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c216r1.htb 'Plot 1D Fixation PSTH' 187 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [only reps 3-5 (iso)]
+Z:\Data\MOOG\Azrael\Raw\ m2c226r3.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [needs careful fitting (2 peaks)]
+Z:\Data\MOOG\Azrael\Raw\ m2c236r3.htb 'Plot 1D Fixation PSTH' 1 651 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c242r3.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c263r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves, yet not pure eye-cent vis/comb (evidence against a sampling problem?)]
+Z:\Data\MOOG\Azrael\Raw\ m2c268r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [E cell (ves partial, vis 1.7)]
+Z:\Data\MOOG\Azrael\Raw\ m2c277r2.htb 'Plot 1D Fixation PSTH' 1 558 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c279r2.htb 'Plot 1D Fixation PSTH' 94 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Azrael\Raw\ m2c280r2.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Azrael\Raw\ m2c316r2.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze 
+Z:\Data\MOOG\Azrael\Raw\ m2c319r2.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves, barely]
+Z:\Data\MOOG\Azrael\Raw\ m2c320r2.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c322r2.htb 'Plot 1D Fixation PSTH' 1 279 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [1st of two cells recorded simultaneously]
+Z:\Data\MOOG\Azrael\Raw\ m2c327r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]
+Z:\Data\MOOG\Azrael\Raw\ m2c330r2.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves] [bad fit]
+Z:\Data\MOOG\Azrael\Raw\ m2c336r1.htb 'Plot 1D Fixation PSTH' 1 186 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves?] [bad cell]
+Z:\Data\MOOG\Azrael\Raw\ m2c337r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze
+Z:\Data\MOOG\Azrael\Raw\ m2c338r1.htb 'Plot 1D Fixation PSTH' 1 465 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [weak/no ves]
+Z:\Data\MOOG\Azrael\Raw\ m2c339r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [huge eye-cent ves!]
+Z:\Data\MOOG\Azrael\Raw\ m2c340r1.htb 'Plot 1D Fixation PSTH' 1 372 4 500 5 -500 1 1 %MOOG: 1D Az Direction Tuning Gaze [no ves]

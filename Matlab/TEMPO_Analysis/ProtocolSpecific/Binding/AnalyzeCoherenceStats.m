@@ -1,0 +1,130 @@
+% AnalyzeCoherenceStats.m - Loads coherence spectrogram analysis 
+%       11/5/01 - BJP
+
+%clear all; close all; clc;
+clear all;
+
+batchfiledir = 'Z:\Data\Tempo\Batch Files\Binding\'
+filename = input('Enter Batch File Name: ', 's');
+%close_flag = input('Do you wish to close all windows (0=N, 1=Y)? ');
+%print_flag = input('Do you wish to print figures (0=N, 1=Y)? ');
+
+status = ['Loading batch file: ' batchfiledir filename];
+disp(status);
+plot_summary = 0;
+filename = [batchfiledir filename];
+fid = fopen(filename);
+output = 1;
+print_fig = 0;
+file_num = 0;
+BARS = 1;
+HISTORY = 2;
+
+expt_type = HISTORY;
+line = fgetl(fid);
+while (line ~= -1)   
+    if (line(1) ~= '%')
+	    spaces = isspace(line);
+		space_index = find(spaces);
+
+		%get path / file
+		PATH = line(1:space_index(1) - 1);
+		FILE = line(space_index(1) + 1:space_index(2) - 1);
+%        FILE = [FILE(1:end-4) '_s003.coh']
+        PATH = PATH(1,1:end-4);
+        PATH = [PATH 'Analysis\Coherence_Spectrograms\'];
+%        PATH = [PATH 'Analysis\Simulated_Spike_Coherence\'];
+      
+        if print_fig == 1
+            eval (['open ' PATH FILE(1:end-4) '_15.fig']); 
+            print
+            close
+        end
+
+        FILE = [FILE(1:end-4) '_15.coh']
+
+
+        if (exist([PATH FILE]))  
+            eval (['load ' PATH FILE ' -MAT']); 
+            if plot_summary == 1
+                if ~exist('summary_plot')
+                    summary_plot = Selected_Averaged_Spectral_Coherency;
+ %                   perm_plot = mean(Permutation_Coherency_Vector, 1);
+                else
+                    if size(summary_plot,2) < size(Selected_Coherency_Vector,2)
+                        %match up bar conditions from history experiment
+                        %with conditions from bar experiment
+                        if expt_type == BARS
+                            summary_plot(:,1) = summary_plot(:,1) + Selected_Averaged_Spectral_Coherency(:,1);
+                            %                        perm_plot(:,1) = perm_plot(:,1) + mean(Permutation_Coherency_Vector(:,1), 1);
+                            %bar conditions from history expt
+                            summary_plot(:,2) = summary_plot(:,2) + Selected_Averaged_Spectral_Coherency(:,4);
+                            %                        perm_plot(:,2) = perm_plot(:,2) + mean(Permutation_Coherency_Vector(:,4), 1);
+                            
+                            summary_plot(:,5) = summary_plot(:,5) + Selected_Averaged_Spectral_Coherency(:,3);
+                            %                        perm_plot(:,5) = perm_plot(:,5) + mean(Permutation_Coherency_Vector(:,3), 1);
+                            
+                        end
+                        %early history expt
+                        if expt_type == HISTORY
+                            summary_plot(:,1) = summary_plot(:,1) + Selected_Averaged_Spectral_Coherency(:,6);
+                            summary_plot(:,2) = summary_plot(:,2) + Selected_Averaged_Spectral_Coherency(:,7);
+                            summary_plot(:,5) = summary_plot(:,5) + Selected_Averaged_Spectral_Coherency(:,8);
+                        end
+                    else
+                        summary_plot = summary_plot + Selected_Averaged_Spectral_Coherency;
+%                       perm_plot = perm_plot + mean(Permutation_Coherency_Vector, 1);
+                     
+                    end
+                
+                end    
+
+            end
+            file_num = file_num + 1;
+            
+            if (output == 1)
+                FILEOUT = 'z:\coherence_stats.txt';
+                fileid = [FILEOUT];
+                fwriteid = eval(['fopen(fileid, ''a'')']);
+                
+                fprintf(fwriteid, '%s', FILE);
+%                 fprintf(fwriteid, ' %6.4f', sqrt(Power1(1,:).*Power1(2,:))  );
+%                 fprintf(fwriteid, ' %6.4f', sqrt(Power2(1,:).*Power2(2,:))  );
+%                 fprintf(fwriteid, ' %6.4f', sqrt(Power3(1,:).*Power3(2,:))  );
+
+                
+%                 fprintf(fwriteid, ' %3d', num_selected_segments);
+                fprintf(fwriteid, ' %6.4f', Selected_Coherency1);
+                fprintf(fwriteid, ' %6.4f', Selected_Coherency2);
+                fprintf(fwriteid, ' %6.4f', Selected_Coherency3);
+
+                
+%                 fprintf(fwriteid, ' %6.4f', Selected_Phase1);
+%                 fprintf(fwriteid, ' %6.4f', Selected_Phase2);
+%                 fprintf(fwriteid, ' %6.4f', Selected_Phase3);   
+%                 fprintf(fwriteid, ' %6.4f', Gamma_Peak_Coherency);   
+%                 fprintf(fwriteid, ' %6.4f', Gamma_Peak_Freq);   
+                
+                
+                
+%                 fprintf(fwriteid, ' %3d', num_reps);                
+                fprintf(fwriteid, '\r\n');
+                                
+                
+            end    
+        else
+            sprintf('File %s not exist', FILE);    
+        end %if ccg file exists       
+    end % if (line(1) ~=...
+  	line = fgetl(fid);
+end %while...
+fclose all;
+
+if plot_summary == 1
+    summary_plot =  summary_plot/file_num;
+  %  perm_plot =  abs(perm_plot)/file_num;
+    figure
+    plot(freq, summary_plot(:,[1 2 5]) );
+     
+    xlim([0 200]);
+end

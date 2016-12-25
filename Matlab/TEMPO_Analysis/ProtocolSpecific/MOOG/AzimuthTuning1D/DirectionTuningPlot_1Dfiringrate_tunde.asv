@@ -1,0 +1,233 @@
+% % AZIMUTH_TUNING_1D.m -- Plots response as a function of azimuth for
+% % heading task
+% %--	YG, 07/12/04
+% %-----------------------------------------------------------------------------------------------------------------------
+function DirectionTuningPlot_1Dfiringrate(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_motion_coherence = data.moog_params(COHERENCE,:,MOOG);
+temp_interocular_dist = data.moog_params(INTEROCULAR_DIST,:,MOOG);
+temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
+
+Channel_number_temp = size(data.spike_rates);
+
+
+temp_spike_rates = data.spike_rates(1, :);   
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+trials = 1:length(temp_azimuth);
+select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+azimuth = temp_azimuth(~null_trials & select_trials);
+elevation = temp_elevation(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+motion_coherence = temp_motion_coherence(~null_trials & select_trials);
+interocular_dist = temp_interocular_dist(~null_trials & select_trials);
+num_sigmas = temp_num_sigmas(~null_trials & select_trials);
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+eye_data = data.eye_data(:,:,~null_trials & select_trials);
+spike_data = data.spike_data(:,:,~null_trials & select_trials);
+
+unique_azimuth = munique(azimuth');
+unique_elevation = munique(elevation');
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+unique_motion_coherence = munique(motion_coherence');
+unique_interocular_dist = munique(interocular_dist');
+unique_num_sigmas = munique(num_sigmas');
+
+% descide whether loop is stim_type or disparity (when there is vary of
+% disparity, it's the visual only condition
+
+if length(unique_num_sigmas)>1
+    condition_num = num_sigmas;
+else
+    condition_num = stim_type;
+end
+unique_condition_num = munique(condition_num');
+
+% calculate spontaneous firing rate 
+spon_found = find(null_trials==1); 
+spon_resp = mean(temp_spike_rates(spon_found));
+repetition = floor( length(spike_rates) / (length(unique_azimuth)*length(unique_condition_num)) ); % take minimum repetition
+
+% creat basic matrix represents each response vector
+resp = [];
+for k=1:length(unique_condition_num)
+    for i=1:length(unique_azimuth)
+        select = logical( (azimuth==unique_azimuth(i))  & (condition_num==unique_condition_num(k)) );
+        for j = 1 : repetition; 
+            spike_temp = spike_rates(select);   
+            resp_trial{k}(j, i) = spike_temp( j );             
+        end
+        resp(i, k) = mean(spike_rates(select));        
+        resp_std(i,k) = std(spike_rates(select));        
+        resp_err(i,k) = std(spike_rates(select)) / sqrt(repetition);     
+        resp_std_root(i,k) = std(sqrt(spike_rates(select)));  
+    end  
+    if length(unique_azimuth) >8
+        resp_trial_8{k}(:, 1) = resp_trial{k}(:, 1);
+        resp_trial_8{k}(:, 2) = resp_trial{k}(:, 2);
+        resp_trial_8{k}(:, 3) = resp_trial{k}(:, 4);
+        resp_trial_8{k}(:, 4) = resp_trial{k}(:, 6);
+        resp_trial_8{k}(:, 5) = resp_trial{k}(:, 7);
+        resp_trial_8{k}(:, 6) = resp_trial{k}(:, 8);
+        resp_trial_8{k}(:, 7) = resp_trial{k}(:, 9);
+        resp_trial_8{k}(:, 8) = resp_trial{k}(:, 10);
+    else
+        resp_trial_8{k}(:, :) = resp_trial{k}(:, :);
+    end
+end
+% [r,p]=corrcoef(resp(:,1), resp(:,2));
+% rr=r(1,2);
+% this is for later vectorsum
+if length(unique_azimuth) >8
+    resp_8(1,:) = resp(1,:);  resp_8_std(1,:) = resp_std(1,:);  resp_8_std_root(1,:) = resp_std_root(1,:);
+    resp_8(2,:) = resp(2,:);  resp_8_std(2,:) = resp_std(2,:);  resp_8_std_root(2,:) = resp_std_root(2,:);
+    resp_8(3,:) = resp(4,:);  resp_8_std(3,:) = resp_std(4,:);  resp_8_std_root(3,:) = resp_std_root(4,:);
+    resp_8(4,:) = resp(6,:);  resp_8_std(4,:) = resp_std(6,:);  resp_8_std_root(4,:) = resp_std_root(6,:);
+    resp_8(5,:) = resp(7,:);  resp_8_std(5,:) = resp_std(7,:);  resp_8_std_root(5,:) = resp_std_root(7,:);
+    resp_8(6,:) = resp(8,:);  resp_8_std(6,:) = resp_std(8,:);  resp_8_std_root(6,:) = resp_std_root(8,:);
+    resp_8(7,:) = resp(9,:);  resp_8_std(7,:) = resp_std(9,:);  resp_8_std_root(7,:) = resp_std_root(9,:);
+    resp_8(8,:) = resp(10,:); resp_8_std(8,:) = resp_std(10,:);  resp_8_std_root(8,:) = resp_std_root(10,:); 
+else
+    resp_8(:,:) = resp(:,:);  resp_8_std(:,:) = resp_std(:,:);  resp_8_std_root(:,:) = resp_std_root(:,:); 
+end 
+% anova
+for k=1:length(unique_stim_type)
+    p_1D(k) = anova1(resp_trial_8{k},'','off');
+end
+        
+% % now sum all the responses for significant tunings
+% sig_find_ves = find( p_1D(:,1)<=0.05 );
+% sig_find_vis = find( p_1D(:,2)<=0.05 );
+% resp_sum_ves = sum( resp_plot{1}(sig_find_ves,:) );
+% resp_err_sum_ves = mean( resp_err_plot{1}(sig_find_ves,:) ); % take the mean first, not necessarily accurate
+% resp_sum_vis = sum( resp_plot{2}(sig_find_vis,:) );
+% resp_err_sum_vis = mean( resp_err_plot{1}(sig_find_vis,:) );
+% 
+% % Define figure
+% xoffset=0;
+% yoffset=0;
+% figure(2);
+% set(2,'Position', [5,15 980,650], 'Name', '1D Direction Tuning');
+% orient landscape;
+% set(0, 'DefaultAxesXTickMode', 'auto', 'DefaultAxesYTickMode', 'auto', 'DefaultAxesZTickMode', 'auto');
+% 
+% plot_azimuth = 1:1:length(unique_azimuth);
+% spon_azimuth = min(unique_azimuth_plot) : 1 : max(unique_azimuth_plot);
+% % 14 channels maximum
+% h{1} = 'b.-'; h{2} = 'm.-';  h{3} = 'c.-';  h{4} = 'r.-';  h{5} = 'm.-';  h{6} = 'y.-';  h{7} = 'y.-';   
+% h{8} = 'b+--'; h{9} = 'r+--';  h{10} = 'g+--';  h{11} = 'c+--';  h{12} = 'm+--';  h{13} = 'k+--';  h{14} = 'y+--'; 
+% axes('position',[0.05 0.05 0.4 0.6]);
+% for c = 1 : Channel_number-4
+%     errorbar(unique_azimuth_plot, resp_plot{1}(c,:), resp_err_plot{1}(c,:), h{c} );
+%     hold on;
+%     ylabel('spikes/s');
+%     xlabel('azimuth');
+%     xlim( [min(unique_azimuth_plot), max(unique_azimuth_plot)] );
+%     title('vestibular');
+%     set(gca, 'xtick',[min(unique_azimuth_plot):floor(max((unique_azimuth)-min(unique_azimuth))/7): max(unique_azimuth_plot)]);
+%     set(gca, 'xdir' , 'reverse'); 
+% end
+% axes('position',[0.5 0.05 0.4 0.6]);
+% for c = 1 : Channel_number-4
+%     errorbar(unique_azimuth_plot, resp_plot{2}(c,:), resp_err_plot{2}(c,:), h{c} );
+%     hold on;
+%     ylabel('spikes/s');
+%     xlabel('azimuth');
+%     xlim( [min(unique_azimuth_plot), max(unique_azimuth_plot)] );
+%     title('visual');
+%     set(gca, 'xtick',[min(unique_azimuth_plot):floor(max((unique_azimuth)-min(unique_azimuth))/7): max(unique_azimuth_plot)]);
+%     set(gca, 'xdir' , 'reverse'); 
+% end  
+% 
+% %show file name and some values in text
+% axes('position',[0.05,0.67, 0.9,0.3] );
+% xlim( [0,100] );
+% ylim( [0,15] );
+% text(0, 15, FILE);
+% text(15,15,'channel     preferred direction    p         DI');
+% hold on;
+% for c = 1 : Channel_number-4  
+%     plot([0 10],[14-c 14-c],h{c});
+%     xlim( [0,100] );
+%     ylim( [0,15] );
+%     hold on;
+%     text(15,14-c, num2str(c) );
+%     text(20,14-c, num2str(az(c,1)) );
+%     text(30,14-c, num2str(p_1D(c,1)) );
+%     text(40,14-c, num2str(DI(c,1)) );
+%     text(60,14-c, num2str(az(c,2)) );
+%     text(70,14-c, num2str(p_1D(c,2)) );
+%     text(80,14-c, num2str(DI(c,2)) );
+% end
+% axis off;
+% figure(3);
+% set(3,'Position', [5,15 980,650], 'Name', '1D Direction Tuning');
+% orient landscape;
+% set(0, 'DefaultAxesXTickMode', 'auto', 'DefaultAxesYTickMode', 'auto', 'DefaultAxesZTickMode', 'auto');
+% subplot(2,2,1);
+% errorbar(unique_azimuth_plot, resp_sum_ves, resp_err_sum_ves, 'bo-');
+% ylabel('spikes/s');
+% xlabel('azimuth');
+% xlim( [min(unique_azimuth_plot), max(unique_azimuth_plot)] );
+% title('vestibular');
+% set(gca, 'xtick',[min(unique_azimuth_plot):floor(max((unique_azimuth)-min(unique_azimuth))/7): max(unique_azimuth_plot)]);
+% set(gca, 'xdir' , 'reverse'); 
+% subplot(2,2,2);
+% errorbar(unique_azimuth_plot, resp_sum_vis, resp_err_sum_vis, 'bo-');
+% title('visual');
+% ylabel('spikes/s');
+% xlabel('azimuth');
+% xlim( [min(unique_azimuth_plot), max(unique_azimuth_plot)] );
+% title('visual');
+% set(gca, 'xtick',[min(unique_azimuth_plot):floor(max((unique_azimuth)-min(unique_azimuth))/7): max(unique_azimuth_plot)]);
+% set(gca, 'xdir' , 'reverse'); 
+% ---------------------------------------------------------------------------------------
+% Also, write out some summary data to a cumulative summary file
+% if length(unique_stim_type) ==1 & unique_stim_type == 2
+% %      -- do nothing --
+% else
+    sprint_txt = ['%s'];
+    for i = 1 : 1000
+         sprint_txt = [sprint_txt, ' %1.3f'];    
+    end
+    % buff = sprintf(sprint_txt, FILE, spon_resp, az(:), p_1D{:}, resp(:,1),resp_err(:,1), resp(:,2), resp_err(:,2) );
+    % outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_AzraelChaos182.dat'];
+%     buff = sprintf(sprint_txt, FILE, resp(:,1), resp_std(:,1), resp_std_root(:,1) ); %for the vestibular conditions
+    buff = sprintf(sprint_txt, FILE, resp_8(:,1), resp_8_std(:,1), resp_8_std_root(:,1),resp_8(:,2), resp_8_std(:,2), resp_8_std_root(:,2),p_1D(1), p_1D(2) ); %for the visual conditions
+    
+    %buff = sprintf(sprint_txt, FILE, rr );
+    % outfile = [BASE_PATH 'ProtocolSpecific\MOOG\AzimuthTuning1D\DirectionTuning1D_tuningscorrcoef.dat'];
+%     outfile = ['Z:\Data\Tempo\Batch Files\Tunde\dat_files\DirectionTuning1D_yong.dat'];
+%    outfile = ['Z:\Data\Tempo\Batch Files\Tunde\dat_files\DirectionTuning1D_yong_all.dat'];
+%     outfile = ['Z:\Users\Yong\DirectionTuning1D_cuecombine129.dat'];
+        outfile = [];
+
+    printflag = 0;
+    if (exist(outfile, 'file') == 0)    %file does not yet exist
+        printflag = 1;
+    end
+    fid = fopen(outfile, 'a');
+    if (printflag)
+        fprintf(fid, 'FILE\t         Spon\t HTIve\t HTIvi\t VesP\t VisP\t VesPre\t VisPre\t VesSlo\t Vis\Slo\t VesMin\t VisMin\t VesMax\t VisMax\t');
+        fprintf(fid, '\r\n');
+    end
+    fprintf(fid, '%s', buff);
+    fprintf(fid, '\r\n');
+    fclose(fid);
+%end
+%---------------------------------------------------------------------------------------
+%--------------------------------------------------------------------------
+return;
+

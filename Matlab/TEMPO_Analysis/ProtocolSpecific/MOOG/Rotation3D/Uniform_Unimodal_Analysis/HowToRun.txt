@@ -1,0 +1,17 @@
+Uniform2D:   Permutation Test, Uniform vs. unimodal, 2 vectors in the horizontal plane    -GY
+Uniform3D:   Permutation Test, Uniform vs. unimodal, 2 vectors in the 3D space      -GY
+UniformTest: Permutation Test, One vector     -GY
+
+yongtest: unimodal, bimodal or more mode test, -Aki 
+
+GY 09/29/2006
+if question, email to yonggu@pcg.wustl.edu
+
+
+finally,
+
+uniformity test = "Uniform test"
+
+modality test, Puni, Pbi = "yong test" for circular data, you should use 0-360 range; for non-cirsular data, you should use 0-180 range
+
+-180 - 0 -180 ====>> 0 - 360

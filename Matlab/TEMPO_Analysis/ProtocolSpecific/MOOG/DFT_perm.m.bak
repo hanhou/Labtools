@@ -1,0 +1,58 @@
+%this takes in 2 sec of data and the original dft ratio of the data. It
+%permutes the data and recalculates DFT ratio.
+% MODIFIED BY CRF -- 9/2007: New vel- and acc-DFTR method, and some other fixes.
+function [p, p_vel, p_acc] = DFT_perm(time, data, dft_ratio, vel_dftr, acc_dftr, repeat)
+
+if sum(data) == 0 | dft_ratio == 0
+    p = 1; p_vel = 1; p_acc = 1;
+    return
+    
+else
+	for i = 1:repeat
+        shuf = randperm(length(data));
+        shuf_dat = data(shuf);
+        [f, amp, resp_phase] = FT(time, shuf_dat, length(time), 1, 0);
+        f1 = mean(amp(2:4));
+        f2 = mean(amp(5:end));
+        if f2 == 0
+            dftr_shuf(i) = 0;
+        else
+            dftr_shuf(i) = f1/f2;
+        end
+        
+        pol = -1;
+        for s = find(f > 0 & f < 2)
+            amp_vel(s) = pol*amp(s)*cos(resp_phase(s));
+            amp_acc(s) = pol*amp(s)*sin(resp_phase(s));
+            pol = -pol;
+        end
+        v1 = mean(amp_vel(find(f > 0 & f < 2)));
+        if f2 == 0
+            vel_dftr_shuf(i) = 0;
+        else
+            vel_dftr_shuf(i) = v1/f2;
+        end
+        a1 = mean(amp_acc(find(f > 0 & f < 2)));
+        if f2 == 0
+            acc_dftr_shuf(i) = 0;
+        else
+            acc_dftr_shuf(i) = a1/f2;
+        end
+	end
+	
+	% p values
+	p = 2*length(find(dftr_shuf >= dft_ratio))/repeat;
+	if vel_dftr > 0
+        p_vel = 2*length(find(vel_dftr_shuf >= vel_dftr))/repeat;
+	else
+        p_vel = 2*length(find(vel_dftr_shuf <= vel_dftr))/repeat;
+	end
+	if acc_dftr > 0
+        p_acc = 2*length(find(vel_dftr_shuf >= acc_dftr))/repeat;
+	else
+        p_acc = 2*length(find(vel_dftr_shuf <= acc_dftr))/repeat;
+	end
+
+	return
+    
+end

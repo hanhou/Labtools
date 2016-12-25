@@ -1,0 +1,156 @@
+%----------------------------------------------------------------------------------------------------------------------
+%-- PSTH.m -- Plots Post Stimulus Time Histogram for MOOG 3D tuning expt
+%--	Yong, 6/27/03
+%-----------------------------------------------------------------------------------------------------------------------
+
+function MOOG_PSTH(data, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE, Protocol);
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+TEMPO_Defs;
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG); 
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG); 
+temp_spike_data = squeeze(data.spike_data(SpikeChan,:,:));
+temp_event_data = squeeze(data.event_data);
+temp_spike_rates = data.spike_rates(SpikeChan, :);    
+% 2008-03-23 MLM
+temp_azimuth_moog = data.moog_params(HEADING,:,MOOG);
+temp_azimuth_cam = data.moog_params(HEADING,:,CAMERAS);
+
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+null_trials = logical( (temp_azimuth_moog == data.one_time_params(NULL_VALUE)) & (temp_azimuth_cam == data.one_time_params(NULL_VALUE)));
+% For now, undo.
+null_trials=logical(zeros(size(null_trials)));
+
+%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
+trials = 1:length(temp_azimuth);		% a vector of trial indices
+bad_trials = find(temp_spike_rates > 3000);   % cut off 3k frequency which definately is not cell's firing response
+if ( bad_trials ~= NaN)
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) & (trials~=bad_trials) );
+else 
+   select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+end
+
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+% stim_duration = length(temp_spike_data)/length(temp_azimuth);
+% spike_data = data.spike_data(1, ((BegTrial-1)*stim_duration+1):EndTrial*stim_duration);
+spike_rates= temp_spike_rates(~null_trials & select_trials);
+% notice that this bad_trials is the number without spon trials 
+
+% 2008-03-23 MLM
+azimuth_moog = temp_azimuth_moog(~null_trials & select_trials);
+azimuth_cam = temp_azimuth_cam(~null_trials & select_trials);
+% elevation = temp_elevation(~null_trials & select_trials);
+unique_azimuth_moog = munique(azimuth_moog');
+unique_azimuth_cam = munique(azimuth_cam');
+
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+
+condition_num = stim_type;
+h_title{1}='Vestibular';
+h_title{2}='Visual';
+h_title{3}='Bimodal';
+unique_condition_num = munique(condition_num');
+
+% add parameters here
+% timebin for plot PSTH
+timebin=50;
+% sample frequency depends on test duration
+frequency=length(temp_spike_data)/length(select_trials);  
+% length of x-axis
+x_length = frequency/timebin;
+% x-axis for plot PSTH
+x_time=1:(frequency/timebin);
+
+% find spontaneous trials which azimuth,elevation,stim_type=-9999
+spon_found = find(null_trials==1);     
+
+% remove null trials, bad trials, and trials outside Begtrial~Engtrial
+% stim_duration = length(temp_spike_data)/length(temp_azimuth);
+% Discard_trials = find(null_trials==1 | trials < BegTrial | trials >EndTrial);
+% for i = 1 : length(Discard_trials)
+%     temp_spike_data( 1, ((Discard_trials(i)-1)*stim_duration+1) :  Discard_trials(i)*stim_duration ) = 9999;
+% end
+% spike_data = temp_spike_data( temp_spike_data~=9999 );
+% spike_data( find(spike_data>100) ) = 1; % something is absolutely wrong 
+spike_data=temp_spike_data;
+
+% For each trial, compute a PSTH.
+% Each trial is 2 seconds. Each bin is 50 ms.
+nbins=round(2/(timebin/1000));
+count_tmp=zeros(nbins,size(spike_data,2));
+for i=1:size(spike_data,2)
+    BegInd=min(find(temp_event_data(:,i) == VSTIM_ON_CD));
+    EndInd=min(find(temp_event_data(:,i) == VSTIM_OFF_CD));
+    if (EndInd - BegInd) > 1999 % If more than 2000 ms, take the middle 2000 ms.
+        BegInd = BegInd + floor(((EndInd - BegInd) - 1999)/2);
+        EndInd = BegInd + 1999;
+    end
+    temp_count=spike_data( BegInd:EndInd , i );
+    count_tmp(:,i)=sum(reshape( temp_count, [ length(temp_count)/nbins nbins ]),1);
+end
+
+max_count=1;
+for i=1:length(unique_azimuth_moog)
+    for j=1:length(unique_azimuth_cam)
+
+        select = logical( (azimuth_moog==unique_azimuth_moog(i)) & (azimuth_cam==unique_azimuth_cam(j)) );
+
+        count_y{i,j} = mean(count_tmp(:, select),2);
+        max_count=max([ max_count max(count_y{i,j}) ]);
+        
+    end
+end
+max_count=floor(max_count)+1;
+
+% plot PSTH now
+% get the largest count_y so that make the scale in each figures equal    
+% plot two lines as stimulus start and stop marker
+x_start = [StartEventBin(1,1)/timebin, StartEventBin(1,1)/timebin];
+x_stop =  [StopEventBin(1,1)/timebin,  StopEventBin(1,1)/timebin];
+y_marker=[0,max_count];
+
+xoffset=0;
+yoffset=0;
+
+x_time=1:length(count_y{1,1});
+
+% now plot
+figure(4);
+for i=1:length(unique_azimuth_moog)
+    for j=1:length(unique_azimuth_cam)
+        %             axes('position',[0.05*i+0.01+xoffset (0.92-0.07*j)+yoffset 0.045 0.045]);
+        axes('position',[0.05*i+0.01+xoffset (0.07*j)+yoffset 0.045 0.045]);
+        bar( x_time,count_y{i,j}, 'FaceColor','k','EdgeColor','none','BarWidth',1 );
+        %             hold on;
+        %             plot( x_start, y_marker, 'r-');
+        %             plot( x_stop,  y_marker, 'r-');
+        hold on;
+        plot( [10 10], [0 max_count],'r-',[30 30], [0 max_count],'r-');
+        hold off;
+        if i == 1 && j == 1
+            set( gca,'xtick',[0 40],'xticklabel',{'0','2'});
+            set( gca,'ytick',[0 max_count]);
+        else
+            set( gca, 'xtick', [] );
+            set( gca, 'ytick', [] );
+        end
+        % set the same scale for all plot
+        xlim([0,length(count_y{1,1})]);
+        ylim([0,max_count]);
+        %             title([ num2str(unique_azimuth_moog(i)) ' ' num2str(unique_azimuth_cam(j)) ]);
+    end
+end
+
+saveas(4,[ 'z:/users/michael/matlab/psth/fig/' FILE(1:end-4) ],'fig');
+saveas(4,[ 'z:/users/michael/matlab/psth/eps/' FILE(1:end-4) ],'epsc');
+
+return;
+

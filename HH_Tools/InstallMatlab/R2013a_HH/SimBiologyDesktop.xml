@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Layout>
+   <Version Major="3" Minor="7"/>
+   <Frame StatusBarShowing="yes" TitlesShowing="yes">
+      <Location EntirelyVisible="yes" External="yes" Height="841" Type="floating" Width="1344" X="203" Y="94"/>
+      <View Name="Simulation Viewer" Title="Simulation Viewer"/>
+   </Frame>
+   <Group Alphabetize="no" CollapseUndockedDocumentToolstrips="no" Dock="yes" Guest="no" Name="Work Area" PropertyClass="com.mathworks.toolbox.simbio.desktop.projectsettings.ProjectSettingsGroup" Show="no" ShowViews="no" Title="Work Area">
+      <Location Context="docked" Height="630" ParentHeight="630" ParentWidth="1328" Path="W" Type="nested" Width="920" X="211" Y="276">
+         <ReferenceHierarchy>
+            <Split Orientation="leftRight" Position="920">
+               <Group Name="Work Area" Title="Work Area"/>
+               <View Name="Simulation Viewer" Title="Simulation Viewer"/>
+            </Split>
+         </ReferenceHierarchy>
+      </Location>
+      <Location Context="nested" Height="630" ParentHeight="630" ParentWidth="1328" Path="W" Type="nested" Width="920" X="211" Y="276">
+         <ReferenceHierarchy>
+            <Split Orientation="leftRight" Position="920">
+               <Group Name="Work Area" Title="Work Area"/>
+               <View Name="Simulation Viewer" Title="Simulation Viewer"/>
+            </Split>
+         </ReferenceHierarchy>
+      </Location>
+      <Location Context="document" Maximized="yes" Type="floating"/>
+      <DocumentArea Arrangement="maximized" Empty="no" MaxBarWidth="160" Showing="yes"/>
+   </Group>
+   <Group Alphabetize="no" CollapseUndockedDocumentToolstrips="no" Dock="no" Guest="yes" Name="Figures" PropertyClass="com.mathworks.toolbox.simbio.desktop.SystemsBiologyDesktop$FigureGroupPropertyProvider" Show="no" ShowViews="no" Title="Figures">
+      <ToolBars>
+         <ToolBar Label="Figures" Showing="yes"/>
+      </ToolBars>
+      <Location Context="undocked" EntirelyVisible="yes" External="yes" Height="536" Type="floating" Width="576" X="114" Y="48"/>
+      <Location Context="document" Type="floating"/>
+      <Frame StatusBarShowing="yes" TitlesShowing="yes">
+         <Location EntirelyVisible="yes" External="yes" Height="536" Type="floating" Width="576" X="114" Y="48"/>
+      </Frame>
+      <DocumentArea Arrangement="maximized" Empty="no" MaxBarWidth="210" Showing="no"/>
+   </Group>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.mcode.ModelMCodeDTClient" Dock="yes" Guest="no" Name="MATLAB Code Capture Tool" Show="no" Singleton="yes" StatusBarShowing="yes" Title="MATLAB Code Capture Tool">
+      <Location Context="docked" Path="E" Type="nested"/>
+      <Location Context="undocked" External="yes" Height="500" Type="floating" Width="600"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.editor.library.BlockLibraryDTClient" Dock="yes" Guest="no" Name="Block Library Browser" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Untitled">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.editor.OverviewDTClient" Dock="yes" Guest="no" Name="Diagram Overview" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Diagram Overview">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.modelquantity.viewer.ModelQuantityViewerDTClient" Dock="yes" Guest="no" Name="Component Palette" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Component Palette">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.editor.alignmenttool.AlignmentToolDTClient" Dock="yes" Guest="no" Name="Alignment Tool" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Alignment Tool">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.externaldata.explorer.constraint.ExclusionDTClient" Dock="yes" Guest="no" Name="Exclusion Editor" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Exclusion Editor">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.externaldata.explorer.deriveddata.DerivedDataDTClient" Dock="yes" Guest="no" Name="Derived Data Editor" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Derived Data Editor">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.projectbrowser.addressbar.ContentViewDTClient" Dock="yes" Guest="no" Name="Contents View" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Contents View">
+      <Location Context="docked" Path="WW" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.simulation.viewer.SimulationViewDTClient" Dock="yes" Guest="no" Name="Simulation Viewer" SelectionOrder="17" Show="yes" Singleton="yes" StatusBarShowing="yes" Title="Simulation Viewer">
+      <Location Context="docked" Height="630" Path="" Type="nested" Width="404" X="1079" Y="276"/>
+      <Location Context="nested" Height="630" Path="" Type="nested" Width="404" X="1079" Y="276"/>
+      <ClientData/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.settingpanels.model.equation.EquationsDTClient" Dock="yes" Guest="no" Name="Equations View" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Equations View">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.fitdata.FitDataExplorerDTClient" Dock="yes" Guest="no" Name="Fit Data Tool" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Fit Data Tool">
+      <Location Context="docked" Path="E" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.simulation.viewer.axes.multirun.MultiRunEditorDTClient" Dock="yes" Guest="no" Name="Multi-run Information Viewer" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Multi-run Information Viewer">
+      <Location Context="docked" Path="ES" Type="nested"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.usages.UsagesDTClient" Dock="yes" Guest="no" Name="Usages" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Usages">
+      <Location Context="docked" Height="300" Path="S" Type="nested"/>
+      <Location Context="undocked" External="yes" Height="300" Type="floating" Width="800"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.errorwindow.ErrorDTClient" Dock="yes" Guest="no" Name="Errors and Warnings" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Errors and Warnings">
+      <Location Context="docked" Height="300" Path="S" Type="nested"/>
+      <Location Context="undocked" External="yes" Height="300" Type="floating" Width="800"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.search.findinproject.FindInProjectDTClient" Dock="yes" Guest="no" Name="Search Results" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Search Results">
+      <Location Context="docked" Height="300" Path="S" Type="nested"/>
+      <Location Context="undocked" External="yes" Height="300" Type="floating" Width="800"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.analysis.data.TaskComparisonDTClient" Dock="yes" Guest="no" Name="Task Data Comparison" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Task Data Comparison">
+      <Location Context="docked" Height="300" Path="S" Type="nested"/>
+      <Location Context="undocked" External="yes" Height="300" Type="floating" Width="800"/>
+   </Client>
+   <Client Class="com.mathworks.toolbox.simbio.desktop.editor.blockpropertyeditor.BlockPropertyEditorDTClient" Dock="no" Guest="no" Name="Block Property Editor" Show="no" Singleton="yes" StatusBarShowing="yes" Title="Block Property Editor"/>
+</Layout>

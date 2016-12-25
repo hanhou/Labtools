@@ -1,0 +1,58 @@
+% Accelerometer_study.m -- figures out whether accelerometer data is
+% comparable to that of the sled
+%--	AYANNA 09/08/2006 based on YONG, 07/12/04
+%-----------------------------------------------------------------------------------------------------------------------
+function Accelerometer_study(data, Protocol, Analysis, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+
+Path_Defs;
+ProtocolDefs; %contains protocol specific keywords - 1/4/01 BJP
+
+%get the column of values for azimuth and elevation and stim_type
+temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
+temp_elevation = data.moog_params(ELEVATION,:,MOOG);
+temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
+temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
+temp_motion_coherence = data.moog_params(COHERENCE,:,MOOG);
+temp_interocular_dist = data.moog_params(INTEROCULAR_DIST,:,MOOG);
+temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
+%specific to the sinusoid protocol in the MOOG - 09/11/2006 ASB
+temp_duration = data.moog_params(SIN_DURATION,:,MOOG);
+temp_frequency = data.moog_params(SIN_FREQUENCY,:,MOOG);
+temp_trans_amplitude = data.moog_params(SIN_TRANS_AMPLITUDE,:,MOOG);
+temp_rot_amplitude = data.moog_params(SIN_ROT_AMPLITUDE,:,MOOG);
+
+%now, get the firing rates for all the trials 
+temp_spike_rates = data.spike_rates(SpikeChan, :);   
+
+%get indices of any NULL conditions (for measuring spontaneous activity
+trials = 1:length(temp_azimuth);
+select_trials= ( (trials >= BegTrial) & (trials <= EndTrial) ); 
+null_trials = logical( (temp_azimuth == data.one_time_params(NULL_VALUE)) );
+azimuth = temp_azimuth(~null_trials & select_trials);
+elevation = temp_elevation(~null_trials & select_trials);
+stim_type = temp_stim_type(~null_trials & select_trials);
+amplitude = temp_amplitude(~null_trials & select_trials);
+spike_rates = temp_spike_rates(~null_trials & select_trials);
+motion_coherence = temp_motion_coherence(~null_trials & select_trials);
+interocular_dist = temp_interocular_dist(~null_trials & select_trials);
+num_sigmas = temp_num_sigmas(~null_trials & select_trials);
+
+unique_azimuth = munique(azimuth');
+unique_elevation = munique(elevation');
+unique_stim_type = munique(stim_type');
+unique_amplitude = munique(amplitude');
+unique_motion_coherence = munique(motion_coherence');
+unique_interocular_dist = munique(interocular_dist');
+unique_num_sigmas = munique(num_sigmas');
+
+% replace spike_rate with accelerometer data
+%calculate mean offset first, take the first second as the control
+offset_y = mean(mean(data.eye_data(6,1:200,:)));
+velocity_hist = 0;
+for j = 1 : 1000
+    velocity_hist = velocity_hist + ( data.eye_data(5,j,:)-offset_y ) * 0.2;
+    velocity_int(j,:) = velocity_hist;               
+end
+for i = 1 : length(spike_rates)
+    resp_accelerometer(1,i) = sum(velocity_int(300:500,i+BegTrial-1))/200;   % normalize velocity 
+end

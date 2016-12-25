@@ -1,0 +1,3 @@
+- warn if constraint/prior list is too short
+- Check when we need #include <numpy/arrayobject.h> and when #include <Numeric/arrayobject.h>
+- Make sure that sscanf does not use locale for Numbers!

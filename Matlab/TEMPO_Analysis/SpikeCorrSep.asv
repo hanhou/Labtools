@@ -1,0 +1,52 @@
+data=good_data;
+
+%plot the cross-correlation between SU and MU (before the SU was removed)
+SpikeChan=1;SpikeChan2=3;
+num_trials = size(data.spike_data);
+num_trials = num_trials(3);
+correl_total = 0;
+for i=2:num_trials
+   spike_data1 = data.spike_data(SpikeChan, :, i);
+   spike_data2 = data.spike_data(SpikeChan2, :, i);
+   [correl, lags] = xcorr(spike_data1, spike_data2, 50);%    [correl, lags] = xcorr(spike_data1, spike_data2, 50,'coeff');   
+   correl_total = correl+correl_total;
+end
+[val, ind] = max(correl_total);
+choptime = lags(ind);
+figure;clf;
+plot(lags, correl_total);
+
+
+shiftValue=choptime;
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if  ( (shiftValue == -50) & (sum( sum( good_data.spike_data(winDiscrim,:,:) ) == 0) ) )
+         % remove window discrimination data if not being used
+         good_data.spike_data = good_data.spike_data(1:size(good_data.spike_data,1) - 1,:,:);
+         shiftValue = 0;
+     end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%plot the cross-correlation between SU and MU (after the SU was removed)
+SpikeChan=1;SpikeChan2=4;
+num_trials = size(data.spike_data);
+num_trials = num_trials(3);
+correl_total = 0;
+for i=2:num_trials
+   spike_data1 = data.spike_data(SpikeChan, :, i);
+   spike_data2 = data.spike_data(SpikeChan2, :, i);
+   [correl, lags] = xcorr(spike_data1, spike_data2, 50);%    [correl, lags] = xcorr(spike_data1, spike_data2, 50,'coeff');   
+   correl_total = correl+correl_total;
+end
+% correl_total=(correl_total)/num_trials;%Add by AHC 04-12-06
+[val, ind] = max(correl_total);
+choptime = lags(ind);
+hold on; %figure(2);clf;
+plot(lags, correl_total,'r');

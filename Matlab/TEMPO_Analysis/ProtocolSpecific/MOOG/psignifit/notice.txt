@@ -1,0 +1,6 @@
+be careful of the 'options'.
+The defaults are 'logistic', '2 interval FAC'... instead of weibull and 1 interval...
+
+look at the explanation of 'pfit.m' and choose options in psych_options.m
+
+GY

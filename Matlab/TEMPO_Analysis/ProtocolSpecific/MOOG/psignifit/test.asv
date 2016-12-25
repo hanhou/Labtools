@@ -1,0 +1,17 @@
+unique_heading = [8    4   2   1   0   1   2   4   8];
+xi = min(unique_heading) : 0.1 : max(unique_heading);
+psycho_correct = [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9];
+repetition(1:length(unique_heading)) = 20;
+
+fit_data_psycho_cum(:, 1) = unique_heading;
+fit_data_psycho_cum(:, 2) = psycho_correct;
+fit_data_psycho_cum(:, 3) = repetition;
+
+wichman_psy = pfit(fit_data_psycho_cum,'plot_opt','no plot','shape','cumulative gaussian','n_intervals',1,'FIX_LAMBDA',0.001,'sens',0,'compute_stats','false','verbose','false');  
+
+Thresh_psy = wichman_psy.params.est(2);
+Bias_psy = wichman_psy.params.est(1);
+psy_perf = [wichman_psy.params.est(1),wichman_psy.params.est(2)];
+psy_perf
+
+plot(unique_heading, psycho_correct, 'o', xi, cum_gaussfit(neu_perf{1,k}, xi),  '-' );
