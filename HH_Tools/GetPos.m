@@ -27,7 +27,7 @@ if norm_pos(3) ~= 0 && norm_pos(4) ~= 0
 else
 %     set(object_handle,'Units', myunits);
     fprintf('-- Figure --\nNorm (clipboard): %s\nPix: %s\n',num2str(f_norm_pos),num2str(f_pix_pos));
-    clipboard('copy', f_norm_pos);         % Place set string on system
+    clipboard('copy', sprintf('set(gcf,''uni'',''norm'',''pos'',[%s]);',num2str(fix(f_norm_pos*1000)/1000)));         % Place set string on system
 end
 
 set(h,'Units', init_units);   % Restore initial units

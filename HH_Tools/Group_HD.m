@@ -859,6 +859,8 @@ select_psy_good = []; select_psy_bad = []; find_bottom_line = [];
 Choice_pref_all = []; Choice_pref_p_value_all = []; Modality_pref_all = []; Modality_pref_p_value_all = [];
 select_cpref_mpref = []; 
 
+t_criterion_txt = [];
+
 cell_selection();
 
 %% Cell Selection and Cell Counter
@@ -882,6 +884,8 @@ cell_selection();
         % + T(ypical) CellsZ
         t_cell_selection_criteria = ...
         {  %                   Logic                                   Notes
+           % Bottom-line
+            'Bottom-line (all)', ones(size(select_sus_all_monkey)); % Just all bottom-line cells
            % Mem-sac based
             'Manually assigned mem-sac (original)',    xls_num{1}(:,header.HD_MemSac) >= 0.8;
             'Memory p value',   group_MemSac_ps(:,3) < 0.05 | group_TwoPtMemSac_ps(:,3) < 0.05;
@@ -907,7 +911,8 @@ cell_selection();
         
         select_tcells_all_monkey = select_sus_all_monkey & t_cell_selection_criteria{t_cell_selection_num,2};   
         select_no_tcells_all_monkey = select_sus_all_monkey & ~ t_cell_selection_criteria{t_cell_selection_num,2};  
-
+        t_criterion_txt = t_cell_selection_criteria{t_cell_selection_num,1};
+        
         % ---------
         
         
@@ -1264,6 +1269,7 @@ function_handles = {
     'Different headings' , @f1p2;
     '   Comb/max ratio distribution through time', @f1p2p5;
     '   Tuning curve analysis',@f1p2p7;
+    '   Partial correlation (grand)',@f1p2p8;
     'Correct / Wrong Trials', @f1p3;
     };
     
@@ -2299,7 +2305,6 @@ function_handles = {
                 
                 SetFigure(15);
                 
-                
                 if linear_or_sigmoid == 2        % Plot sigmoid fitting
                     xx = linspace(min(unique_heading),max(unique_heading),100);
                     plot(xx,sigfunc(tuning_sig_fit_correctonly(:,tuning_time_phase(pp),k),xx),'color',colors(k,:),'linew',3);
@@ -2330,10 +2335,154 @@ function_handles = {
         ylabel('R of linear fitting');
         SetFigure(15);
         ylim([-0.05 0.25])
-        
 
     end
 
+
+    dora_tuning_mean_each_cell = []; % Cache the dora tuning for each cell calculated in f1p2p8
+    dora_tuning_sem_each_cell = []; % Cache the dora tuning for each cell calculated in f1p2p8
+    dora_tuning_n_each_cell = [];
+    partial_corr_timewins = {[0 1500],'0 ~ 1500 ms (all stim)';
+                             [-300 0],'-300 ~ 0 ms (before stim)';
+                             [0 300],'0 ~ 300 ms (stim start)';
+                             [500 800],'500 ~ 800 ms (acc peak)';
+                             [800 1100],'800 ~ 1100 ms (vel peak)';
+                             [1200 1500],'1200 ~ 1500 ms (stim end)';
+                             [2000 2300],'2000 ~ 2300 ms (after sac)'};
+    select_for_partial = []; 
+
+    function f1p2p8(debug)    % Rate 2.8. Partial correlation analysis. (Dora's method) 20170327 @UNIGE
+        if debug
+            dbstack;
+            keyboard;
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        j = 1;
+        select_for_partial = select_tcells;
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        find_for_partial = find(select_for_partial);
+        unique_heading = group_result(representative_cell).unique_heading;
+        partial_corr_coef_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);  % [cell number, (heading coeff, choice coeff), stim_type]
+        partial_corr_p_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);
+        anova2_p_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);
+        dora_tuning_mean_each_cell = nan(sum(select_for_partial),size(partial_corr_timewins,1),3,2,length(unique_heading));
+        dora_tuning_sem_each_cell = nan(sum(select_for_partial),size(partial_corr_timewins,1),3,2,length(unique_heading));
+        dora_tuning_n_each_cell = zeros(sum(select_for_partial),size(partial_corr_timewins,1),3,2,length(unique_heading));
+        
+        % Calculate partial correlation coefficients and p-values for each cell
+        progressbar('cell num');
+        for i = 1:sum(select_for_partial)  % For cells
+            
+            this_raw_spike_in_bin = group_result(find_for_partial(i)).mat_raw_PSTH.spike_aligned{1,j};
+            this_time = group_result(find_for_partial(i)).mat_raw_PSTH.spike_aligned{2,j};
+            this_stim_type = group_result(find_for_partial(i)).mat_raw_PSTH.stim_type_per_trial;
+            this_heading = group_result(find_for_partial(i)).mat_raw_PSTH.heading_per_trial;
+            this_choice = group_result(find_for_partial(i)).mat_raw_PSTH.choice_per_trial;
+            
+            for tt = 1:size(partial_corr_timewins,1)
+                count_win = partial_corr_timewins{tt,1}(1) <= this_time & this_time <= partial_corr_timewins{tt,1}(2);
+                for k = 1:3
+                    if isempty(find(this_stim_type==k, 1)); continue; end
+                    
+                    % --- Partial correlation --- 
+                    X=[];
+                    X(:,1) = sum(this_raw_spike_in_bin(this_stim_type==k,count_win),2)...
+                        /range(partial_corr_timewins{tt,1})*1e3; % Average firing rate in Hz
+                    X(:,2) = this_heading(this_stim_type==k);
+                    X(:,3) = this_choice(this_stim_type==k);
+                    
+                    [r,p] = partialcorr(X);
+                    partial_corr_coef_all(i,tt,:,k) = r(1,2:3);
+                    partial_corr_p_all(i,tt,:,k) = p(1,2:3);
+                    
+                    % --- Anova2 p values (does not exclude interactions of heading and choice, but Dora used this) ---
+                    anova2_p_all(i,tt,:,k) = anovan(X(:,1),{X(:,2),X(:,3)},'display','off')';
+                    
+                    % --- Dora tuning (putting it here is more flexbile than that in CP_HH calculation) ---
+                    real_unique_this_heading = unique(this_heading);
+                    withzero_unique_this_heading = unique([this_heading 0]); 
+                    for hh = 1:length(real_unique_this_heading)
+                        for cc = LEFT:RIGHT
+                            this_select = (X(:,2) == real_unique_this_heading(hh))&(X(:,3)==cc);
+                            this_mean = mean(X(this_select,1));
+                            this_sem = std(X(this_select,1))/sqrt(sum(this_select));
+                            hh_shouldbe = withzero_unique_this_heading==real_unique_this_heading(hh); % Deal with cases without zero heading 
+                            dora_tuning_mean_each_cell(i,tt,k,cc,hh_shouldbe) = this_mean;
+                            dora_tuning_sem_each_cell(i,tt,k,cc,hh_shouldbe) = this_sem;
+                            dora_tuning_n_each_cell(i,tt,k,cc,hh_shouldbe) = sum(this_select);
+                        end
+                    end
+                end
+            end
+            progressbar(i/sum(select_for_partial));
+        end
+        
+        %% Drawing
+        set(figure(3099+figN),'name',sprintf('Partial correlation, j = %g, "any significant" out of N = %g, "%s" cells',...
+                    j,sum(select_for_partial),t_criterion_txt)); clf; figN = figN+1;
+        set(gcf,'uni','norm','pos',[0       0.038       0.994       0.877]);
+        [h_sub,~] = tight_subplot(3,size(partial_corr_timewins,1),[0.05 0.02]);
+
+        for tt = 1:size(partial_corr_timewins,1)
+            for k = 1:3
+                
+                axes(h_sub(k+(tt-1)*3));
+                % Use partial corr p value
+%                 heading_sig = partial_corr_p_all(:,tt,1,k)<0.05;
+%                 choice_sig = partial_corr_p_all(:,tt,2,k)<0.05;
+                
+                % Use ANOVA2 p value (Dora)
+                heading_sig = anova2_p_all(:,tt,1,k)<0.05;
+                choice_sig = anova2_p_all(:,tt,2,k)<0.05;
+                
+                h1=plot(partial_corr_coef_all((heading_sig|choice_sig) & ~(heading_sig & choice_sig),tt,1,k),...
+                    partial_corr_coef_all((heading_sig|choice_sig) & ~(heading_sig & choice_sig),tt,2,k),...  % "One sig" cells
+                    'o','color',colors(k,:));
+                hold on;
+                h2=plot(partial_corr_coef_all(heading_sig&choice_sig,tt,1,k),...
+                    partial_corr_coef_all(heading_sig&choice_sig,tt,2,k),...  % "All sig" cells
+                    'o','color','k','markerfacecol','k');
+                
+                xx = partial_corr_coef_all(heading_sig|choice_sig,tt,1,k);
+                yy = partial_corr_coef_all(heading_sig|choice_sig,tt,2,k);
+                h_all = plot(xx,yy,'visible','off');
+                
+                % Draw line if significant
+                [rrr,ppp] = corr(xx,yy,'type','Pearson');
+                if ppp<0.05
+                    coeff = pca([xx yy]);
+                    linPara(1) = coeff(2) / coeff(1);
+                    linPara(2) = mean(yy)- linPara(1) *mean(xx);
+                    
+                    % -- Plotting
+                    xxx = linspace(min(xx),max(xx),150);
+                    yyy = linPara(1) * xxx + linPara(2);
+                    plot(xxx,yyy,'linew',2,'color',colors(k,:));
+                end
+                
+                select_actual_plot = zeros(N,1);
+                find_for_partial = find(select_for_partial);
+                select_actual_plot(find_for_partial(heading_sig|choice_sig)) = 1;
+                set([gca h_all],'ButtonDownFcn',{@Show_individual_cell, h_all, select_actual_plot});
+
+                
+                axis([-1 1 -1 1]);
+                hold on; plot([-1 1],[0 0],'k--'); plot([0 0],[-1 1],'k--');
+                text(-0.9,-0.8,sprintf('%g,%g,%g\nr = %.3g\np= %.3g',sum(heading_sig),sum(choice_sig),sum(heading_sig&choice_sig),rrr,ppp));
+                
+                if k == 1
+                    title(partial_corr_timewins{tt,2});
+                end
+                if tt == 1 && k == 1
+                    xlabel('Partial corr (Heading)');
+                    ylabel('Partial corr (Choice)');
+                end
+            end
+        end
+    end
+        
     function f1p3(debug)      % Rate 3. Correct / Wrong Trials
         if debug
             dbstack;
@@ -2643,6 +2792,8 @@ function_handles = {
             
             % Ploting
             subplot(1,3,k); imagesc(t_s,t_s,corCE_grand_all{k,1}); axis square;colorbar;
+            map = load('CorCE_colormap.mat');
+            colormap(map.map);
         end
         drawnow;
         
@@ -6112,7 +6263,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         guidata(gcbo,h_marker);
     end
    
-    function Plot_HD(~,~,ori_cell_no)    % Plot associated mem-sac traces @HH20150426
+    function Plot_HD(~,~,ori_cell_no)    % Plot associated HD traces @HH20150426
         
         % PSTH in HD
         j_this = 1;
@@ -6162,7 +6313,84 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             'LineStyles',{'-','-'},'figN',1464);
         title('PSTH\_diff, Hard and Easy');
         axis tight; legend off; plot(xlim,[0 0],'k--');
-        set(gcf,'unit','norm','pos',[ 0.2899     0.53255     0.29941     0.35286]);
+        set(gcf,'uni','norm','pos',[0.291       0.532       0.287       0.353]);
+        
+        % -- Dora Tuning -- HH20170327 @ UNIGE
+        if ~isempty(dora_tuning_mean_each_cell)
+            
+            ind_in_partial = sum(select_for_partial(1:ori_cell_no)); % From original_ind to index in select_partial
+            unique_heading = group_result(representative_cell).unique_heading;
+
+            set(figure(1465),'name','Dora tuning'); clf;
+            set(gcf,'uni','norm','pos',[0.425       0.057       0.567       0.607]);
+            to_plot_tt = [1 4 5 6];
+            [h_sub,~] = tight_subplot(3,length(to_plot_tt),[0.05 0.02]);
+            zero_index = find(unique_heading == 0);
+            
+            for tt = 1:length(to_plot_tt)
+                for k = 1:3
+                    axes(h_sub(k+(tt-1)*3));
+                    
+                    hh_index = {1:zero_index zero_index:length(unique_heading)};
+                    cc_marker = {'<','>'};
+                    
+                    for cc = LEFT:RIGHT
+                        for hh = LEFT:RIGHT
+                            %                 plot(unique_heading(1:zero_index)-0.2,tuning_mean_dora(1,1:zero_index,tuning_time_phase(pp),k),'v-','markersize',9,'color',colors(k,:),'markerfacecolor',colors(k,:),'LineWid',2);
+                            %                 plot(unique_heading(zero_index:end)+0.2,tuning_mean_dora(2,zero_index:end,tuning_time_phase(pp),k),'^-','markersize',9,'color',colors(k,:),'markerfacecolor',colors(k,:),'LineWid',2);
+                            %
+                            %                 plot(unique_heading(1:zero_index)+0.2,tuning_mean_dora(2,1:zero_index,tuning_time_phase(pp),k),'^-','markersize',9,'color',colors(k,:),'markerfacecolor','none','LineWid',2);
+                            %                 plot(unique_heading(zero_index:end)-0.2,tuning_mean_dora(1,zero_index:end,tuning_time_phase(pp),k),'v-','markersize',9,'color',colors(k,:),'markerfacecolor','none','LineWid',2);
+                            
+                            h = scatter(unique_heading(hh_index{hh}),...
+                                dora_tuning_mean_each_cell(ind_in_partial,to_plot_tt(tt),k,cc,hh_index{hh}),...
+                                dora_tuning_n_each_cell(ind_in_partial,to_plot_tt(tt),k,cc,hh_index{hh})*20,...
+                                colors(k,:),[cc_marker{cc}]); hold on;
+                            
+                            if cc == hh
+                                set(h,'markerfacecolor',colors(k,:));
+                            else
+                                set(h,'markerfacecolor','none');
+                            end
+                        end
+                        
+                        plot(unique_heading,squeeze(dora_tuning_mean_each_cell(ind_in_partial,to_plot_tt(tt),k,cc,:)),'color',colors(k,:),'LineWid',2)
+                    end
+                    
+                    if k == 1
+                        title(partial_corr_timewins{to_plot_tt(tt),2});
+                    end
+
+                end
+            end
+        end
+        
+        % -- Plot visual PSTH grouped by heading and choice (correct only) for Yong Gu -- HH20170327 @ UNIGE
+        set(figure(1466),'name','Yong Gu needs this'); clf;
+        set(gcf,'uni','norm','pos',[0.541       0.526       0.287       0.353]);
+        
+        j = 1; k = 2;
+        colors_angles_hsv(:,2) = linspace(0.1,1,5);
+        colors_angles_hsv(:,[1 3]) = 1;
+        colors_angles = hsv2rgb(colors_angles_hsv);
+        colors_angles = reshape(repmat(colors_angles,1,2)',3,[])';
+        colors_angles = mat2cell(colors_angles,ones(10,1));
+        
+        % --- Ramping with different angles ---
+        for j = 1:2
+            yyy{j} = PSTH_correct_angles_raw{j}(ori_cell_no,:,:,k);
+            ttt{j} = rate_ts{j};
+        end
+        
+        h = SeriesComparison(yyy,{ttt{1} ttt{2} time_markers},...
+            'Colors',colors_angles,'LineStyles',{'-','--'},...
+            'ErrorBar',0,'Xlabel',[],'Ylabel','Norm firing','figN',1466);
+        legend off;
+        xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  ylim([0.1 max(ylim)]);
+        
+        % Gaussian vel
+        plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        
         
         Plot_memsac([],[],ori_cell_no);
     end
