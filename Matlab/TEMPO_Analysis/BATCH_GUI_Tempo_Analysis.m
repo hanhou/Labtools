@@ -308,11 +308,12 @@ end %while
 fclose(fid);
 
 % Close xls server. See "xlswrite1.m" for details
-invoke(Excel.ActiveWorkbook,'Save'); 
-% Excel.Quit 
-Excel.delete 
-clear global Excel
-
+try
+    invoke(Excel.ActiveWorkbook,'Save');
+    % Excel.Quit
+    Excel.delete
+    clear global Excel
+end
 
 if print_flag == -999
     

@@ -47,7 +47,7 @@ function varargout = GROUP_GUI(varargin)
 
 % Edit the above text to modify the response to help GROUP_GUI
 
-% Last Modified by GUIDE v2.5 12-Sep-2016 17:36:21
+% Last Modified by GUIDE v2.5 21-Dec-2017 14:42:16
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -668,3 +668,13 @@ function t_criterion_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in transparent.
+function transparent_Callback(hObject, eventdata, handles)
+% hObject    handle to transparent (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of transparent
+LIP_HD_Callback(hObject, eventdata, handles);

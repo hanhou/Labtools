@@ -25,6 +25,7 @@ if nargin==0 || nargin == 1  %HH20140830
     end
     
     clear global spsData2;
+    
     guidata(fig,handles);
     if nargout>0
         varargout{1}=fig;

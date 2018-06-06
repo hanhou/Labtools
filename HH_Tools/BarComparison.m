@@ -21,9 +21,9 @@ Colors = paras.Results.Colors;
 
 
 % Basic statistics
-result.means = mean(data,1);
-result.stds = std(data,[],1);
-result.sems = result.stds/sqrt(size(data,1));
+result.means = nanmean(data,1);
+result.stds = nanstd(data,[],1);
+result.sems = result.stds./sqrt(sum(~isnan(data),1));
 n_var = size(data,2);
 
 % Draw bars

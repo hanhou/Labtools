@@ -5,7 +5,7 @@ clear;
 
 %      duration   amplitude   num_sigs   notes
 paras = {
-%     2   0.13  6    'Gu 2006 2010 tuning (combined)'
+          2   0.13  6    'Gu 2006 2010 tuning (combined)'
 %           2   0.2   4.5  'Gu 2012 heading (combined)'
 %           1   0.2   2    'HeTao heading (visual only)'
 %           2 0.18 6 'Polo training'
@@ -13,8 +13,8 @@ paras = {
 %           1.5   0.1  4  'Polo heading (combined)'
 %           2.0   0.2  4.0  'Polo heading (combined)'
 %           1.5   0.14  3.8  'Minimoog'
-          1.5   0.1  4.9  'Change sigma 1' 
-          1.5   0.25  2.3  'Change sigma 2' 
+%           1.5   0.1  4.9  'Change sigma 1' 
+%           1.5   0.25  2.3  'Change sigma 2' 
           };
 
 

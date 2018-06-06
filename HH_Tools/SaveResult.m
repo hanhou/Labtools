@@ -14,6 +14,12 @@ if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" struc
     if ~exist(outpath,'dir')
         mkdir(outpath);
     end
+    
+    dot_pos = strfind(result.FILE,'.');
+    if ~isempty(dot_pos)
+        result.FILE = result.FILE(1:dot_pos-1);
+    end
+    
     savefilename = [outpath [result.FILE '_' num2str(result.SpikeChan)] '_' config.suffix];
     
     
@@ -46,9 +52,12 @@ if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" struc
     % Save figures
     for ff = 1:length(config.save_figures)
         orient landscape;
-        set(config.save_figures(ff),'Visible','on','PaperPositionMode','auto');
+        set(config.save_figures(ff),'Visible','on','PaperPositionMode','auto','PaperOrientation','landscape');
         %         print(config.save_figures(ff),'-dbitmap',[savefilename '_fig_' num2str(config.save_figures(ff)) '.bmp']);
-        saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'bmp');
+        
+        saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'jpeg');
+        saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'fig');
+        
         if ~strcmp(config.batch_flag,'test.m')  % HH20160415
             close(config.save_figures(ff));
         end

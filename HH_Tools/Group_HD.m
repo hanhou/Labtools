@@ -2,6 +2,10 @@
 % Begin @ HH 201406
 
 function function_handles = Group_HD(XlsData)
+% Matlab version
+matlab_ver = version;
+ver_num = version('-release');
+ver_num = str2num(ver_num(1:end-1));
 
 %% Constants
 LEFT = 1;
@@ -32,7 +36,7 @@ mat_address = {
     % 'Z:\Data\Tempo\Batch\20150411_LIP_memSac_m5_m10','MemSac';
     };
 
-% Global Mask for the each protocol (for XLS)
+% Global Mask for each protocol (for XLS)
 mask_all = {
     (strcmp(txt(:,header.Protocol),'HD') | strcmp(txt(:,header.Protocol),'HD_dt')) & (strcmpi(txt(:,header.Area),'LIP') | strcmpi(txt(:,header.Area),'LIP-V')) ...
     & (num(:,header.HD_rep) >= 8) & (num(:,header.Units_RealSU) == 1) & (num(:,header.Monkey) == 5 | num(:,header.Monkey) == 10)...
@@ -460,6 +464,7 @@ for i = 1:length(group_result)
     
     % 6) Spike waveform (finally!). HH20160920
     waveform = str2num(cell2mat(xls_txt{1}(i,header.meanWav)));
+    % waveform = smooth(waveform,5)'; waveform = waveform - min(waveform); waveform = waveform./max(waveform);
     dt = 1/25; % 1k ms / 25 kHz
     
     if ~isempty(waveform)
@@ -502,7 +507,7 @@ end
 
 % --- Waveform width distribution ---
 % This is to determine the threshold of narrow/wide spikes. HH20160920
-
+% figure(); hist([group_result.Waveform_wid],10);
 
 % ------ Load Gaussian velocity -----
 % Measured by accelerometer at 109. Should retest it on 103. HH20150422
@@ -589,7 +594,7 @@ group_MemSac_actual_DI_2pt = NaN(N,1); % DI (from 2pt Mem)
 group_MemSac_PREFmNULL_LeftRight_PSTH = NaN(N,length(group_result(representative_cell).MemSac_ts));
 group_MemSac_PSTH_AngDiff = NaN(N,6);
 
-group_ChoicePrefernce_pvalue = reshape([group_result(:).ChoicePreference_pvalue]',3,[],3);  % I updated ChoicePref time window. HH20160918
+group_ChoicePreference_pvalue = reshape([group_result(:).ChoicePreference_pvalue]',3,[],3);  % I updated ChoicePref time window. HH20160918
 group_ChoicePreference = reshape([group_result(:).ChoicePreference]',3,[],3);  % Stim, Cell No, Pre/Post. Updated time win HH20160918
 % group_ChoicePrefernce_pvalue = squeeze(group_ChoicePrefernce_pvalue(3,:,:))'; % HH20160918. 3: stim-on to stim-off
 
@@ -861,6 +866,9 @@ select_cpref_mpref = [];
 
 t_criterion_txt = [];
 
+group_position = [];  % All cells
+Position_all = []; % Could be one monkey
+cell_position();
 cell_selection();
 
 %% Cell Selection and Cell Counter
@@ -872,7 +880,7 @@ cell_selection();
             
         % --------  @ HH20150413 -------- 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Limitations on Repetition number & Target first
+        % Limitations on petition number & Target first
         select_all_all_monkey = ([group_result.repN]' >= 8) & ([group_result.length_unique_stim_type]' == 3 ) & (xls_num{1}(:,header.HD_TargFirst)~=0);
         
         % + SUs
@@ -892,21 +900,27 @@ cell_selection();
             'Memory p value & actual DDI', (group_MemSac_ps(:,3)<0.05 & abs(group_MemSac_actual_DI) >= 0.3) | (group_TwoPtMemSac_ps(:,3)<0.05 & abs(group_TwoPtMemSac_DDI(:,3)) >=0.3); 
             'Global DDI of mem-sac',   mean(group_MemSac_DDI(:,[3 4]),2) >= 0.5;
            % HD based
-            'ChoicePreference p value (any)', any(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';  % 3, stim-on to stim-off
-            'ChoicePreference p value (all)', all(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';  
-            'ChoicePreference p value (vest)', (group_ChoicePrefernce_pvalue(1,:,3) < 0.05)';  % 3, stim-on to stim-off
-            'ChoicePreference p value (vis)', (group_ChoicePrefernce_pvalue(2,:,3) < 0.05)';  % 3, stim-on to stim-off
-            'ChoicePreference p value (comb)', (group_ChoicePrefernce_pvalue(3,:,3) < 0.05)';  % 3, stim-on to stim-off
+            'ChoicePreference p value (any)', any(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';  % 3, stim-on to stim-off
+            'ChoicePreference p value (all)', all(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';  
+            'ChoicePreference p value (vest)', (group_ChoicePreference_pvalue(1,:,3) < 0.05)';  % 3, stim-on to stim-off
+            'ChoicePreference p value (vis)', (group_ChoicePreference_pvalue(2,:,3) < 0.05)';  % 3, stim-on to stim-off
+            'ChoicePreference p value (comb)', (group_ChoicePreference_pvalue(3,:,3) < 0.05)';  % 3, stim-on to stim-off
            % For debugging
             'HD_dt patched', [group_result(:).HD_dt_patched]';
             'non HD_dt patched', ~[group_result(:).HD_dt_patched]';
             'Broad-spike',[group_result(:).Waveform_broad]';
             'Narrow-spike',~[group_result(:).Waveform_broad]';
-            'Broad-spike & ChoicePreference p value (any)',[group_result(:).Waveform_broad]' & any(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';
-            'Narrow-spike & ChoicePreference p value (any)',~[group_result(:).Waveform_broad]' & any(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';
-            'Broad-spike & ChoicePreference p value (all)',[group_result(:).Waveform_broad]' & all(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';
-            'Narrow-spike & ChoicePreference p value (all)',~[group_result(:).Waveform_broad]' & all(group_ChoicePrefernce_pvalue(:,:,3) < 0.05,1)';
-            'Combined > Max (Vis, Vest)',(group_ChoicePrefernce_pvalue(3,:,3) < 0.05)' & (abs(group_ChoicePreference(3,:,3)) > abs(group_ChoicePreference(1,:,3)))' & (abs(group_ChoicePreference(3,:,3)) > abs(group_ChoicePreference(2,:,3)))';
+            'Broad-spike & ChoicePreference p value (any)',[group_result(:).Waveform_broad]' & any(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';
+            'Narrow-spike & ChoicePreference p value (any)',~[group_result(:).Waveform_broad]' & any(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';
+            'Broad-spike & ChoicePreference p value (all)',[group_result(:).Waveform_broad]' & all(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';
+            'Narrow-spike & ChoicePreference p value (all)',~[group_result(:).Waveform_broad]' & all(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';
+            'Shallow layer',group_position(:,5) < 1100;
+            'Deep layer',group_position(:,5) > 1100;
+            'Shallow & Broad', group_position(:,5) < 1100 & [group_result(:).Waveform_broad]';
+            'Shallow & Narrow', group_position(:,5) < 1100 & ~[group_result(:).Waveform_broad]';
+            'Deep & Broad',group_position(:,5) >= 1100 & [group_result(:).Waveform_broad]';
+            'Deep & Narrow',group_position(:,5) >= 1100 & ~[group_result(:).Waveform_broad]';
+            'Combined > Max (Vis, Vest) and Comb p < 0.05',(group_ChoicePreference_pvalue(3,:,3) < 0.05)' & (abs(group_ChoicePreference(3,:,3)) > abs(group_ChoicePreference(1,:,3)))' & (abs(group_ChoicePreference(3,:,3)) > abs(group_ChoicePreference(2,:,3)))';
         };
         
         select_tcells_all_monkey = select_sus_all_monkey & t_cell_selection_criteria{t_cell_selection_num,2};   
@@ -954,7 +968,6 @@ cell_selection();
         % -------- Update cell counter ---------
         h_all = findall(gcbf,'tag','num_all_units');
         set(h_all,'string',sprintf('%7d%7d%7d\n',cell_nums'),'fontsize',16);
-        
         h_t_criterion = findall(gcbf,'tag','t_criterion');
         set(h_t_criterion,'string',{t_cell_selection_criteria{:,1}});
         set(h_t_criterion,'value',t_cell_selection_num);
@@ -972,6 +985,8 @@ cell_selection();
         Modality_pref_all = reshape([group_result(select_cpref_mpref).ModalityPreference]',3,[],3);
         Modality_pref_p_value_all = reshape([group_result(select_cpref_mpref).ModalityPreference_pvalue]',3,[],3);
         
+        Position_all = group_position(select_bottom_line,:);
+        
         select_for_SVM = select_bottom_line;
         select_for_PCA_B = select_bottom_line;
         
@@ -979,231 +994,304 @@ cell_selection();
         PCA_B_projPC = []; % Reset PCA_B
         thres_choice = []; % Reset SVM training
         weights_PCA_B_PC = []; weights_svm_choice_mean = []; weights_TDR_PCA_SVM_mean = []; % Reset TDR
+        
     end
 
 %% Load DrawMapping data to get the cell location. HH20161024
+    function cell_position()
+        
+        GM = -1;    % Gray matter without visual modulation
+        LIP = -3;
+        VIP = -4;
+        MST = -5;
+        MT = -6;
+        
+        drawmapping_data = { % [Monkey,hemi]    % Grid No. of (AP0,Middle)   % Data
+            [5,1],[7,0];  % 'Polo_L'
+            [5,2],[9,-5]; % 'Polo_R'
+            [10,1],[10,-7]; % 'Messi_L'
+            [10,2],[10,-4]}; % 'Messi_R'
+        
+        %  Messi_right
+        drawmapping_data{4,3} = {
+            %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
+            % When you are not sure about one area, use "AreaType-100" instead
+            {8,[11,10],[1.9 0.0],[GM 8 17; GM 58 72; VIP 95 118]}
+            {40,[13,18],[2.2 0.0-0.3],[GM 31 60; MST 75 103;  MT 120 147]}
+            {40,[13,8],[2.05 0.0],[GM 37 59; VIP 67 86]}
+            {41,[13,13],[2.05 0.2],[GM 7 18; LIP 31 43], 43}
+            {42,[13,12],[1.9 0],[GM 13 56; LIP 74 84],84}
+            {43,[13,14],[2.05 0],[GM 8 28; LIP 38 70; MST 92 107; MST 117 135]}
+            {44,[13,15],[2.2 0],[GM 7 13; LIP 23 45; MST 69 90; MT 100 130]}
+            {45,[13,11],[1.9 0],[GM 5 17; GM 22 63; LIP 73 96], 150}
+            {45,[13,2],[1.9 0],[GM 9 49]}
+            {46,[11,14],[2.1 0],[GM 3 37; LIP 51 63],63}
+            {47,[9,15],[2.2 0+0.1],[GM 10 20; LIP 32 63; MST 114 130]}
+            {48,[7,17],[2.2 0],[GM 12 20; LIP 32 63; GM 82 112; GM 132 146]}
+            {49,[9,15],[2.2 0],[GM 4 23; LIP 35 40],40}
+            {50,[10,14],[2.2 0],[GM 0 22; LIP 46 60],60}
+            {53,[13,12],[1.9 0],[GM 13 58; LIP 73 85],85}
+            {54,[12,13],[2.05 0],[GM 4 34; LIP 52 67],67}
+            {55,[12,12],[2.05 0],[GM 14 51; LIP 69 75],75}
+            {56,[12,11],[2.1 0],[GM 10 57; LIP 65 78],78}
+            {57,[13,14],[2.05 0.1],[GM 0 22; LIP 33 60],60}
+            {58,[13,15],[2.2 0],[LIP 20 39; MST 63 70],70}
+            {72,[14,12],[2.05 0],[GM 2 30; LIP 51 75]}
+            {73,[14,13],[1.9 0],[GM 13 34; LIP 50 67],67}
+            {74,[14,11],[2.05 0],[GM 5 47; LIP 62 70],70}
+            {75,[14,14],[1.9+0.15 0],[LIP 33 66; MST 92 95],95}
+            {76,[15,10],[1.9 0],[GM 27 62; LIP 75 93],93}
+            {77,[15,11],[2.05-0.2 0],[GM 27 59; LIP 72 83],83}
+            {78,[15,12],[2.05+0.1 0],[GM 0 20; LIP 34 57],57}
+            {79,[16,10],[2.05 0],[GM 2 32; LIP 43 75]}
+            }';
+        
+        %  Messi_left
+        drawmapping_data{3,3} = {
+            %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
+            % When you are not sure about one area, use "AreaType-100" instead
+            {1,[15,15],[2.2 0.0],[GM 4 37; GM 56 74; MST 88 117]}
+            {2,[15,13],[2.1 0.0],[GM 5 18; GM 31 52; MST 74 96; MST 106 124]}
+            {3,[15,17],[2.4 0.0],[GM 26 56; MT 69 122]}
+            {3,[15,11],[2.1 0.0 + 0.1],[GM 0 20; GM 29 47; MST 75 96;]}
+            {3,[15,9],[2.1 0.0 + 0.1],[GM 6 36; GM 43 67; GM 116 149]}
+            {4,[15,19],[2.25 0.0],[GM 7 79],79}
+            {4,[13,20],[2.25 0.0],[GM 9 39; MST 89 135; MT 142 150]}
+            {4,[13,13],[2.1 0.0],[GM 7 37; GM 44 72; MST 92 122; MT 134 150]}
+            {5,[13,17],[2.25 0.0],[GM 5 50; MST 66 90; MT 109 140]}
+            {6,[15,7],[2.05 0.0],[GM 33 59; GM 71 90; LIP 108 140]}
+            {6,[11,5],[1.8 0.0],[GM 1 26; GM 39 58; GM 66 84; VIP 104 121; VIP 129 143]}
+            {7,[11,9],[1.9 0.0],[GM 2 30; GM 65 97; LIP 105 125],125}
+            {8,[11,10],[1.9 0.0],[GM 4 33; GM 55 85; LIP 97 123]}
+            {9,[9,12],[2.0 0-0.2],[GM 18 39; GM 69 98; LIP 108 128]}
+            {10,[9,11],[2.0 0],[GM 7 35;GM 67 95;LIP 106 121],121}
+            {11,[13,9],[1.9 0+0.1],[GM 44 73; LIP 82 104]}
+            {12,[13,8],[1.9 0],[GM 58 86; LIP 93 102],102}
+            {13,[13,7],[1.8 0],[GM 0 13; GM 29 50; GM 70 96; LIP 104 116],116}
+            {14,[13,6],[1.7 0],[GM 10 24; GM 37 49; GM 55 70; GM 89 111; LIP 117 129],129}
+            {15,[12,8],[1.8 0.0 + 0.1],[GM 6 19; GM 64 93; LIP 102 116],116}
+            {16,[12,7],[1.8 0.0 + 0.1],[GM 2 9; GM 31 46; GM 74 97; LIP 105 114; VIP 114 128]}
+            {17,[12,9],[1.9 0.0 + 0.1],[GM 0 7; GM 49 79; LIP 86 90],90}
+            {18,[12,10],[2.0 0 + 0.1],[GM 3 12; GM 37 64; LIP 73 80],80}
+            {19,[12,11],[2.0 0 + 0.1],[GM 3 10; GM 26 55; LIP 64 88],96}
+            {20,[11,11],[2.0 0 - 0.05],[GM 4 19; GM 44 79; LIP 88 105],105}
+            {21,[14,7],[1.8 0 + 0.1],[GM 20 34; GM 56 81; LIP 89 101],101}
+            {22,[14,8],[1.9 0 + 0.1],[GM 42 69; LIP 80 101],120}
+            {23,[14,9],[1.9 0 + 0.1],[GM 36 64; LIP 72 79],79}
+            {24,[10,12],[2.0 0-0.1],[GM 9 26; GM 48 82;LIP 94 115]}
+            {24,[12,10],[2.0 0+0.1],[GM 3 12; GM 36 62; LIP 72 77],77}
+            {25,[12,10],[2.0 0+0.1],[GM 36 62; LIP 72 86],86}
+            {26,[12,11],[2.0 0+0.1],[GM 30 58; LIP 67 75],75}
+            {27,[18,5],[1.7 0.4+0.05],[GM 11 36; LIP 47 65; GM 77 100; GM 109 130]}
+            {28,[18,4],[1.7 0.4],[GM 18 42; LIP 53 61; GM 71 91; GM 103 125]}
+            {29,[12,12],[2.0 0],[GM 9 18; GM 29 58; LIP 66 74],74}
+            {30,[12,13],[2.1 0],[GM 19 39; LIP 50 60],60}
+            {31,[11,13],[2.1 0],[GM 0 11; GM 22 55; LIP 65 80],80}
+            {32,[11,12],[2.1 0],[GM 0 7; GM 26 57; LIP 69 82],82}
+            {33,[11,11],[2.0 0.1],[GM 0 10; GM 34 61; LIP 76 97]}
+            {34,[13,11],[2.0 0.1],[GM 26 52; LIP 62 80]}
+            {35,[13,10],[2.0 0],[GM 35 65; LIP 75 96],96}
+            {36,[14,10],[2.0 0+0.1],[GM 20 46; LIP 55 80],90}
+            {37,[13,12],[2.0 0+0.1],[GM 3 8; GM 20 47; LIP 56 82]}
+            {38,[14,11],[2.0 0+0.1],[GM 0 38; LIP 48 65]}
+            {39,[15,10],[2.0 0],[GM 22 48; LIP 59 81; GM 120 150]}
+            {59,[13,11],[2.05 0.0 + 0.1],[GM 13 39; LIP 56 74],74}
+            {60,[14,11],[2.0 0],[GM 3 52;LIP 57 60],60}
+            {61,[14,10],[2.0 0.0 + 0.1],[GM 21 45; LIP 57 75],75}
+            {62,[13,12],[2.0 0.0 + 0.2],[GM 2 36;LIP 45 65],65}
+            {64,[11,13],[2.1 0],[GM 15 33; LIP 65 78],78}
+            {65,[14,9],[1.9 0.0 + 0.2],[GM 22 51; LIP 63 84],84}
+            {66,[14,7],[1.8 0],[GM 29 41; GM 65 89; LIP 99 120],120}
+            {66,[17,7],[1.8 0.0 + 0.2],[GM 2 6; GM 35 59; LIP 70 90; LIP 113 150],150}
+            {67,[15,8],[1.9 0 + 0.1],[GM 34 62; LIP 74 84],84}
+            {68,[15,9],[1.9 0],[GM 47 58; LIP 75 83],83}
+            {69,[12,9],[1.9 0 + 0.15],[GM 45 73; LIP 86 97],97}
+            {70,[16,7],[1.9 0],[GM 41 69; LIP 77 101; VIP 138 150],150}
+            {71,[16,6],[1.9 0 + 0.1],[GM 7 19; GM 39 67; LIP 76 80],80}
+            {71,[13,7],[1.9 0],[GM 20 38; GM 62 89; LIP 96 110],110}
+            }';
+        
+        %  Polo_left
+        
+        drawmapping_data{1,3} = {
+            %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
+            % When you are not sure about one area, use "AreaType-100" instead
+            {62,[6,18],[2.0 0.0],[GM 30 43; LIP 64 72; VIP 72 84; MST 136 150]}
+            {63,[6,19],[2.0 0],[GM 4 19; GM 22 39; LIP 56 63],63}
+            {64,[6,15],[2.0 0],[GM 15 27; GM 48 69; VIP 81 84],84}
+            {65,[6,16],[1.9 0],[GM 52 75; LIP 82 97],97}
+            {66,[6,20],[2.1 0],[GM 2 19;LIP 37 60],60}
+            {67,[6,21],[2.1 + 0.1 0],[LIP 20 43],43}
+            {68,[6,17],[2.0 + 0.1 0],[GM 0 13; GM 25 48; LIP 55 64; LIP 64 75],75}
+            {69,[5,19],[2.0  0],[GM 0 41; LIP 53 59],59}
+            {70,[5,18],[2.0 0],[GM 0 3; GM 28 53; LIP 62 72],72}
+            {71,[5,17],[2.0 0.1],[GM 0 11; GM 27 48; LIP 57 70],70}
+            {72,[6,19],[2.1 0],[LIP 46 65]}
+            {73,[6,18],[2.1 0],[GM 0 12; GM 26 38; LIP 47 59],59}
+            {74,[7,18],[2.0 0],[GM 6 49; LIP 59 73],73}
+            {75,[7,17],[2.0 0],[GM 7 54; LIP 62 75],75}
+            {76,[7,16],[2.0 0],[GM 2 27; GM 40 61; LIP 73 80; VIP 80 86],86}
+            {77,[7,19],[2.1 0],[GM 0 11; LIP 37 53],53}
+            {78,[8,17],[2.0 0],[GM 9 50; LIP 66 78],78}
+            {79,[8,18],[2.0 0],[GM 0 44; LIP 56 57],57}
+            {80,[8,19],[2.1 0],[GM 0 24; LIP 48 60]}
+            {81,[7,17],[2.1 0],[GM 0 14; GM 26 46; LIP 59 66]}
+            {82,[6,18],[2.1 0],[GM 0 13; GM 27 41; LIP 56 71]}
+            {83,[6,12],[2.0 0],[VIP 63 71],71}
+            {83,[6,10],[2.0 - 0.1 0],[GM 17 73; VIP 102 123]}
+            {84,[6,14],[2.0 0],[GM 5 20; GM 52 81; VIP 92 113]}
+            {85,[7,18],[2.1-0.1 0],[GM 8 48; LIP 58 73],73}
+            {86,[8,18],[2.1 0],[GM 0 35; LIP 46 65; MST 99 100],100}
+            {87,[4,18],[2.0 0],[GM 0 10; GM 31 51; LIP 62 87]}
+            {88,[4,17],[2.0 0],[GM 35 58; LIP 71 94 ]}
+            {89,[4,19],[2.1-0.1 0],[GM 20 45; LIP 61 87]}
+            {90,[3,17],[2.0 0],[GM 35 70; LIP 83 97; VIP 97 110]}
+            {91,[3,18],[2.0 0],[GM 0 10; GM 37 60; LIP 73 92; VIP 92 98]}
+            {91,[3,19],[2.0 0],[GM 30 45; LIP 63 80]}
+            {92,[10,17],[2.0 0],[GM 3 45; LIP 52 69],69}
+            {93,[12,15],[2.1 0],[GM 3 27; LIP 37 61]}
+            {94,[12,13],[2.0 0],[GM 21 49; LIP 56 72],72}
+            {95,[14,12],[1.9 -0.1],[GM 10 25; GM 35 56; LIP 67 89]}
+            {96,[16,10],[1.9 -0.1],[GM 9 31; GM 42 70; LIP 100 120; LIP 133 148]}
+            {97,[10,14],[2.0 0],[GM 3 10; GM 25 61; LIP 71 81],81}
+            {98,[8,15],[2.0 -0.05],[GM 3 22; GM 42 65; LIP 78 89],89}
+            {99,[9,15],[2.0 0],[GM 5 62; LIP 73 86],86}
+            {100,[11,14],[2.0 0],[GM 3 56; LIP 66 81],81}
+            {101,[13,13],[2.0 0],[GM 11 42; LIP 52 54],54}
+            {102,[8,11],[2.0 0],[GM 2 17; GM 35 42; VIP 65 89; VIP 95 110]}
+            {103,[8,10],[1.9 0],[GM 11 26; GM 36 52; VIP 73 92; VIP 101 119]}
+            {104,[8,9],[1.9 0],[GM 14 30; GM 40 59; VIP 82 96 ; VIP 107 115]}
+            {105,[8,12],[1.9 0],[VIP 67 91; VIP 103 126]}
+            {106,[9,11],[1.8 0-0.1],[GM 30 58; GM 80 102; VIP 117 132],132}
+            {107,[9,10],[1.8 0],[GM 16 52; GM 74 91; VIP 107 125]}
+            {108,[10,10],[1.8 0],[GM 15 58; GM 68 83; VIP 98 125]}
+            {109,[10,9],[1.8 0],[GM 4 25; GM 34 51; GM 72 85; VIP 101 117],117}
+            {111,[10,15],[2.1 0+0.1],[GM 0 35; LIP 44 59],59}
+            }';
+        
+        %  Polo_right
+        drawmapping_data{2,3} = {
+            %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
+            % When you are not sure about one area, use "AreaType-100" instead
+            {1,[5,15],[2.0 0.0],[GM 0 20; LIP 44 69; MST 147 150]}
+            {2,[5,17],[2.0 0.0],[GM 0 17; LIP 32 64],64}
+            {3,[5,13],[1.9 0.0],[GM 21 37; LIP 71 96]}
+            {3,[5,11],[1.9 0.0],[GM 31 58; LIP 74 97; VIP 97 103]}
+            {4,[6,7],[1.7 0.0],[GM 0 21; VIP 78 100; VIP 111 129],129}
+            {5,[5,16],[1.7 0.0],[GM 21 51; LIP 76 82],82}
+            {6,[5,14],[1.8 0.0],[GM 0 15; GM 30 43; LIP 79 98]}
+            {7,[5,12],[1.8 0.0],[GM 38 50; LIP 79 107],107}
+            {8,[9,10],[1.8 0.0],[GM 43 73; LIP 91 111],111}
+            {9,[9,9],[1.9 0.0],[GM 0 12; GM 35 59; LIP 75 94],94}
+            {10,[9,11],[1.9 0.0],[GM 28 56; LIP  75 90],90}
+            {11,[9,12],[1.9 0.0],[GM 24 49; LIP 68 69], 69}
+            {12,[9,13],[1.9 0.0],[GM 17 35; LIP 53 62; MST 101 105 ], 105}
+            {13,[7,11],[1.9 0.0],[GM 0 9; GM 25 47; LIP 61 86; MST 127 149]}
+            {14,[7,12],[1.9 0.0],[GM 0 11; GM 26 47; LIP 58 76],76}
+            {15,[7,13],[1.9 0.0],[GM 0 11; GM 20 41; LIP 50 68],68}
+            {16,[2,10],[1.9 0.0],[VIP 65 86],86}
+            {17,[2,11],[1.9 0.0],[GM 49 59 ; VIP 59 77; VIP 90 103]}
+            {18,[2,12],[1.9 0.0],[GM 47 75; VIP 88 102]}
+            {19,[8,11],[1.9 0.0],[GM 25 53; LIP 61 84; MST 118 138]}
+            {20,[3,10],[1.9 0.0],[VIP 57 73],73}
+            {21,[3,9],[1.9 0.0],[VIP 68 92],92}
+            {22,[3,11],[1.9 0.0], [GM 47 73; LIP 92 99; VIP 99 110]}
+            {23,[2,9],[1.9 0.0],[VIP 77 105]}
+            {25,[4,9],[1.9 0.0],[GM 68 80; VIP 80 85],85}
+            {26,[4,10],[1.9 0],[GM 49 81; VIP 95 107],107}
+            {27,[6,11],[1.9 0],[GM 36 66; LIP 79 100],100}
+            {28,[6,12],[1.9 0],[GM 29 55; LIP 71 90; MST 142 150]}
+            {29,[6,13],[2.1 0],[GM 13 36; LIP 44 60],60}
+            {30,[8,10],[1.9 0],[GM 9 25; GM 34 54; LIP 63 73],73}
+            {31,[8,9],[1.9 0],[GM 11 22; GM 39 63; LIP 77 84],84}
+            {32,[7,10],[1.9 0],[GM 2 17; GM 39 64; LIP 74   98],98}
+            {33,[8,12],[2.0 0],[GM 4 34; LIP 45 65; MST 108 110],110}
+            {34,[4,12],[2.0 0],[GM 24 43; LIP 67 85],85}
+            {35,[4,13],[2.0 0],[GM 19 38; LIP 60 82],82}
+            {36,[4,14],[2.0 0],[GM 0 38; LIP 55 78],78}
+            {37,[3,13],[2.0 0],[GM 22 43; LIP 72 86]}
+            {39,[8,10],[2.0 0],[GM 10 47; LIP 57 81],81}
+            {40,[7,11],[2.0 0],[GM 24 45; LIP 58 70; VIP 70 80; MST 125 129],129}
+            {38,[3,14],[2.0 0],[GM 18 46; LIP 66 84]}
+            {41,[7,12],[2.0 0],[GM 14 37; LIP 48 66], 66}
+            {42,[6,14],[2.0 0],[GM 5 30; LIP 45 58],58}
+            {43,[6,15],[2.0 0],[GM 6 27; LIP 43 70; MST 144 150]}
+            {44,[6,16],[2.0 0],[LIP 30 67; MST 106 135]}
+            {45,[3,15],[2.0 0],[GM 11 35; LIP 61 63],63}
+            {46,[3,16],[2.0 0],[GM 13 35; LIP 52 56],56}
+            {47,[3,18],[2.0 0],[GM 10 38; LIP 53 57],57}
+            {48,[3,17],[2.1 0],[GM 0 25; LIP 42 56],56}
+            {49,[4,15],[2.0 0],[GM 2 35; LIP 55 71],71}
+            {50,[2,14],[2.0 0],[GM 0 2; GM 30 55; LIP 69 73; VIP 73 86];}
+            {51,[2,15],[2 0],[GM 27 53; LIP 68 73], 73}
+            {52,[2,16],[2.1 0],[GM 0 43; LIP 54 65],65}
+            {53,[10,10],[1.9 0],[GM 0 46; VIP 60 68],68}
+            {54,[10,12],[2.0 0],[GM 6 15; LIP 33 59; MST 85 90],90}
+            {55,[10,13],[2.0 0],[LIP 30 47; MST 92 93],93}
+            {56,[8,13],[2.0 0],[GM 0 22; LIP 41 60],60}
+            {57,[7,14],[2.0 0],[GM 5 28; LIP 36 58; MST 120 144]}
+            {58,[6,13],[2.0 0],[GM 19 33; LIP 46 48],48}
+            {59,[6,12],[1.9 0],[GM 40 50; LIP 71 86; MST 148 150]}
+            {60,[5,13],[2.0 0],[GM 12 27; LIP 57 62],62}
+            {61,[5,14],[2.0 0],[LIP 58 67],67}
+            }';
+        
+        % === Get cell positions ===
+        for i = 1:length(group_result)
+            % Decode cell position
+            id = sscanf(group_result(i).cellID{1}{1},'%gm%gs%gh%gx%gy%gd%g');
+            this_monkey_hemi = id([2 4])';
+            this_session = id(3);
+            this_pos_raw = id(5:7)';
+            
+            % Find entry in drawmapping_data
+            found = 0;
+            for mmhh = 1:size(drawmapping_data,1)
+                if all(drawmapping_data{mmhh,1} == this_monkey_hemi)
+                    xyoffsets = drawmapping_data{mmhh,2};
+                    this_mapping_data = drawmapping_data{mmhh,3};
+                    
+                    for ee = 1:length(this_mapping_data)
+                        if all(this_mapping_data{ee}{1} == this_session) && all(this_mapping_data{ee}{2} == this_pos_raw(1:2))
+                            found = found + 1;
+                            
+                            % Anterior-posterior
+                            AP = - (this_pos_raw(1) - xyoffsets(1)) * 0.8; % in mm, P - --> AP0 --> + A
+                            % Ventral-dorsal
+                            VD = (this_pos_raw(2) - xyoffsets(2)) * 0.8 - AP * tan(30/180*pi); % LIP are inclined
+                            
+                            % Depth to the surface of cortical sheet
+                            which_GM_is_LIP = find((this_mapping_data{ee}{4}(:,1) == LIP));
+                            which_LIP_this_cell_in =  find((this_mapping_data{ee}{4}(which_GM_is_LIP,2) <= ceil(this_pos_raw(3)/100)) & ...
+                                (this_mapping_data{ee}{4}(which_GM_is_LIP,3) >= fix(this_pos_raw(3)/100)));
+                            
+                            if which_LIP_this_cell_in == 1 % This cell is in the first (upper) layer of LIP
+                                this_surface = this_mapping_data{ee}{4}(which_GM_is_LIP(which_LIP_this_cell_in),2); % Surface is the start of this GM
+                                depth = this_pos_raw(3) - 100 * this_surface; % in um
+                            elseif which_LIP_this_cell_in == 2 % This cell is in the second (lower) layer of LIP, the depth should be inversed.
+                                % this_surface = this_mapping_data{ee}{4}(which_GM_is_LIP(which_LIP_this_cell_in),3); % Surface is the end of this GM
+                                % depth = - (this_pos_raw(3) - 100 * this_surface); % in um
+                                depth = nan; % Because I'm not sure whether the end of penetration has reached the (bottom) surface of the second LIP
+                            else
+                                disp('Check LIP layers!!!'); beep; keyboard
+                            end
+                            
+                            group_result(i).position = [this_monkey_hemi AP VD depth which_LIP_this_cell_in]; % [monkey hemi AP Ventral-Dorsal depth which_LIP_this_cell_in]
+                            
+                        end
+                    end
+                end
+            end
+            
+            if found~=1 % Should be exactly 1
+                disp('Cell position not found!!');
+                beep; keyboard;
+            end
+        end
+        
+        group_position = reshape([group_result.position],6,[])';
 
-GM = -1;    % Gray matter without visual modulation
-LIP = -3;
-VIP = -4;
-MST = -5;
-MT = -6;
-
-drawmapping_data = { % Monkey_hemi    % Grid No. of (AP0,Middle)   % Data 
-                      'Polo_L',[7,0];
-                      'Polo_R',[9,-5];
-                      'Messi_L',[10,-7];
-                      'Messi_R',[10,-4]};
-
-%  Messi_right
-drawmapping_data{4,3} = {
-    %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
-    % When you are not sure about one area, use "AreaType-100" instead
-    {8,[11,10],[1.9 0.0],[GM 8 17; GM 58 72; VIP 95 118]}
-    {40,[13,18],[2.2 0.0-0.3],[GM 31 60; MST 75 103;  MT 120 147]}
-    {40,[13,8],[2.05 0.0],[GM 37 59; VIP 67 86]}
-    {41,[13,13],[2.05 0.2],[GM 7 18; LIP 31 43], 43}
-    {42,[13,12],[1.9 0],[GM 13 56; LIP 74 84],84}
-    {43,[13,14],[2.05 0],[GM 8 28; LIP 38 70; MST 92 107; MST 117 135]}
-    {44,[13,15],[2.2 0],[GM 7 13; LIP 23 45; MST 69 90; MT 100 130]}
-    {45,[13,11],[1.9 0],[GM 5 17; GM 22 63; LIP 73 96], 150}
-    {45,[13,2],[1.9 0],[GM 9 49]}
-    {46,[11,14],[2.1 0],[GM 3 37; LIP 51 63],63}
-    {47,[9,15],[2.2 0+0.1],[GM 10 20; LIP 32 63; MST 114 130]}
-    {48,[7,17],[2.2 0],[GM 12 20; LIP 32 63; GM 82 112; GM 132 146]}
-    {49,[9,15],[2.2 0],[GM 4 23; LIP 35 40],40}
-    {50,[10,14],[2.2 0],[GM 0 22; LIP 16 60],60}
-    {53,[13,12],[1.9 0],[GM 13 58; LIP 73 85],85}
-    {54,[12,13],[2.05 0],[GM 4 34; LIP 52 67],67}
-    {55,[12,12],[2.05 0],[GM 14 51; LIP 69 75],75}
-    {72,[14,12],[2.05 0],[GM 2 30; LIP 51 75]}
-    {73,[14,13],[1.9 0],[GM 13 34; LIP 50 67],67}
-    {74,[14,11],[2.05 0],[GM 5 47; LIP 62 70],70}
-    {75,[14,14],[1.9+0.15 0],[LIP 33 66; MST 92 95],95}
-    {76,[15,10],[1.9 0],[GM 27 62; LIP 75 93],93}
-    {77,[15,11],[2.05-0.2 0],[GM 27 59; LIP 72 83],83}
-    {78,[15,12],[2.05+0.1 0],[GM 0 20; LIP 34 57],57}
-    {79,[16,10],[2.05 0],[GM 2 32; LIP 43 75]}
-    }';
-
-%  Messi_left
-drawmapping_data{3,3} = {
-    %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
-    % When you are not sure about one area, use "AreaType-100" instead
-    {1,[15,15],[2.2 0.0],[GM 4 37; GM 56 74; MST 88 117]}
-    {2,[15,13],[2.1 0.0],[GM 5 18; GM 31 52; MST 74 96; MST 106 124]}
-    {3,[15,17],[2.4 0.0],[GM 26 56; MT 69 122]}
-    {3,[15,11],[2.1 0.0 + 0.1],[GM 0 20; GM 29 47; MST 75 96;]}
-    {3,[15,9],[2.1 0.0],[GM 6 36; GM 43 67; GM 116 149]}
-    {4,[15,19],[2.25 0.0],[GM 7 79],79}
-    {4,[13,20],[2.25 0.0],[GM 9 39; MST 89 135; MT 142 150]}
-    {4,[13,13],[2.1 0.0],[GM 7 37; GM 44 72; MST 92 122; MT 134 150]}
-    {5,[13,17],[2.25 0.0],[GM 5 50; MST 66 90; MT 109 140]}
-    {6,[15,7],[2.05 0.0],[GM 33 59; GM 71 90; LIP 108 140]}
-    {6,[11,5],[1.8 0.0],[GM 1 26; GM 39 58; GM 66 84; VIP 104 121; VIP 129 143]}
-    {7,[11,9],[1.9 0.0],[GM 2 30; GM 65 97; LIP 105 125],125}
-    {8,[11,10],[1.9 0.0],[GM 4 33; GM 55 85; LIP 97 123]}
-    {9,[9,12],[2.0 0-0.2],[GM 18 39; GM 69 98; LIP 108 128]}
-    {10,[9,11],[2.0 0],[GM 7 35;GM 67 95;LIP 106 121],121}
-    {11,[13,9],[1.9 0+0.1],[GM 44 73; LIP 82 104]}
-    {12,[13,8],[1.9 0],[GM 58 86; LIP 93 102],102}
-    {13,[13,7],[1.8 0],[GM 0 13; GM 29 50; GM 70 96; LIP 104 116],116}
-    {14,[13,6],[1.7 0],[GM 10 24; GM 37 49; GM 55 70; GM 89 111; LIP 117 129],129}
-    {15,[12,8],[1.8 0.0 + 0.1],[GM 6 19; GM 64 93; LIP 102 116],116}
-    {16,[12,7],[1.8 0.0 + 0.1],[GM 2 9; GM 31 46; GM 74 97; LIP 105 114; VIP 114 128]}
-    {17,[12,9],[1.9 0.0 + 0.1],[GM 0 7; GM 49 79; LIP 86 90],90}
-    {18,[12,10],[2.0 0 + 0.1],[GM 3 12; GM 37 64; LIP 73 80],80}
-    {19,[12,11],[2.0 0 + 0.1],[GM 3 10; GM 26 55; LIP 64 88],96}
-    {20,[11,11],[2.0 0 - 0.05],[GM 4 19; GM 44 79; LIP 88 105],105}
-    {21,[14,7],[1.8 0 + 0.1],[GM 20 34; GM 56 81; LIP 89 101],101}
-    {22,[14,8],[1.9 0 + 0.1],[GM 42 69; LIP 80 101],120}
-    {23,[14,9],[1.9 0 + 0.1],[GM 36 64; LIP 72 79],79}
-    {24,[10,12],[2.0 0-0.1],[GM 9 26; GM 48 82;LIP 94 115]}
-    {24,[12,10],[2.0 0+0.1],[GM 3 12; GM 36 62; LIP 72 77],77}
-    {25,[12,10],[2.0 0+0.1],[GM 36 62; LIP 72 86],86}
-    {26,[12,11],[2.0 0+0.1],[GM 30 58; LIP 67 75],75}
-    {27,[18,5],[1.7 0.4+0.05],[GM 11 36; LIP 47 65; GM 77 100; GM 109 130]}
-    {28,[18,4],[1.7 0.4],[GM 18 42; LIP 53 61; GM 71 91; GM 103 125]}
-    {29,[12,12],[2.0 0],[GM 9 18; GM 29 58; LIP 66 74],74}
-    {30,[12,13],[2.1 0],[GM 19 39; LIP 50 60],60}
-    {31,[11,13],[2.1 0],[GM 0 11; GM 22 55; LIP 65 80],80}
-    {32,[11,12],[2.1 0],[GM 0 7; GM 26 57; LIP 69 82],82}
-    {33,[11,11],[2.0 0.1],[GM 0 10; GM 34 61; LIP 76 97]}
-    {34,[13,11],[2.0 0.1],[GM 26 52; LIP 62 80]}
-    {35,[13,10],[2.0 0],[GM 35 65; LIP 75 96],96}
-    {36,[14,10],[2.0 0+0.1],[GM 20 46; LIP 55 80],90}
-    {37,[13,12],[2.0 0+0.1],[GM 3 8; GM 20 47; LIP 56 82]}
-    {38,[14,11],[2.0 0+0.1],[GM 0 38; LIP 48 65]}
-    {39,[15,10],[2.0 0],[GM 22 48; LIP 59 81; GM 120 150]}
-    {70,[16,7],[1.9 0],[GM 41 69; LIP 77 101; VIP 138 150],150}
-    }';
-
-%  Polo_left
-
-drawmapping_data{1,3} = {
-    %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
-    % When you are not sure about one area, use "AreaType-100" instead
-    {62,[6,18],[2.0 0.0],[GM 30 43; LIP 64 72; VIP 72 84; MST 136 150]}
-    {63,[6,19],[2.0 0],[GM 4 19; GM 22 39; LIP 56 63],63}
-    {64,[6,15],[2.0 0],[GM 15 27; GM 48 69; VIP 81 84],84}
-    {65,[6,16],[1.9 0],[GM 52 75; LIP 82 97],97}
-    {66,[6,20],[2.1 0],[GM 2 19;LIP 37 60],60}
-    {67,[6,21],[2.1 + 0.1 0],[LIP 20 43],43}
-    {68,[6,17],[2.0 + 0.1 0],[GM 0 13; GM 25 48; LIP 55 64; LIP 64 75],75}
-    {69,[5,19],[2.0  0],[GM 0 41; LIP 53 59],59}
-    {70,[5,18],[2.0 0],[GM 0 3; GM 28 53; LIP 62 72],72}
-    {71,[5,17],[2.0 0.1],[GM 0 11; GM 27 48; LIP 57 70],70}
-    {72,[6,19],[2.1 0],[LIP 46 65]}
-    {73,[6,18],[2.1 0],[GM 0 12; GM 26 38; LIP 47 59],59}
-    {74,[7,18],[2.0 0],[GM 6 49; LIP 59 70],70}
-    {75,[7,17],[2.0 0],[GM 7 54; LIP 62 75],75}
-    {76,[7,16],[2.0 0],[GM 2 27; GM 40 61; LIP 73 80; VIP 80 86],86}
-    {77,[7,19],[2.1 0],[GM 0 11; LIP 37 53],53}
-    {78,[8,17],[2.0 0],[GM 9 50; LIP 66 78],78}
-    {79,[8,18],[2.0 0],[GM 0 44; LIP 56 57],57}
-    {80,[8,19],[2.1 0],[GM 0 24; LIP 48 60]}
-    {81,[7,17],[2.1 0],[GM 0 14; GM 26 46; LIP 59 66]}
-    {82,[6,18],[2.1 0],[GM 0 13; GM 27 41; LIP 56 71]}
-    {83,[6,12],[2.0 0],[VIP 63 71],71}
-    {83,[6,10],[2.0 - 0.1 0],[GM 17 73; VIP 102 123]}
-    {84,[6,14],[2.0 0],[GM 5 20; GM 52 81; VIP 92 113]}
-    {85,[7,18],[2.1-0.1 0],[GM 8 48; LIP 58 73],73}
-    {86,[8,18],[2.1 0],[GM 0 35; LIP 46 65; MST 99 100],100}
-    {87,[4,18],[2.0 0],[GM 0 10; GM 31 51; LIP 62 87]}
-    {88,[4,17],[2.0 0],[GM 35 58; LIP 71 94 ]}
-    {89,[4,19],[2.1-0.1 0],[GM 20 45; LIP 61 87]}
-    {90,[3,17],[2.0 0],[GM 35 70; LIP 83 97; VIP 97 110]}
-    {91,[3,18],[2.0 0],[GM 0 10; GM 37 60; LIP 73 92; VIP 92 98]}
-    {91,[3,19],[2.0 0],[GM 30 45; LIP 63 80]}
-    {92,[10,17],[2.0 0],[GM 3 45; LIP 52 69],69}
-    {93,[12,15],[2.1 0],[GM 3 27; LIP 37 61]}
-    {94,[12,13],[2.0 0],[GM 21 49; LIP 56 72],72}
-    {95,[14,12],[1.9 -0.1],[GM 10 25; GM 35 56; LIP 67 89]}
-    {96,[16,10],[1.9 -0.1],[GM 9 31; GM 42 70; LIP 100 120; LIP 133 148]}
-    {97,[10,14],[2.0 0],[GM 3 10; GM 25 61; LIP 71 81],81}
-    {98,[8,15],[2.0 -0.05],[GM 3 22; GM 42 65; LIP 78 89],89}
-    {99,[9,15],[2.0 0],[GM 5 62; LIP 73 86],86}
-    {100,[11,14],[2.0 0],[GM 3 56; LIP 66 81],81}
-    {101,[13,13],[2.0 0],[GM 11 42; LIP 52 54],54}
-    {102,[8,11],[2.0 0],[GM 2 17; GM 35 42; VIP 65 89; VIP 95 110]}
-    {103,[8,10],[1.9 0],[GM 11 26; GM 36 52; VIP 73 92; VIP 101 119]}
-    {104,[8,9],[1.9 0],[GM 14 30; GM 40 59; VIP 82 96 ; VIP 107 115]}
-    {105,[8,12],[1.9 0],[VIP 67 91; VIP 103 126]}
-    {106,[9,11],[1.8 0-0.1],[GM 30 58; GM 80 102; VIP 117 132],132}
-    {107,[9,10],[1.8 0],[GM 16 52; GM 74 91; VIP 107 125]}
-    {108,[10,10],[1.8 0],[GM 15 58; GM 68 83; VIP 98 125]}
-    {109,[10,9],[1.8 0],[GM 4 25; GM 34 51; GM 72 85; VIP 101 117],117}
-    {111,[10,15],[2.1 0+0.1],[GM 0 35; LIP 44 59],59}
-    }';
-
-%  Polo_right
-drawmapping_data{2,3} = {
-    %{[Session(s)], [LocX(Posterior) LoxY(Lateral)], [GuideTube(cm) Offset(cm)], [AreaType, Begin(100um), End(100um); ...] , electrode retrieval}
-    % When you are not sure about one area, use "AreaType-100" instead
-    {1,[5,15],[2.0 0.0],[GM 0 20; LIP 44 69; MST 147 150]}
-    {2,[5,17],[2.0 0.0],[GM 0 17; LIP 32 64],64}
-    {3,[5,13],[1.9 0.0],[GM 21 37; LIP 71 96]}
-    {3,[5,11],[1.9 0.0],[GM 31 58; LIP 74 97; VIP 97 103]}
-    {4,[6,7],[1.7 0.0],[GM 0 21; VIP 78 100; VIP 111 129],129}
-    {5,[5,16],[1.7 0.0],[GM 21 51; LIP 76 82],82}
-    {6,[5,14],[1.8 0.0],[GM 0 15; GM 30 43; LIP 79 98]}
-    {7,[5,12],[1.8 0.0],[GM 38 50; LIP 79 107],107}
-    {8,[9,10],[1.8 0.0],[GM 43 73; LIP 91 111],111}
-    {9,[9,9],[1.9 0.0],[GM 0 12; GM 35 59; LIP 75 94],94}
-    {10,[9,11],[1.9 0.0],[GM 28 56; LIP  75 90],90}
-    {11,[9,12],[1.9 0.0],[GM 24 49; LIP 68 69], 69}
-    {12,[9,13],[1.9 0.0],[GM 17 35; LIP 53 62; MST 101 105 ], 105}
-    {13,[7,11],[1.9 0.0],[GM 0 9; GM 25 47; LIP 61 86; MST 127 149]}
-    {14,[7,12],[1.9 0.0],[GM 0 11; GM 26 47; LIP 58 76],76}
-    {15,[7,13],[1.9 0.0],[GM 0 11; GM 20 41; LIP 50 68],68}
-    {16,[2,10],[1.9 0.0],[VIP 65 86],86}
-    {17,[2,11],[1.9 0.0],[GM 49 59 ; VIP 59 77; VIP 90 103]}
-    {18,[2,12],[1.9 0.0],[GM 47 75; VIP 88 102]}
-    {19,[8,11],[1.9 0.0],[GM 25 53; LIP 61 84; MST 118 138]}
-    {20,[3,10],[1.9 0.0],[VIP 57 73],73}
-    {21,[3,9],[1.9 0.0],[VIP 68 92],92}
-    {22,[3,11],[1.9 0.0], [GM 47 73; LIP 92 99; VIP 99 110]}
-    {23,[2,9],[1.9 0.0],[VIP 77 105]}
-    {25,[4,9],[1.9 0.0],[GM 68 80; VIP 80 85],85}
-    {26,[4,10],[1.9 0],[GM 49 81; VIP 95 107],107}
-    {27,[6,11],[1.9 0],[GM 36 66; LIP 79 100],100}
-    {28,[6,12],[1.9 0],[GM 29 55; LIP 71 90; MST 142 150]}
-    {29,[6,13],[2.1 0],[GM 13 36; LIP 44 60],60}
-    {30,[8,10],[1.9 0],[GM 9 25; GM 34 54; LIP 63 73],73}
-    {31,[8,9],[1.9 0],[GM 11 22; GM 39 63; LIP 77 83],83}
-    {32,[7,10],[1.9 0],[GM 2 17; GM 39 64; LIP 74   98],98}
-    {33,[8,12],[2.0 0],[GM 4 34; LIP 45 65; MST 108 110],110}
-    {34,[4,12],[2.0 0],[GM 24 43; LIP 67 85],85}
-    {35,[4,13],[2.0 0],[GM 19 38; LIP 60 82],82}
-    {36,[4,14],[2.0 0],[GM 0 38; LIP 55 78],78}
-    {37,[3,13],[2.0 0],[GM 22 43; LIP 72 86]}
-    {39,[8,10],[2.0 0],[GM 10 47; LIP 57 81],81}
-    {40,[7,11],[2.0 0],[GM 24 45; LIP 58 70; VIP 70 80; MST 125 129],129}
-    {38,[3,14],[2.0 0],[GM 18 46; LIP 66 84]}
-    {41,[7,12],[2.0 0],[GM 14 37; LIP 48 66], 66}
-    {42,[6,14],[2.0 0],[GM 5 30; LIP 45 58],58}
-    {43,[6,15],[2.0 0],[GM 6 27; LIP 43 70; MST 144 150]}
-    {44,[6,16],[2.0 0],[LIP 30 67; MST 106 135]}
-    {45,[3,15],[2.0 0],[GM 11 35; LIP 61 63],63}
-    {46,[3,16],[2.0 0],[GM 13 35; LIP 52 56],56}
-    {47,[3,18],[2.0 0],[GM 10 38; LIP 53 57],57}
-    {48,[3,17],[2.1 0],[GM 0 25; LIP 42 56],56}
-    {49,[4,15],[2.0 0],[GM 2 35; LIP 55 71],71}
-    {50,[2,14],[2.0 0],[GM 0 2; GM 30 55; LIP 69 73; VIP 73 86];}
-    {51,[2,15],[2 0],[GM 27 53; LIP 68 73], 73}
-    {52,[2,16],[2.1 0],[GM 0 43; LIP 54 65],65}
-    {53,[10,10],[1.9 0],[GM 0 46; VIP 60 68],68}
-    {54,[10,12],[2.0 0],[GM 6 15; LIP 33 59; MST 85 90],90}
-    {55,[10,13],[2.0 0],[LIP 30 47; MST 92 93],93}
-    {56,[8,13],[2.0 0],[GM 0 22; LIP 41 60],60}
-    {57,[7,14],[2.0 0],[GM 5 28; LIP 36 58; MST 120 144]}
-    {58,[6,13],[2.0 0],[GM 19 33; LIP 46 48],48}
-    {59,[6,12],[1.9 0],[GM 40 50; LIP 71 86; MST 148 150]}
-    {60,[5,13],[2.0 0],[GM 12 27; LIP 57 62],62}
-    {61,[5,14],[2.0 0],[LIP 58 65],65}
-    }';
-
-
+    end
 
 %% Final Preparation
 
@@ -1240,11 +1328,16 @@ PCA_B = []; weights_PCA_B_PC = []; PCA_B_projPC = []; PCA_B_explained = [];
 
 % ================ Miscellaneous ===================
 
-set(0,'defaultAxesColorOrder',[0 0 1; 1 0 0; 0 0.8 0.4;]);
-colors = [0 0 1; 1 0 0; 0 0.8 0.4];
+% set(0,'defaultAxesColorOrder',[0 0 1; 1 0 0; 0 0.8 0.4;]);
+% colors = [0 0 1; 1 0 0; 0 0.8 0.4];
+
+set(0,'defaultAxesColorOrder',[41 89 204; 248 28 83; 14 153 46]/255);
+colors = [41 89 204; 248 28 83; 14 153 46]/255;
+
+
 modality_diff_colors = colors;    modality_diff_colors(3,:) = [0 0 0];
 
-transparent = .5;
+transparent = get(findall(gcbf,'tag','transparent'),'value');
 figN = 2499;
 
 marker_for_time_markers{1} = {'-','-','--'};
@@ -1288,6 +1381,7 @@ function_handles = {
     'Mem-sac vs. CD/CP', @f3p1;
     'Choice Preference vs. Modality Preference', @f3p2;
     'Psychophysics vs. CD', @f3p3;
+    'Cell position and type',@f3p4;
     };
     
     'PCA_choice & modality (Eigen-feature)',{
@@ -1305,15 +1399,20 @@ function_handles = {
     '2-D Trajectory', @f51p1;
     };
 
-    'Linear SVM decoder',{
+    'Linear SVM decoder (choice and modality)',{
     'Training SVM', @f6p0;
     'Weights', @f6p1;
     'Performance (overall)', @f6p2;
     'SVM weighted sum',@f6p3;
     }
     
+    'Linear SVM decoder (heading)',{
+    'Training SVM', @f6p5;
+    }
+        
     'Linear regression',{
     'Comb = w1 Vest + w2 Vis (Fig.5 in Gu 2008)',@f7p1;
+    'Fit model traces with real data (Alex Shanghai)',@f7p2;
     };
     
     'Targeted Dimensionality Reduction',{
@@ -1351,14 +1450,15 @@ function_handles = {
             
 %             SeriesComparison({shiftdim(ys_this{1},-1) shiftdim(ys_this{2},-1)},...
 %                 {rate_ts{1} rate_ts{2} time_markers},...
-%                 'Colors',{'b','b','r','r',[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
+%                 'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
 %             
             h = SeriesComparison({PSTH_all_Norm{1}(methods_of_select{ms,1},:,:), PSTH_all_Norm{2}(methods_of_select{ms,1},:,:)},...
                 {rate_ts{1} rate_ts{2} time_markers},...
-                'Colors',{'b','b','r','r','g','g'},'LineStyles',{'-','--','-','--','-','--'},...
+                'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},'LineStyles',{'-','--','-','--','-','--'},...
                 'ErrorBar',6,'Xlabel',[],'Ylabel','Norm firing','axes',h_subplot((ms-1)*2+1),...
                 'CompareIndex',[1,3,5;2,4,6],...
-                'CompareColor',[mat2cell(colors,ones(3,1))]);
+                'CompareColor',[mat2cell(colors,ones(3,1))],...
+                'Transparent',transparent);
             
 %             if ms < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
 
@@ -1390,7 +1490,8 @@ function_handles = {
                 'Colors',mat2cell(colors,ones(3,1)),'LineStyles',{'-'},...
                 'ErrorBar',6,'Xlabel',[],'Ylabel','Norm firing','axes',h_subplot((ms-1)*2+2),...
                 'CompareIndex',[1:3,1,2;1:3,3,3],...
-                'CompareColor',[mat2cell(colors,ones(3,1));'b';'r';'g']);
+                'CompareColor',[mat2cell(colors,ones(3,1));colors(1,:);colors(2,:);colors(3,:)],...
+                'Transparent',transparent);
             
             %             if ms < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
             
@@ -1409,6 +1510,83 @@ function_handles = {
         end
         %         end
         SetFigure(15);
+        
+        %% ------- Averaged raw PSTH --------
+        set(figure(1999),'name','Average PSTH (Correct only, all choices)','pos',[27 63 1449 892]); clf
+        h_subplot = tight_subplot(2,3,[0.11 0.05],[0.05 0.1],0.07);
+        
+        methods_of_select = {
+            select_bottom_line, 'All cells';
+            select_tcells, 'Typical cells';
+            select_no_tcells, 'Non-typical cells'};
+        
+        %         for j = 1:2
+        j = 1;
+        for ms = 1:3
+            
+%             SeriesComparison({shiftdim(ys_this{1},-1) shiftdim(ys_this{2},-1)},...
+%                 {rate_ts{1} rate_ts{2} time_markers},...
+%                 'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
+%             
+            h = SeriesComparison({PSTH_all_raw{1}(methods_of_select{ms,1},:,:), PSTH_all_raw{2}(methods_of_select{ms,1},:,:)},...
+                {rate_ts{1} rate_ts{2} time_markers},...
+                'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},'LineStyles',{'-','--','-','--','-','--'},...
+                'ErrorBar',6,'Xlabel',[],'Ylabel','Raw firing','axes',h_subplot((ms-1)*2+1),...
+                'CompareIndex',[1,3,5;2,4,6],...
+                'CompareColor',[mat2cell(colors,ones(3,1))],...
+                'Transparent',transparent);
+            
+%             if ms < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
+
+            xlabel('Time (ms)');
+            legend off;
+            title([methods_of_select{ms,2} ', n = ' num2str(sum(methods_of_select{ms,1}))]);
+            axis tight;
+            
+%             for tt = 1:3
+%                 plot([1 1] * time_markers{j}(1,tt),ylim,'k','linestyle',marker_for_time_markers{j}{tt},'linew',2);
+%             end
+
+            axis tight;
+            xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  % ylim([0.1 0.7]);
+            
+            % Gaussian vel
+            plot(Gauss_vel(:,1) + time_markers{j}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+            
+            legend off;
+            
+            % --- Difference (Pref - Null) ---
+            PSTH_all_Norm_PrefminusNull{1} = PSTH_all_raw{1}(methods_of_select{ms,1},:,1:2:end)...
+                - PSTH_all_raw{1}(methods_of_select{ms,1},:,2:2:end);
+            PSTH_all_Norm_PrefminusNull{2} = PSTH_all_raw{2}(methods_of_select{ms,1},:,1:2:end)...
+                - PSTH_all_raw{2}(methods_of_select{ms,1},:,2:2:end);
+            
+            SeriesComparison({PSTH_all_Norm_PrefminusNull{1}, PSTH_all_Norm_PrefminusNull{2}},...
+                {rate_ts{1} rate_ts{2} time_markers},...
+                'Colors',mat2cell(colors,ones(3,1)),'LineStyles',{'-'},...
+                'ErrorBar',6,'Xlabel',[],'Ylabel','Raw firing','axes',h_subplot((ms-1)*2+2),...
+                'CompareIndex',[1:3,1,2;1:3,3,3],...
+                'CompareColor',[mat2cell(colors,ones(3,1));colors(1,:);colors(2,:);colors(3,:)],...
+                'Transparent',transparent);
+            
+            %             if ms < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
+            
+            xlabel('Time (ms)');
+            legend off;
+            
+            axis tight;
+            xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);   % ylim([-0.1 0.4]);
+            
+            % Gaussian vel
+%             plot(Gauss_vel(:,1) + time_markers{j}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/6,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+            
+            legend off;
+
+            
+        end
+        %         end
+        SetFigure(15);
+        
     end
     function f1p1p5(debug)
         if debug  ; dbstack;   keyboard;      end
@@ -1493,8 +1671,9 @@ function_handles = {
                 {rate_ts{1} rate_ts{2} time_markers},...
                 'OverrideError',{sem_this{1}, sem_this{2}},...
                 'OverridePs',{ps_this{1}, ps_this{2}},'ErrorBar',6,...
-                'CompareIndex',[1 3 5;2 4 6],'CompareColor',{'b','r',[0 0.8 0.4]},...
-                'Colors',{'b','b','r','r',[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'axes',h_subplot(counter));
+                'CompareIndex',[1 3 5;2 4 6],'CompareColor',{colors(1,:),colors(2,:),[0 0.8 0.4]},...
+                'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'axes',h_subplot(counter),...
+                'Transparent',transparent);
 
             
             title(h_subplot(counter), sprintf(' %g (ori. #%g, ps: %g, %g, %g; %g)',nn,cellNo_origin,Choice_pref_p_value_all(:,cellNo_in_find_bottom_line,3)',single_cell_plot_order_index(nn)));  % 3, stim-on to stim-off
@@ -1523,6 +1702,7 @@ function_handles = {
         end
         %} 
         
+        %% === Divergence time ===
         %%%%%%%%%%%%%%%%%%%%%%%
         min_bins_for_1st_sign_time = 25; % 250 ms
         p_critical_for_1st_sign_time = 0.05;
@@ -1966,8 +2146,8 @@ function_handles = {
                 sem_xx = std(xx)/sqrt(length(xx));
                 mean_yy = mean(yy);
                 sem_yy = std(yy)/sqrt(length(yy));
-                plot([mean_xx-sem_xx mean_xx+sem_xx],[mean_yy mean_yy],'r');
-                plot([mean_xx mean_xx],[mean_yy-sem_yy mean_yy+sem_yy],'r');
+                plot([mean_xx-sem_xx mean_xx+sem_xx],[mean_yy mean_yy],colors(2,:));
+                plot([mean_xx mean_xx],[mean_yy-sem_yy mean_yy+sem_yy],colors(2,:));
                 
                 % Show individual cell selected from the figure. HH20150424
                 h_line = plot(xx,yy,'visible','off'); hold on;
@@ -2798,7 +2978,11 @@ function_handles = {
         drawnow;
         
         % === 5. Bootstrap to get the SE of varCE ===
-        if matlabpool('size') == 0 ;  matlabpool;  end
+        if ver_num < 2014
+            if matlabpool('size') == 0 ;  matlabpool;  end
+        else
+            if isempty(gcp('nocreate')); parpool; end
+        end
 
         for k = 1:3
             for jandcc = 1:3
@@ -2876,8 +3060,8 @@ function_handles = {
         SeriesComparison({reshape([varCE_grand_boot_all{:,1}],n_bootstrap,[],3) reshape([varCE_grand_boot_all{:,2}],n_bootstrap,[],3)},...
             {t_centers{1}(1:down_sample:length(t_centers{1})) t_centers{2}(1:down_sample:length(t_centers{2})) time_markers},...
             'ErrorBar',6,'SEM',0,'Border',[1600, -550],...
-            'CompareIndex',[1 2 3;2 3 1],'CompareColor',{'b','r',[0 0.8 0.4]},...
-            'Colors',{'b','r',[0 0.8 0.4]},'LineStyles',{'-'});
+            'CompareIndex',[1 2 3;2 3 1],'CompareColor',{colors(1,:),colors(2,:),[0 0.8 0.4]},...
+            'Colors',{colors(1,:),colors(2,:),[0 0.8 0.4]},'LineStyles',{'-'});
 
 
     end
@@ -2911,7 +3095,7 @@ function_handles = {
                 %     selectCells_notNaN =  select_for_CP & (~isnan(CP(:,1,k)));
                 ys = mean(CP{j}(select_for_CP,:,k));
                 errors = std(CP{j}(select_for_CP,:,k))/sqrt(sum(select_for_CP));
-                h = shadedErrorBar(CP_ts{j},ys,errors,{'Color',colors(k,:)},transparent);
+                h = shadedErrorBar(CP_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2);
                 hold on;
                 
@@ -2963,7 +3147,7 @@ function_handles = {
             ys_MD = mean(ModDiv_to_average);
             err_MD = std(ModDiv_to_average)/sqrt(size(ModDiv_to_average,1));
             
-            h = shadedErrorBar(rate_ts{j},ys_MD,err_MD,{'Color',[0.5 0.5 0.5]},transparent);
+            h = shadedErrorBar(rate_ts{j},ys_MD,err_MD,'lineprops',{'Color',[0.5 0.5 0.5]},'transparent',transparent);
             set(h.mainLine,'LineWidth',2);
             
             % Comb v.s. Visual
@@ -2973,7 +3157,7 @@ function_handles = {
             ys_MD = mean(ModDiv_to_average);
             err_MD = std(ModDiv_to_average)/sqrt(size(ModDiv_to_average,1));
             
-            h = shadedErrorBar(rate_ts{j},ys_MD,err_MD,{'Color',[0.5 0.5 0.5]},transparent);
+            h = shadedErrorBar(rate_ts{j},ys_MD,err_MD,'lineprops',{'Color',[0.5 0.5 0.5]},'transparent',transparent);
             set(h.mainLine,'LineWidth',2,'linestyle','-.'); hold on;
             
             
@@ -2983,7 +3167,7 @@ function_handles = {
                 
                 ys_CD{j}(k,:) = mean(ChoiceDiv_All{j}(selectCells_notNaN,:,k));
                 errors = std(ChoiceDiv_All{j}(selectCells_notNaN,:,k))/sqrt(sum(selectCells_notNaN));
-                h = shadedErrorBar(rate_ts{j},ys_CD{j}(k,:),errors,{'Color',colors(k,:),'linestyle','-'},transparent);
+                h = shadedErrorBar(rate_ts{j},ys_CD{j}(k,:),errors,'lineprops',{'Color',colors(k,:),'linestyle','-'},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2);
             end
             
@@ -3010,7 +3194,7 @@ function_handles = {
         
         SeriesComparison({ChoiceDiv_All{1}(select_for_div,:,:) ChoiceDiv_All{2}(select_for_div,:,:)},...
             {rate_ts{1} rate_ts{2} time_markers},...
-            'Colors',{'b','r','g'},'LineStyles',{'-'},...
+            'Colors',{colors(1,:),colors(2,:),colors(3,:)},'LineStyles',{'-'},...
             'ErrorBar',6,'Xlabel',[],'Ylabel',[],'transparent',0,...
             'CompareIndex',[1:3;1:3],...
             'CompareColor',[mat2cell(colors,ones(3,1))]);
@@ -3044,7 +3228,7 @@ function_handles = {
         
         w = fminsearch(@(w) sum((w(1)*ramping1 + w(2)*ramping2 - ramping3).^2), [.5 .5])
         
-        figure(); plot(ts(t_select),ramping1,'b',ts(t_select),ramping2,'r',ts(t_select),ramping3,'g',ts(t_select),ramping1*w(1)+ramping2*w(2),'k');
+        figure(); plot(ts(t_select),ramping1,colors(1,:),ts(t_select),ramping2,colors(2,:),ts(t_select),ramping3,colors(3,:),ts(t_select),ramping1*w(1)+ramping2*w(2),'k');
         
         
     end
@@ -3074,7 +3258,7 @@ function_handles = {
                 errors = std(ChoiceDiv_ModDiffer{j}(select_this_k,:,k))/sqrt(sum(select_this_k));
                 [~,ps] = ttest(ChoiceDiv_ModDiffer{j}(select_this_k,:,k));  % p_value
                 
-                h = shadedErrorBar(rate_ts{j},ys,errors,{'Color',modality_diff_colors(k,:),'Linestyle','-'},transparent);
+                h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',modality_diff_colors(k,:),'Linestyle','-'},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2); xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.08 0.2]);
                 hold on;
                 
@@ -3125,12 +3309,12 @@ function_handles = {
                 
                 ys = mean(ChoiceDiv_Easy{j}(select_this_k,:,k),1);
                 errors = std(ChoiceDiv_Easy{j}(select_this_k,:,k),[],1)/sqrt(sum(select_this_k));
-                h = shadedErrorBar(rate_ts{j},ys,errors,{'Color',colors(k,:)},transparent);
+                h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2);  hold on;
                 
                 ys = mean(ChoiceDiv_Difficult{j}(select_this_k,:,k),1);
                 errors = std(ChoiceDiv_Difficult{j}(select_this_k,:,k),[],1)/sqrt(sum(select_this_k));
-                h = shadedErrorBar(rate_ts{j},ys,errors,{'Color',colors(k,:)*0.4 + [0.6 0.6 0.6]},transparent);
+                h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)*0.4 + [0.6 0.6 0.6]},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2);  hold on;
                 
                 xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.1 0.25]); ylim([-0.05 0.25]);
@@ -3166,7 +3350,7 @@ function_handles = {
                 errors = std(ChoiceDiv_EasyMinusDifficult{j}(select_this_k,:,k),[],1)/sqrt(sum(select_this_k));
                 [~,ps] = ttest(ChoiceDiv_EasyMinusDifficult{j}(select_this_k,:,k));  % p_value
                 
-                h = shadedErrorBar(rate_ts{j},ys,errors,{'Color',colors(k,:)},transparent);
+                h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2); ; hold on;
                 xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.1 0.25]); ylim([-0.05 0.09]);
                 
@@ -3532,7 +3716,7 @@ function_handles = {
             [  mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,1),2),...
             mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,2),2),...
             mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,3),2)],...
-            'Xlabel',MemSac_indicator_txt,'Ylabel','Pre-sac CDiv','FaceColors',{'b','r','g'},'Markers',{'o'},...
+            'Xlabel',MemSac_indicator_txt,'Ylabel','Pre-sac CDiv','FaceColors',{colors(1,:),colors(2,:),colors(3,:)},'Markers',{'o'},...
             'LineStyles',{'b-','r-','g-'},'MarkerSize',marker_size,'figN',figN,'XHist',nHist,'YHist',nHist); figN = figN + 1;
         set(gcf,'name',['j = ' num2str(j)]);
         
@@ -3551,7 +3735,7 @@ function_handles = {
             [  mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > 100 & rate_ts{j} < 500,1),2),...
             mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > 100 & rate_ts{j} < 500,2),2),...
             mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > 100 & rate_ts{j} < 500,3),2)],...
-            'Xlabel',MemSac_indicator_txt,'Ylabel','Post-sac CDiv','FaceColors',{'b','r','g'},'Markers',{'o'},...
+            'Xlabel',MemSac_indicator_txt,'Ylabel','Post-sac CDiv','FaceColors',{colors(1,:),colors(2,:),colors(3,:)},'Markers',{'o'},...
             'LineStyles',{'b-','r-','g-'},'MarkerSize',marker_size,'figN',figN,'XHist',nHist,'YHist',nHist); figN = figN + 1;
         set(gcf,'name',['j = ' num2str(j)]);
         % Annotate tcells
@@ -3567,7 +3751,7 @@ function_handles = {
         %     [  mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,1),2),...
         %        mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,2),2),...
         %        mean(ChoiceDiv_All{j}(select_bottom_line,rate_ts{j} > -400 & rate_ts{j} < -100,3),2)],...
-        %         'Xlabel','MemSac Rate Diff (pre)','Ylabel','Pre-sac Cdiv','FaceColors',{'b','r','g'},'Markers',{'o'},...
+        %         'Xlabel','MemSac Rate Diff (pre)','Ylabel','Pre-sac Cdiv','FaceColors',{colors(1,:),colors(2,:),colors(3,:)},'Markers',{'o'},...
         %         'LineStyles',{'b-','r-','g-'},'MarkerSize',12,'figN',figN,'XHist',nHist,'YHist',nHist); figN = figN + 1;
         
         % =================== Correlations 2. Mem-sac v.s. CP
@@ -3599,7 +3783,7 @@ function_handles = {
             mean(CP{j}(CP_S{3},CP_interval,3),2)},...
             'CombinedIndex',[3 12 48],...
             'Xlabel',MemSac_indicator_txt,'Ylabel',['CP at Sac ' num2str(CP_interest)],...
-            'FaceColors',{'none','b','none','r','none','g'},'Markers',{'o'},...
+            'FaceColors',{'none',colors(1,:),'none',colors(2,:),'none',colors(3,:)},'Markers',{'o'},...
             'LineStyles',{'b:','b:','r:','r:','g:','g:','b-','r-','g-'},'MarkerSize',marker_size,...
             'figN',figN,'XHist',nHist,'YHist',nHist); figN = figN + 1;
         set(gcf,'name',['j = ' num2str(j)]);
@@ -3629,7 +3813,7 @@ function_handles = {
             mean(CP{j}(CP_S{3},CP_interval,3),2)},...
             'CombinedIndex',[3 12 48],...
             'Xlabel','Choice Div (pre) + 0.5','Ylabel',['CP at Sac ' num2str(CP_interest)],...
-            'FaceColors',{'none','b','none','r','none','g'},'Markers',{'o'},...
+            'FaceColors',{'none',colors(1,:),'none',colors(2,:),'none',colors(3,:)},'Markers',{'o'},...
             'LineStyles',{'b:','b:','r:','r:','g:','g:','b-','r-','g-'},'MarkerSize',marker_size,...
             'figN',figN,'XHist',nHist,'YHist',nHist,'SameScale',1); figN = figN + 1;
         delete([h.group(1:6).line]);
@@ -3689,7 +3873,7 @@ function_handles = {
         %             },...
         %             'CombinedIndex',[195 780 3120],...  % (1,2,7,8);(3,4,9,10);(5,6,11,12)
         %             'Xlabel',MemSac_indicator_txt,'Ylabel','abs(Choice preference)',...
-        %             'FaceColors',{'none','b','none','r','none','g'},'Markers',{'o','o','o','o','o','o','^','^','^','^','^','^',},...
+        %             'FaceColors',{'none',colors(1,:),'none',colors(2,:),'none',colors(3,:)},'Markers',{'o','o','o','o','o','o','^','^','^','^','^','^',},...
         %             'LineStyles',{'b:','b:','r:','r:','g:','g:','b:','b:','r:','r:','g:','g:','b-','r-','g-'},'MarkerSize',marker_size,...
         %             'figN',figN,'XHist',20,'YHist',20,...
         %             'XHistStyle','stacked','YHistStyle','grouped','SameScale',0,'Method','Spearman'); figN = figN + 1;
@@ -3737,7 +3921,7 @@ function_handles = {
             %             },...
             %             'CombinedIndex',[],...
             %             'Xlabel',MemSac_indicator_txt,'Ylabel','abs(Choice preference)',...
-            %             'FaceColors',{'b','r','g'},'Markers',{'o'},...
+            %             'FaceColors',{colors(1,:),colors(2,:),colors(3,:)},'Markers',{'o'},...
             %             'LineStyles',{'b-','r-','g-'},'MarkerSize',marker_size,...
             %             'figN',figN,'XHist',20,'YHist',20,...
             %             'XHistStyle','stacked','YHistStyle','grouped','SameScale',0,'Method','Spearman'); figN = figN + 1;
@@ -3843,7 +4027,7 @@ function_handles = {
         
         % Annotate tcells
         plot(Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt),Choice_pref_all_temp(1,select_tcells(select_bottom_line),tt),...
-            '+','markersize',tcell_cross_size,'color','r','linew',2);
+            '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
         
         axis([-1 1 -1 1])
         set(gca,'xtick',-1:0.5:1,'ytick',-1:0.5:1);
@@ -3891,7 +4075,7 @@ function_handles = {
         %             },...
         %             'CombinedIndex',[7 56],...
         %             'Xlabel','Single modality choice preference','Ylabel','Combined choice preference',...
-        %             'FaceColors',{'none',[0.8 0.8 1],[0.2 0.2 1],'none',[1 0.8 0.8],'r'},'Markers',{'o'},...
+        %             'FaceColors',{'none',[0.8 0.8 1],[0.2 0.2 1],'none',[1 0.8 0.8],colors(2,:)},'Markers',{'o'},...
         %             'LineStyles',{'k:','k:','k:','k:','k:','k:','b-','r-'},'MarkerSize',marker_size,...
         %             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
         %             'SameScale',1,'Method','Spearman'); figN = figN + 1;
@@ -3912,7 +4096,7 @@ function_handles = {
         %
         %         clear Choice_pref_all_temp;
         
-        two_face_colors = {'none',[0.8 0.8 1],[0.2 0.2 1];'none',[1 0.8 0.8],'r'};
+        two_face_colors = {'none',[0.8 0.8 1],[0.2 0.2 1];'none',[1 0.8 0.8],colors(2,:)};
         
         for k = 1:2  % Plot it separately
             
@@ -3924,7 +4108,7 @@ function_handles = {
             cpref_sig_3 = Choice_pref_p_value_all(3,:,tt) < 0.05;
             
             % Abs() or not?
-            Choice_pref_all_temp = abs(Choice_pref_all);
+            Choice_pref_all_temp = (Choice_pref_all);
             
             h = LinearCorrelation({
                 (Choice_pref_all_temp(k,monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
@@ -3972,7 +4156,7 @@ function_handles = {
         %                 set(h.group(i).dots,'color',colors(k,:));
         %             end
         
-        % ===  (Comb - visual) VS (Comb - vest) %HH20160830 ===
+        %% ===  (Comb - visual) VS (Comb - vest) %HH20160830 ===
         set(figure(figN),'name','Cdiv(Comb - visual) VS Cdiv(Comb - vest)','pos',[17 514 1151 449]);
                 
         % Abs() or not?
@@ -3988,7 +4172,7 @@ function_handles = {
             (Choice_pref_all_temp_comb_minus_vis(1,monkey2,tt)) ;
             },...
             'CombinedIndex',[3],...
-            'Xlabel','Combined - Vest','Ylabel','Combined - Visual',...
+            'Xlabel','Combined - Vest (Choice preference)','Ylabel','Combined - Visual',...
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
@@ -4001,7 +4185,7 @@ function_handles = {
         % Annotate tcells
         plot((Choice_pref_all_temp_comb_minus_vest(1,select_tcells(select_bottom_line),tt)),...
             (Choice_pref_all_temp_comb_minus_vis(1,select_tcells(select_bottom_line),tt)),...
-            '+','markersize',tcell_cross_size,'color','r','linew',2);
+            '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
         %             plot((Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
         %                 '+','markersize',tcell_cross_size,'color','k','linew',2);
         
@@ -4011,6 +4195,48 @@ function_handles = {
         
         clear Choice_pref_all_temp;
         axis tight;
+        
+        %% ===  Mean raw delta firing (Comb - visual) VS (Comb - vest) %HH20170719 ===
+        set(figure(figN),'name','Cdiv(Comb - visual) VS Cdiv(Comb - vest)','pos',[17 514 1151 449]);
+                
+        % Abs() or not?
+        mean_raw_delta_firing = mean(PSTH_all_raw_PrefminusNull{1}(:,0<=rate_ts{1} & rate_ts{1}<=1500,:),2);
+        mean_raw_delta_firing_comb_minus_vest = abs(mean_raw_delta_firing(:,3)) - abs(mean_raw_delta_firing(:,1));
+        mean_raw_delta_firing_comb_minus_vis = abs(mean_raw_delta_firing(:,3)) - abs(mean_raw_delta_firing(:,2));
+        
+        h = LinearCorrelation({
+            (mean_raw_delta_firing_comb_minus_vest(monkey1)) ;
+            (mean_raw_delta_firing_comb_minus_vest(monkey2)) ;
+            },...
+            {
+            (mean_raw_delta_firing_comb_minus_vis(monkey1)) ;
+            (mean_raw_delta_firing_comb_minus_vis(monkey2)) ;
+            },...
+            'CombinedIndex',[3],...
+            'Xlabel','Combined - Vest (raw PSTH)','Ylabel','Combined - Visual',...
+            'FaceColors',{'k'},'Markers',{'o','^'},...
+            'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
+            'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
+            'SameScale',1,'Method','Spearman'); figN = figN + 1;
+        
+        delete([h.group(1:2).line]);
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        axis([-1 1 -1 1]); axis square;
+        
+        % Annotate tcells
+        plot((mean_raw_delta_firing_comb_minus_vest(select_tcells(select_bottom_line))),...
+            (mean_raw_delta_firing_comb_minus_vis(select_tcells(select_bottom_line))),...
+            '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
+        %             plot((Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
+        %                 '+','markersize',tcell_cross_size,'color','k','linew',2);
+        
+        % Show individual cell selected from the figure. HH20150424
+        h_line = plot([mean_raw_delta_firing_comb_minus_vest],[mean_raw_delta_firing_comb_minus_vis],'visible','off'); hold on;
+        set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_cpref_mpref],1});
+        
+        clear Choice_pref_all_temp;
+        axis tight;
+        
         
         %% ---------------- 4 Choice pref (pre vs post) -------------------
         
@@ -4084,13 +4310,117 @@ function_handles = {
             nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 2 ),2);
             nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 3 ),2);
             },...
-            'FaceColors',{'b','r','k'},'Markers',{'o'},...
+            'FaceColors',{colors(1,:),colors(2,:),'k'},'Markers',{'o'},...
             'LineStyles',{'b-','r-','k-'},'MarkerSize',marker_size,...
             'Ylabel',sprintf('\\Delta CDiv (%g - %g ms, 3-1, 3-2, 1-2)',t_begin,t_end),'Xlabel','Psycho prediction ratio',...
             'MarkerSize',12,...
             'figN',figN,'XHist',15,'YHist',15,'logx',1,...
             'XHistStyle','stacked','YHistStyle','stacked','Method','Pearson'); figN = figN + 1;
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        
+    end
+
+    function f3p4(debug)      % Correlations 4. Cell position and cell type HH20170715
+        if debug
+            dbstack;
+            keyboard;
+        end
+        
+        all_monkey_hemis = Position_all(:,1:2);
+        all_APs = Position_all(:,3);
+        all_VDs = Position_all(:,4);
+        all_depths = Position_all(:,5);
+        all_spikewid = [group_result(select_bottom_line).Waveform_wid]';
+        
+        % === Do some analyses ===
+        %% Draw depths
+
+        [counts,centers] = hist(all_depths,29);
+        
+        fitOptions = fitoptions('gauss3','StartPoint',[1 700 50 1 1300 50 1 1700 50]);
+        fit_model = fit(centers',counts','gauss3',fitOptions);
+        gauss_f = @(x,a,b,c)a*exp(-((x-b)/c).^2);
+        
+        figure(7161901);  clf
+        bar(centers,counts,1); 
+        xx = linspace(min(xlim),max(xlim),500);
+        hold on; plot(xx,fit_model(xx)','r'); xlabel('depth');
+        plot(xx,gauss_f(xx,fit_model.a1,fit_model.b1,fit_model.c1)','b');
+        plot(xx,gauss_f(xx,fit_model.a2,fit_model.b2,fit_model.c2)','b');
+        plot(xx,gauss_f(xx,fit_model.a3,fit_model.b3,fit_model.c3)','b');
+        
+        %% Draw AP,DV
+        figure(7162221); 
+        subplot(2,2,1);
+        plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),'o');
+        axis equal; axis([10 18 -7 6]);
+        title('Polo L');
+        subplot(2,2,2);
+        plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[5 2]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[5 2]),2)),'o');
+        axis equal;axis([10 18 -7 6]);
+        title('Polo R');
+        subplot(2,2,3);
+        plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[10 1]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[10 1]),2)),'o');
+        axis equal;axis([10 18 -7 6]);
+        title('Messi L');
+        subplot(2,2,4);
+        plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[10 2]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[10 2]),2)),'o');
+        axis equal;axis([10 18 -7 6]);
+        title('Messi R');
+        
+        
+        %%  Correlations 
+        
+        % 1. Depth and Choice_pref
+        figure(7162036); clf;
+        
+        % Position = [monkey hemi AP VD depth whichlayer]
+        which_mod = 3; which_pos = 5;
+        cpref_sig = Choice_pref_p_value_all(which_mod,:,3) < 0.05;
+
+        LinearCorrelation({
+            Position_all(~cpref_sig,which_pos);
+            Position_all(cpref_sig,which_pos);
+            },...
+            {
+            (abs(Choice_pref_all(which_mod,~cpref_sig,3)));
+            (abs(Choice_pref_all(which_mod,cpref_sig,3)));
+            },...
+            'CombinedIndex',3,...
+            'Xlabel','','Ylabel','',...
+            'FaceColors',{'none','k'},'Markers',{'o'},...
+            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
+            'figN',7162036,'XHist',20,'YHist',20,...
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+        
+        
+        %% 
+        LinearCorrelation({
+            all_depths 
+            },...
+            {
+            all_spikewid 
+            },...
+            'CombinedIndex',[],...
+            'Xlabel','Depth','Ylabel','Spike width',...
+            'FaceColors',{'none','k'},'Markers',{'o'},...
+            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
+            'figN',1948,'XHist',20,'YHist',20,...
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+        
+        %% 
+        LinearCorrelation({
+            all_APs
+            },...
+            {
+            all_depths 
+            },...
+            'CombinedIndex',[],...
+            'Xlabel','AP','Ylabel','Depth',...
+            'FaceColors',{'none','k'},'Markers',{'o'},...
+            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
+            'figN',194852,'XHist',20,'YHist',20,...
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
         
     end
 
@@ -4223,7 +4553,7 @@ function_handles = {
             sort_begin_forplot = temp_beg(sort_begin);
             sort_end_forplot = temp_end(sort_end);
             
-            plot3([sort_begin_forplot sort_end_forplot],[size(A_forplot,1)+1 size(A_forplot,1)+1],[1 1],'r','linewid',5);
+            plot3([sort_begin_forplot sort_end_forplot],[size(A_forplot,1)+1 size(A_forplot,1)+1],[1 1],colors(2,:),'linewid',5);
             xlabel('Temporal features');
             ylabel('Cell Number');
             
@@ -4406,7 +4736,7 @@ function_handles = {
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
         %         % Annotate tcells
-        %         plot(PCA_B_PC(select_tcells(select_for_PCA_B),1),PCA_B_PC(select_tcells(select_for_PCA_B),2),'+','markersize',16,'color','r','linew',2);
+        %         plot(PCA_B_PC(select_tcells(select_for_PCA_B),1),PCA_B_PC(select_tcells(select_for_PCA_B),2),'+','markersize',16,'color',colors(2,:),'linew',2);
         %
         %         % Show individual cell selected from the figure. HH20150424
         %         set([gca h.group.dots],'ButtonDownFcn',{@Show_individual_cell,h.group.dots,select_for_PCA_B});
@@ -4439,7 +4769,7 @@ function_handles = {
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
         %         % Annotate tcells
-        %         plot(PCA_B_PC(select_tcells(select_for_PCA_B),1),abs(Choice_pref_all(k,select_tcells(select_for_PCA_B),tt)),'+','markersize',16,'color','r','linew',2);
+        %         plot(PCA_B_PC(select_tcells(select_for_PCA_B),1),abs(Choice_pref_all(k,select_tcells(select_for_PCA_B),tt)),'+','markersize',16,'color',colors(2,:),'linew',2);
         %
         %         % Show individual cell selected from the figure. HH20150424
         %         h_line = plot(PCA_B_PC(:,1),abs(Choice_pref_all(k,:,tt)),'visible','off'); hold on;
@@ -4466,7 +4796,7 @@ function_handles = {
         %
         %         % Annotate tcells
         %         plot(mean(MemSac_DDI(select_tcells,MemSac_DDI_phase),2),PCA_B_PC(select_tcells(select_for_PCA_B),1),...
-        %             '+','markersize',16,'color','r','linew',2);
+        %             '+','markersize',16,'color',colors(2,:),'linew',2);
         %
         %         % Show individual cell selected from the figure. HH20150424
         %         h_line = plot(mean(MemSac_DDI(select_for_PCA_B,MemSac_DDI_phase),2),(PCA_B_PC(:,1)),'visible','off'); hold on;
@@ -4499,7 +4829,7 @@ function_handles = {
         %         delete([h.group(1:2).line]);
         %         % Annotate tcells
         %         plot(mean(MemSac_DDI_selected(select_tcells(select_for_PCA_B),MemSac_DDI_phase),2),abs(Choice_pref_all(k,select_tcells(select_for_PCA_B),tt)),...
-        %             '+','markersize',16,'color','r','linew',2);
+        %             '+','markersize',16,'color',colors(2,:),'linew',2);
         %
         %         % Show individual cell selected from the figure. HH20150424
         %         h_line = plot(mean(MemSac_DDI_selected(:,MemSac_DDI_phase),2),abs(Choice_pref_all(k,:,tt)),'visible','off'); hold on;
@@ -4532,7 +4862,7 @@ function_handles = {
         %
         %         % Annotate tcells
         %         plot((Modality_pref_all(k,select_tcells(select_bottom_line),tt)), PCA_B_PC(select_tcells(select_bottom_line),2),...
-        %             '+','markersize',16,'color','r','linew',2);
+        %             '+','markersize',16,'color',colors(2,:),'linew',2);
         %
         %         % Show individual cell selected from the figure. HH20150424
         %         h_line = plot((Modality_pref_all(k,:,tt)),PCA_B_PC(:,2),'visible','off'); hold on;
@@ -4551,10 +4881,10 @@ function_handles = {
         % ============  1. Variance explained =================
         set(figure(2099+figN),'pos',[936 491 733 463],'name',['Variance explained, j_PCA_B = ' num2str(j_PCA_B)]); clf; figN = figN+1; hold on;
         plot((1:length(PCA_B_explained))', cumsum(PCA_B_explained),'o-','markersize',8,'linew',1.5);
-        plot((1:denoised_dim)',cumsum(PCA_B_explained(1:denoised_dim)),'ro-','markersize',8,'linew',1.5,'markerfacecol','r');
+        plot((1:denoised_dim)',cumsum(PCA_B_explained(1:denoised_dim)),'ro-','markersize',8,'linew',1.5,'markerfacecol',colors(2,:));
         plot([0 1],[0 PCA_B_explained(1)],'r-','linew',1.5);
         plot(xlim,[1 1]*sum(PCA_B_explained(1:denoised_dim)),'r--');
-        text(denoised_dim,sum(PCA_B_explained(1:denoised_dim))*0.9,[num2str(sum(PCA_B_explained(1:denoised_dim))) '%'],'color','r');
+        text(denoised_dim,sum(PCA_B_explained(1:denoised_dim))*0.9,[num2str(sum(PCA_B_explained(1:denoised_dim))) '%'],'color',colors(2,:));
         SetFigure(); xlabel('Num of principal components'); ylabel('Explained variability (%)'); ylim([0 100]);
         
         % ============  2. 1-D Trajectory of Eigen-neurons =================
@@ -4574,7 +4904,7 @@ function_handles = {
             norm_proj_PC_this = (PCA_B_projPC{ds(d)}-offset)/gain;
             
             h = subplot(fix(sqrt(length(ds))),ceil(length(ds)/fix(sqrt(length(ds)))),d);
-            SeriesComparison(shiftdim(norm_proj_PC_this',-1),PCA_B_times,'Colors',{'b','b','r','r',[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'axes',h);
+            SeriesComparison(shiftdim(norm_proj_PC_this',-1),PCA_B_times,'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'axes',h);
             axis tight; ylim([-1 1]); xlim([-200 1860])
             for tt = 1:3
                 plot([1 1] * time_markers{j_PCA_B}(1,tt),ylim,'k','linestyle',marker_for_time_markers{j_PCA_B}{tt},'linew',1.5);
@@ -4848,10 +5178,10 @@ function_handles = {
         % ============  1. Variance explained =================
         set(figure(2099+figN),'pos',[936 491 733 463],'name',['Variance explained, j_PCA_B = ' num2str(j_PCA_B)]); clf; figN = figN+1; hold on;
         plot((1:length(PCA_B_explained_heading))', cumsum(PCA_B_explained_heading),'o-','markersize',8,'linew',1.5);
-        plot((1:denoised_dim)',cumsum(PCA_B_explained_heading(1:denoised_dim)),'ro-','markersize',8,'linew',1.5,'markerfacecol','r');
+        plot((1:denoised_dim)',cumsum(PCA_B_explained_heading(1:denoised_dim)),'ro-','markersize',8,'linew',1.5,'markerfacecol',colors(2,:));
         plot([0 1],[0 PCA_B_explained_heading(1)],'r-','linew',1.5);
         plot(xlim,[1 1]*sum(PCA_B_explained_heading(1:denoised_dim)),'r--');
-        text(denoised_dim,sum(PCA_B_explained_heading(1:denoised_dim))*0.9,[num2str(sum(PCA_B_explained_heading(1:denoised_dim))) '%'],'color','r');
+        text(denoised_dim,sum(PCA_B_explained_heading(1:denoised_dim))*0.9,[num2str(sum(PCA_B_explained_heading(1:denoised_dim))) '%'],'color',colors(2,:));
         SetFigure(); xlabel('Num of principal components'); ylabel('Explained variability (%)'); ylim([0 100]);
         
         % ============  2. 1-D Trajectory of Eigen-neurons =================
@@ -5008,7 +5338,12 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
         %% =============  SVM Bootstrapping ============
         % Parallel computing
-        if matlabpool('size') == 0 ;  matlabpool;  end
+        if ver_num < 2014
+            if matlabpool('size') == 0 ;  matlabpool;  end
+        else
+            if isempty(gcp('nocreate')); parpool; end
+        end
+        
         training_set = cell(n_bootstrap_weights);
         tic; disp('Starting SVM training...');
         
@@ -5025,8 +5360,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             firing_for_this_training = cell2mat(training_set{nn}');
             
             % Train two SVM classifiers (choice and modality)
-            svm_training_choice(nn) = svmtrain(firing_for_this_training,answers_choice);
-            svm_training_modality(nn) = svmtrain(firing_for_this_training,answers_modality);
+            svm_training_choice(nn) = svmtrain(firing_for_this_training,answers_choice,'box',1e-5,'tol',1e-7,'autoscale',0);
+            svm_training_modality(nn) = svmtrain(firing_for_this_training,answers_modality,'box',1e-5,'tol',1e-7,'autoscale',0);
             
             parfor_progress;
         end
@@ -5034,6 +5369,10 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         toc; disp('Done!');
         
         %% Averaged weights (bagging)
+%         weights_svm_choice_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_choice,'uniform',0));
+%         weights_svm_modality_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_modality,'uniform',0));
+
+        % By default, 'autoscale' = true, so here I should rescale back the weight! HH20170613
         weights_svm_choice_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_choice,'uniform',0));
         weights_svm_modality_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_modality,'uniform',0));
         
@@ -5099,7 +5438,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         [~,sortt] = sort(abs(weights_svm_choice_mean),'descend');
         set(bar(weights_svm_choice_mean(sortt),0.5),'facecolor','k','edgecolor','none'); hold on;
         set(bar(find(who_are_tcells(sortt)),...
-            weights_svm_choice_mean(sortt(who_are_tcells(sortt))),0.5),'facecolor','r','edgecolor','none');
+            weights_svm_choice_mean(sortt(who_are_tcells(sortt))),0.5),'facecolor',colors(2,:),'edgecolor','none');
         
         xlim([-2 sum(select_for_SVM_actual)+1]); ylim([-1 1]); title('Choice');
         set(gca,'xtick',[1 sum(select_for_SVM_actual)]);
@@ -5110,7 +5449,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         [~,sortt] = sort(abs(weights_svm_modality_mean),'descend');
         set(bar(weights_svm_modality_mean(sortt),0.5),'facecolor','k','edgecolor','none'); hold on;
         set(bar(find(who_are_tcells(sortt)),...
-            weights_svm_modality_mean(sortt(who_are_tcells(sortt))),0.5),'facecolor','r','edgecolor','none');
+            weights_svm_modality_mean(sortt(who_are_tcells(sortt))),0.5),'facecolor',colors(2,:),'edgecolor','none');
         
         xlim([-2 sum(select_for_SVM_actual)+1]);  ylim([-1 1]); title('Modality');
         set(gca,'xtick',[1 sum(select_for_SVM_actual)]);
@@ -5143,7 +5482,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         % Annotate tcells
         h_line = plot(weights_svm_modality_mean(who_are_tcells),...
             weights_svm_choice_mean(who_are_tcells),...
-            '+','markersize',8,'color','r','linew',2);
+            '+','markersize',8,'color',colors(2,:),'linew',2);
         
         % Show individual cell selected from the figure. HH20150424
         select_for_SVM_actual_of_all = zeros(N,1);
@@ -5181,7 +5520,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
         % Annotate tcells
         plot(MemSac_indicator(select_tcells),weights_svm_choice_mean(select_tcells(select_for_SVM),1),...
-            '+','markersize',16,'color','r','linew',2);
+            '+','markersize',16,'color',colors(2,:),'linew',2);
         
         % Show individual cell selected from the figure. HH20150424
         h_line = plot(MemSac_indicator(select_for_SVM),(weights_svm_choice_mean(:,1)),'visible','off'); hold on;
@@ -5212,10 +5551,43 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
         % Annotate tcells
         plot(weights_PCA_B_PC(select_tcells(select_for_SVM),1),weights_svm_choice_mean(select_tcells(select_for_SVM),1),...
-            '+','markersize',16,'color','r','linew',2);
+            '+','markersize',16,'color',colors(2,:),'linew',2);
         
         % Show individual cell selected from the figure. HH20150424
         set([gca h.group.dots],'ButtonDownFcn',{@Show_individual_cell, h.group.dots, select_for_SVM});
+        
+        % ------------ Weights for SVM choice decoder VS choice divergence and multisensory enhancement 20170609 ------------------
+        Choice_pref_all_comb = abs(Choice_pref_all(3,:,3)); % stim-on to stim-off
+        Choice_pref_all_vest = abs(Choice_pref_all(1,:,3));
+        Choice_pref_all_vis = abs(Choice_pref_all(2,:,3));
+        
+        figure(1234); clf;
+        hs = tight_subplot(2,2,0.1,0.1,0.1);
+        
+        % -- SVM weights vs Div_vest --
+        xxs = {Choice_pref_all_vest(:), 'Divergence vest';
+            Choice_pref_all_vis(:),  'Divergence vis';
+            Choice_pref_all_comb(:), 'Divergence comb';
+           % Choice_pref_all_comb(:)./(Choice_pref_all_vest(:)+Choice_pref_all_vis(:)), '(comb-vest)+(comb-vis)'};
+           % 2*Choice_pref_all_comb(:)-(Choice_pref_all_vest(:)+Choice_pref_all_vis(:)), '(comb-vest)+(comb-vis)'};
+            Choice_pref_all_comb(:)-(Choice_pref_all_vest(:)), '(comb-vest)+(comb-vis)'};
+   
+        for xxxx = 1:length(xxs)
+            xx = xxs{xxxx,1};
+            yy = abs(weights_svm_choice_mean);
+            hl = LinearCorrelation(xx,yy,'Axes',hs(xxxx));
+            hold on;
+            delete([hl.leg]);
+            
+            xlabel(xxs{xxxx,2}); ylabel('abs(svm weight)');
+            text(min(xlim),min(ylim)+range(ylim)*0.9,sprintf('r^2=%g\n p=%g',hl.group.r_square,hl.group.p))
+            
+            % Annotate tcells
+            plot(xx(select_tcells),yy(select_tcells(select_for_SVM),1),...
+                '+','markersize',16,'color',colors(2,:),'linew',2);
+
+        end
+
         
     end
     function f6p2(debug)      % SVM 3: Testing SVM
@@ -5338,8 +5710,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
 %         select_for_regression = select_bottom_line;
         select_for_regression = select_tcells;
 
-        t_span = 200;    
-%         t_span = 1000;
+%         t_span = 200;    
+        t_span = 1000;
         t_step = 50; % For time evolution
         toi = [950 1500] +  time_markers{j_for_reg}(1,1);   % Time of interests for weights illustration
         
@@ -5350,6 +5722,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
         weight_vest_vis = nan(length(find_for_regression),2 * 2 + 2,length(t_centers)); % Weights (3), p_values (3), r^2, p-value of r^2
         measure_pred_all = nan(length(find_for_regression) * 10,2,length(t_centers));
+        
+%         weight_vest_vis_lsqlin = nan(length(find_for_regression),2,length(t_centers));
         
         progressbar(['Number of cells (all ' num2str(length(find_for_regression)) ')']);
         
@@ -5364,13 +5738,23 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                     r(:,k) = mean(group_result(find_for_regression(i)).mat_raw_PSTH.PSTH{j_for_reg,2,k}.ys(:,t_range),2);
                 end
                 
-                r = r - repmat(nanmean(r,1),size(r,1),1); % Mean removed
                 
                 % GLM fit
+                r = r - repmat(nanmean(r,1),size(r,1),1); % Mean removed
+                r(any(isnan(r),2),:) = [];
                 [b,~,stat] = glmfit(r(:,1:2) ,r(:,3),'normal','link','identity','constant','off');
-                [~,~,~,~,stat_reg] = regress(r(:,3),[ones(size(r,1),1) r(:,1:2)]);
+
+%                 r(any(isnan(r),2),:) = [];
+%                 [b,~,stat] = glmfit(r(:,1:2) ,r(:,3),'normal','link','identity','constant','on');
+%                 b = b(2:3); stat.p = stat.p(2:3);
                 
+                [~,~,~,~,stat_reg] = regress(r(:,3),[ones(size(r,1),1) r(:,1:2)]);
                 weight_vest_vis(i,:,tcc) = [b' stat.p' stat_reg([1 3])]; % Weights, r^2 and p-value
+
+%                 b_lsqlin = lsqlin([r(:,1:2)],r(:,3),[],[],[],[],[0 0]');
+%                 b_lsqlin = lsqlin([ones(size(r(:,1))) r(:,1:2)],r(:,3),[],[],[],[],[0 0 0]'); b_lsqlin = b_lsqlin(2:3);
+
+%                 weight_vest_vis_lsqlin(i,:,tcc) = b_lsqlin;
                 
                 yfit = r(:,1:2) * b;
                 measure_pred_all((i-1)*10 + 1:(i-1)*10+size(r,1),:,tcc) = [r(:,3) yfit];
@@ -5390,14 +5774,15 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         mean_paras = squeeze(mean(weight_vest_vis(:,[1 2 end-1],:),1))';
         sem_paras = squeeze(std(weight_vest_vis(:,[1 2 end-1],:)))'/sqrt(size(weight_vest_vis,1));
         
-        temp_col = {'b','r','k'};
+        temp_col = {colors(1,:),colors(2,:),'k'};
         temp_marker = {'s','o','o'}; % {'','',''};
         for pp = 1 : 3
-            h = shadedErrorBar(repmat(t_centers',1,1),mean_paras(:,pp),sem_paras(:,pp),{[temp_marker{pp} temp_col{pp} '-'],'linew',2,'markersize',10});
+            h = shadedErrorBar(repmat(t_centers',1,1),mean_paras(:,pp),sem_paras(:,pp),...
+                'lineprops',{[temp_marker{pp} temp_col{pp} '-'],'linew',2,'markersize',10},'transparent',transparent);
             hold on;
         end
         
-        plot(repmat(t_centers',1,1),mean_paras(:,1)+mean_paras(:,2),'g','linew',2);
+        plot(repmat(t_centers',1,1),mean_paras(:,1)+mean_paras(:,2),colors(3,:),'linew',2);
         plot(xlim,[1 1],'g:','linew',3);
         
         set(legend('w_{vest}','w_{vis}','R^2'),'location','best'); axis tight; %ylim([0 max(ylim)])
@@ -5421,7 +5806,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             sig_ind = weight_vest_vis(:,end,toi_ind)<0.05;
             nsig_ind = weight_vest_vis(:,end,toi_ind)>=0.05;
             
-            % Predicted v.s. measured
+            % Predicted v.s. 
             ax0 = subplot(2,3,1 + (toii-1)*3);
             h = LinearCorrelation( measure_pred_all(:,1,toi_ind), measure_pred_all(:,2,toi_ind),...
                 'CombinedIndex',[],...
@@ -5430,7 +5815,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                 'LineStyles',{'k-'},'MarkerSize',10,...
                 'XHist',0,'YHist',0,...
                 'XHistStyle','grouped','YHistStyle','grouped','SameScale',1,'Method','Spearman','axes',ax0);
-            text(min(xlim)+2,min(ylim)+2,sprintf('r^2 = %g, p = %g',h.group(1).r_square,h.group(1).p),'fonts',13);
+            text(min(xlim)+2,min(ylim)+2,sprintf('r^2 = %g, p = %g',h.group(1).r_square,h.group(1).p),'FontSize',13);
             legend off;
             
             % Distribution of R^2
@@ -5462,28 +5847,434 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             if toii == 1 ; xlabel(''); end
             delete([h.group(1).line h.diag]);
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--'); plot(xlim,[1 1],'k--'); plot([1 1],ylim,'k--');
-            text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(2).r_square,h.group(2).p),'fonts',13);
+            text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(2).r_square,h.group(2).p),'FontSize',13);
             legend off;
             set(gca,'xtick',-10:1:10,'ytick',-10:1:10);
             
+            %{
             % Annotate tcells
             h_t = plot(weight_vest_vis(select_tcells(select_for_regression),1,toi_ind),...
-                weight_vest_vis(select_tcells(select_for_regression),2,toi_ind),'+','markersize',10,'color','r','linew',2);
+                weight_vest_vis(select_tcells(select_for_regression),2,toi_ind),'+','markersize',10,'color',colors(2,:),'linew',2);
             
             % Show individual cell selected from the figure. HH20150424
             h_line = plot(weight_vest_vis(:,1,toi_ind), weight_vest_vis(:,2,toi_ind),'visible','off'); hold on;
             set([gca [h.group.dots] h_line h_t],'ButtonDownFcn',{@Show_individual_cell, h_line, select_for_regression});
+            %}
             
+            %{
+            ax3 = subplot(2,4,4 + (toii-1)*4);
+            plot(ax3,weight_vest_vis_lsqlin(:,1,toi_ind),weight_vest_vis_lsqlin(:,2,toi_ind),'o'); hold on
+            plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--'); plot(xlim,[1 1],'k--'); plot([1 1],ylim,'k--');
+            set(gca,'xtick',-10:1:10,'ytick',-10:1:10);
+            %}
         end
         
         SetFigure(18);
     end
 
-    function f7p2(debug)      % Regression 2. Comb = w1 Vest + w2 Vis. @HH20160822
+    %% Regression 2. Fitting model traces with real data. (We decided to do this when Alex came to Shanghai) @HH20170808
+    %%%%%%%%%%%%%%%%%%% for f7p2: load model traces %%%%%%%%%%%%%%%
+    
+    % ==== Load model data (Fit target) ====
+    % Generated from calling "result = lip_HH({},{'ts','mean_diff_PSTH_correct_allheading'});"
+    model_mean_PSTH_trace_without_heter = load('mean_trace_without_heter.mat'); % Gamma = 0
+    % model_mean_PSTH_trace_without_heter = load('mean__trace_without_heter_gamma=1.mat'); % Gamma = 1
+    % model_mean_PSTH_trace_without_heter = load('mean__trace_without_heter_gamma=8.mat'); % Gamma = 8
+%     model_mean_PSTH_trace_without_heter = load('diff_PSTH_trace_without_heter_vestvelocity.mat'); % Vestibular velocity
+
+    model_ts = model_mean_PSTH_trace_without_heter.result.ts*1000;
+    model_PSTH = squeeze(model_mean_PSTH_trace_without_heter.result.mean_diff_PSTH_correct_allheading);
+    
+    % ==== Single cells ====
+    model_PSTH_trace_with_heter_optimal = load('diff_PSTH_trace_with_heter.mat');
+    model_PSTH_trace_with_heter_vest10_vis1 = load('diff_PSTH_trace_with_heter_vest10_vis1.mat');
+    model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau.mat');
+    
+    
+    increase_step_trick = 0; alpha = [];
+    common_ts = []; fit_time_range = []; test_time_range = [];  valid_time_range = [];
+    fit_deltaPSTHs_per_cell = [];  test_deltaPSTHs_per_cell = []; valid_deltaPSTHs_per_cell = [];
+    fit_model_PSTH_interp = [];  test_model_PSTH_interp = []; valid_model_PSTH_interp = [];
+    data_to_fit = []; use_data_to_fit = []; data_to_fit_time = [];  data_to_fit_PSTH = []; 
+    
+    function f7p2(debug)
         if debug;  dbstack;  keyboard;  end
+        
+        use_data_to_fit = 1; % 
+        data_to_fit = {%Times  %Data   %Name 
+                       rate_ts{1}, PSTH_all_raw_PrefminusNull{1},'Real LIP data';
+                       model_ts, model_PSTH_trace_with_heter_optimal.a,'Optimal model with heterogeneity';
+                       model_ts, model_PSTH_trace_with_heter_vest10_vis1.a,'vest10_vis1 with heterogeneity';
+                       model_ts, model_PSTH_trace_with_heter_shortTau.a, 'ShortTau with heterogeneity';
+                       };
+        data_to_fit_time = data_to_fit{use_data_to_fit,1};
+        data_to_fit_PSTH = data_to_fit{use_data_to_fit,2};
+        
+        % Times
+        find_common_ts_in_rate_ts = find(min(model_ts)<=data_to_fit_time & data_to_fit_time<=max(model_ts));
+        common_ts = data_to_fit_time(find_common_ts_in_rate_ts);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % alpha = 10;
+        % fit_time_range = 500 < common_ts & common_ts <= 1200;
+        % fit_time_range = rand(1,length(common_ts)) < 0.2;
+
+        % Interleaved training and testing
+        fit_time_range = false(1,length(common_ts)); 
+        test_time_range = fit_time_range;
+        valid_time_range = fit_time_range;
+        
+        fit_time_range(1:3:end) = true;
+        test_time_range(2:3:end) = true;
+        valid_time_range(3:3:end) = true; % Use other (time points) to test
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        fit_ts = common_ts(fit_time_range);
+        test_ts = common_ts(test_time_range);
+        valid_ts = common_ts(valid_time_range);
+        
+        % Real data
+        fit_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(fit_time_range),:); % Should be indices in original rate_ts{1}!
+        test_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(test_time_range),:);
+        valid_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(valid_time_range),:);
+        
+        
+        % Model data
+        fit_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),fit_ts);
+        test_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),test_ts);
+        valid_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),valid_ts);
+        
+       %% Do fitting
+        alphas = [1];
+        
+        global fitting_dynamics;
+        for aa = 1:length(alphas)% Scan alpha
+            
+            fitting_dynamics = [];
+            alpha = alphas(aa);
+            fprintf('alpha = %g\n',alpha);
+            
+            %         w0 = increase_step_trick + ones(1,sum(select_bottom_line))/sum(select_bottom_line); % Start from straight average
+            w0 = increase_step_trick + (1+randn(1,size(data_to_fit_PSTH,1)))/size(data_to_fit_PSTH,1); % Start from straight average
+            proj_PSTH = reshape(w0 * reshape(fit_deltaPSTHs_per_cell,size(fit_deltaPSTHs_per_cell,1),[]),[],3);
+            
+            opt = optimset('MaxFunEvals',50000,'MaxIter',300,'PlotFcns',@f7p2_fitting_deltaPSTH_plot_func);
+            set(figure(1458),'name','Optimization PlotFcns'); clf;
+            %         fitted_w = fminsearch(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,opt);
+            
+            fitted_w = fmincon(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,[],[],[],[],0*w0,[],[],opt);
+            scan_alpha_costs{aa} = fitting_dynamics{1};
+            scan_alpha_weight{aa} = fitted_w;
+        end
+
+%         save('Z:\Labtools\HH_Tools\DataHub\scan_alpha.mat','scan_alpha_costs','scan_alpha_weight','alphas');
+%         Weighted_sum_PSTH(fitted_w',{'fit'},select_bottom_line)
+        
+        %% Plotting Scanning alpha result
+        %{
+        load('Z:\Labtools\HH_Tools\DataHub\scan_alpha.mat');
+            
+        figure(9041914); clf; subplot(2,2,1);
+        for i = 1:5:length(scan_alpha_costs)
+            hold on; 
+            plot(log(scan_alpha_costs{i}(:,1)),'k'); 
+            plot(log(scan_alpha_costs{i}(:,2)),colors(2,:)); 
+            plot(log(scan_alpha_costs{i}(:,3)),colors(1,:));
+            text(length(scan_alpha_costs{i}(:,3)),log(scan_alpha_costs{i}(end,3)),num2str(alphas(i)));
+        end
+        xlabel('Steps'); ylabel('log(MSE)');
+        
+        subplot(2,2,2);
+        weights = cell2mat(scan_alpha_weight');
+        [coeff,score,latent,~,explained] = pca(weights);
+        for i=1:length(scan_alpha_costs)
+            hold on; scatter(score(i,1),score(i,2),i*3,'ob');
+        end
+        xlabel('PC1'); ylabel('PC2');
+        
+        subplot(2,2,3);
+        min_cost = cellfun(@(x)min(x(:,3)),scan_alpha_costs)';
+        for i=1:length(scan_alpha_costs)
+            hold on; scatter(alphas(i),log(min_cost(i)),i*3,'ob');
+        end
+        xlabel('alpha'); ylabel('log(validating MSE)'); 
+        SetFigure(15);
+        %}
+    end
+    function stop = f7p2_fitting_deltaPSTH_plot_func(weight,optimValue,~)
+        global fitting_dynamics;
+        weight = weight-increase_step_trick;
+
+        persistent costs;
+        if optimValue.iteration == 0
+            costs = [];
+        end
+        set(findobj(gcf,'type','axes'),'visible','off');
+        h = tight_subplot(2,2,[0.1 0.1],0.1,0.1);
+        
+        % Update cost
+        proj_test_PSTH = reshape((weight) * reshape(test_deltaPSTHs_per_cell,size(test_deltaPSTHs_per_cell,1),[]),[],3);
+        test_cost = mean((proj_test_PSTH(:) - test_model_PSTH_interp(:)).^2); % Mean Squared error
+        proj_valid_PSTH = reshape((weight) * reshape(valid_deltaPSTHs_per_cell,size(valid_deltaPSTHs_per_cell,1),[]),[],3);
+        valid_cost = mean((proj_valid_PSTH(:) - valid_model_PSTH_interp(:)).^2); % Mean Squared error
+        costs = [costs; optimValue.fval-alpha*norm(weight) test_cost valid_cost];
+        
+        if mod(optimValue.iteration,1) == 0
+            % Fitted delta PSTH
+            %             plot(h(1),real_ts,model_PSTH_interp,'linew',2); hold(h(1),'on');
+            %             plot(h(1),real_ts,reshape((weight) * reshape(real_deltaPSTHs_per_cell,size(real_deltaPSTHs_per_cell,1),[]),[],3),'--','linew',2);
+            plot(h(1),data_to_fit_time,interp1(model_ts,model_PSTH(:,:),data_to_fit_time),'linew',2); hold(h(1),'on');
+            plot(h(1),data_to_fit_time,reshape((weight) * reshape(data_to_fit_PSTH,size(data_to_fit_PSTH,1),[]),[],3),'--','linew',2);
+            xlim(h(1),[-400 2400]);
+            ylim(h(1),[-5 20]);
+            ylims = ylim((h(1))); indicator_pos = min(ylims)*ones(1,length(common_ts));
+            plot(h(1),[min(model_ts) min(model_ts)],[min(ylims) max(ylims)],'k-');
+            plot(h(1),[max(model_ts) max(model_ts)],[min(ylims) max(ylims)],'k-');
+            plot(h(1),common_ts(fit_time_range),indicator_pos(fit_time_range),'ok','markerfacecol','k','markersize',5);
+            plot(h(1),common_ts(test_time_range),indicator_pos(test_time_range),'or','markerfacecol',colors(2,:),'markersize',5);
+            plot(h(1),common_ts(valid_time_range),indicator_pos(valid_time_range),'ob','markerfacecol',colors(1,:),'markersize',5);
+            % plot(h(1),[min(real_ts) max(real_ts)],min(ylims)*ones(1,2),'k-','linew',5);
+            title(h(1),sprintf('Solid: model; Dashed: %s',data_to_fit{use_data_to_fit,3}));
+            ylabel(h(1),'delta firing');
+            
+            % Projected PSTH
+            if use_data_to_fit == 1 % Real LIP data
+                for kk = 1:size(PSTH_all_raw{1},3)
+                    PSTH_projected(1,:,kk) = weight*(PSTH_all_raw{1}(select_bottom_line,:,kk));
+                end
+                
+                % Note here the errorbars should be STD instead of SEM. (Not independent sampling, but bootstrapping)
+                SeriesComparison(PSTH_projected,data_to_fit_time,...
+                    'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},'LineStyles',{'-','--','-','--','-','--'},...
+                    'SEM',0,'ErrorBar',2,'Xlabel',[],'Ylabel','Weighted sum of firing','axes',h(2));
+                hold on;    legend off;
+                xlim(h(2),[-400 2200]);
+            end
+            
+            % Fitting error
+            plot(h(3), 1:size(costs,1), log(costs(:,1)),'ok-');  % Training error
+            hold(h(3),'on');
+            plot(h(3), 1:size(costs,1), log(costs(:,2)),'or-');  % Testing error
+            plot(h(3), 1:size(costs,1), log(costs(:,3)),'ob-');  % Testing error
+
+            legend(h(3),{'Training','Testing','Validating'});
+            title(h(3),sprintf('\\alpha = %g, step = %g',alpha,optimValue.iteration));
+            ylabel(h(3),'log(mean of squared error)');
+            xlabel(h(3),'# Iteration');
+            
+            % Weight vs choice signal
+            if use_data_to_fit == 1 % Real LIP data
+                xx =  abs(group_ChoicePreference(3,select_bottom_line,3));
+                plot(h(4),xx,weight,'o'); hold(h(4),'on');
+                
+                [r,p] = corr(xx',weight');
+                [linPara,S] = polyfit(xx,weight,1);
+                xxx = linspace(min(xx),max(xx),2);
+                Y = polyval(linPara,xxx);
+                plot(h(4),xxx,Y,'k');
+                title(h(4),sprintf('p = %3.3g, r = %3.3g',p,r));
+                
+                xlabel(h(4),'Choice strength of each cell');
+                ylabel(h(4),'Fitting weight');
+            else % Modeled data
+                plot(h(4),weight,'o'); hold(h(4),'on');
+                xlabel(h(4),'# cell');
+                ylabel(h(4),'Fitting weight');
+                
+            end
+%             keyboard
+        end
+        stop = false;
+        
+        % Save data
+        fitting_dynamics = {costs};
+        
+    end
+    function cost = f7p2_fitting_deltaPSTH_cost_func(model_y,real_ys,weight)
+        weight = weight-increase_step_trick;
+        proj_PSTH = reshape((weight) * reshape(real_ys,size(real_ys,1),[]),[],3);
+        cost = mean((proj_PSTH(:) - model_y(:)).^2)+alpha*norm(weight); % Mean Squared error
     end
 
+    %% ==== Decoder of heading (not choice/modality) ====  HH20170810
+    function f6p5(debug)
+        if debug;  dbstack;  keyboard;  end
+ 
+        % Override
+        %         min_reps = 15; % Anne used 20
+        %         training_reps = 25; % I artificially added some trials by bootstrapping if reps < training_reps.
+        %                             % This can include all cells (as Gu suggested) while not change the performance too much. @HH20150521
+        
+        SVM_training_epoch = [0 1700];    % This make it comparable with PCA results
+        
+        find_for_SVM = find(select_for_SVM);
+        
+        % Regroup pseudo-trials pool
+        pseudo_trial_pool_training = cell(length(find_for_SVM),4);
+        pseudo_trial_pool_testing = cell(length(find_for_SVM),4,length(SVM_testing_tcenters));
+        
+        for ii = 1:length(find_for_SVM)
 
+            this_cell_id = find_for_SVM(ii);
+            
+            % ====== Get unfiltered binary spike train data with all (correct and wrong) trials to decode heading!! ======
+            % Get data
+            spike_aligned_in_bin = group_result(this_cell_id).mat_raw_PSTH.spike_aligned{1,j};
+            t_in_bin = group_result(this_cell_id).mat_raw_PSTH.spike_aligned{2,j};
+            SVM_training_epoch_ind = min(SVM_training_epoch) <= t_in_bin & t_in_bin <= max(SVM_training_epoch);
+            
+            raw_this = spike_aligned_in_bin(:,SVM_training_epoch_ind);
+            
+            % ==== Get trial conditions ====
+            stim_type_per_trial = group_result(this_cell_id).mat_raw_PSTH.stim_type_per_trial';
+            heading_per_trial = group_result(this_cell_id).mat_raw_PSTH.heading_per_trial';
+            unique_heading = unique(heading_per_trial);
+            choice_per_trial = group_result(this_cell_id).mat_raw_PSTH.choice_per_trial;
+            correct_or_zero_per_trial = (choice_per_trial == ((heading_per_trial>0) + 1))  |(heading_per_trial == 0); % Correct or 0 heading;
+            pref_null = [group_result(this_cell_id).PREF_PSTH LEFT+RIGHT-group_result(this_cell_id).PREF_PSTH]; % Pref goes first
+            
+            
+            % By default, SVM for choice is related to pref and null
+            % This make it comparable with PCA results and reasonable for TDR
+            
+            % Training pool (one certain time window)
+            means_this = cellfun(@(x)mean(x(:,SVM_training_epoch_ind),2),raw_this,'uniformOutput',false);
+            [pseudo_trial_pool_training{ii,:}] = means_this{:};
+            
+            % Testing pool (shifting time windows)
+            for ttt = 1:length(SVM_testing_tcenters)
+                test_epoch_ind = SVM_testing_tcenters(ttt) - SVM_testing_span/2 <= rate_ts{j_for_SVM} & rate_ts{j_for_SVM} <= SVM_testing_tcenters(ttt) + SVM_testing_span/2;
+                means_this = cellfun(@(x)mean(x(:,test_epoch_ind),2),raw_this,'uniformOutput',false);
+                
+                [pool_testing{ii,:,ttt}] = means_this{:};
+            end
+            
+        end
+        
+        % Find cells who cross the minimal repetitions for each condition (Anne)
+        lengths = cellfun(@(x)length(x),pseudo_trial_pool_training);
+        select_for_SVM_actual = all(lengths >= min_reps,2);
+        pseudo_trial_pool_training = pseudo_trial_pool_training(select_for_SVM_actual,:);
+        pseudo_trial_pool_testing = pseudo_trial_pool_testing(select_for_SVM_actual,:,:);
+        
+        lengths = lengths(select_for_SVM_actual,:);
+        
+        % I artificially added some trials by bootstrapping if reps < training_reps.
+        % This can include all cells (as Gu suggested) while not change the performance too much. @HH20150521
+        
+        who_needs_add_some_trials = find(lengths < training_reps);
+        
+        for aa = 1:length(who_needs_add_some_trials)
+            this_who = who_needs_add_some_trials(aa);
+            
+            % Select trials
+            real_reps = length(pseudo_trial_pool_training{this_who});
+            n_to_add = training_reps - real_reps;
+            trials_to_add = randperm(real_reps,n_to_add);
+            
+            % Add trials
+            pseudo_trial_pool_training{this_who} = [pseudo_trial_pool_training{this_who}; pseudo_trial_pool_training{this_who}(trials_to_add)];
+            [sub1,sub2] = ind2sub(size(pseudo_trial_pool_training),this_who);
+            
+            for ttt = 1:length(SVM_testing_tcenters)
+                pseudo_trial_pool_testing{sub1,sub2,ttt} = [pseudo_trial_pool_testing{sub1,sub2,ttt}; pseudo_trial_pool_testing{sub1,sub2,ttt}(trials_to_add)];
+            end
+        end
+        
+        % Recalculate lengths
+        lengths = cellfun(@(x)length(x),pseudo_trial_pool_training);
+        reps_actual = min(lengths);
+        
+        % -------- Teacher signals --------
+        % For choices, 1 = Contralateral, 0 = Ipsilateral
+        answers_choice = [ones(1,reps_actual(1)) zeros(1,reps_actual(2)) ones(1,reps_actual(3)) zeros(1,reps_actual(4))]';
+        % For modality, 0 = Vestibular, 1 = Visual
+        answers_modality = [zeros(1,reps_actual(1)) zeros(1,reps_actual(2)) ones(1,reps_actual(3)) ones(1,reps_actual(4))]';
+        
+        %% =============  SVM Bootstrapping ============
+        % Parallel computing
+        if ver_num < 2014
+            if matlabpool('size') == 0 ;  matlabpool;  end
+        else
+            if isempty(gcp('nocreate')); parpool; end
+        end
+        
+        training_set = cell(n_bootstrap_weights);
+        tic; disp('Starting SVM training...');
+        
+        parfor_progress(n_bootstrap_weights);
+        
+        parfor nn = 1:n_bootstrap_weights
+            % Randomly select trials without replacement from the pseudo-trials pool
+            pseudo_trial_pool_perm = cellfun(@(x)x(randperm(size(x,1)),1),pseudo_trial_pool_training,'uniform',false);
+            
+            for conds = 1:4
+                training_set{nn}{conds} = cell2mat(cellfun(@(x)x(1:reps_actual(conds),:),pseudo_trial_pool_perm(:,conds),'uniform',false)');
+            end
+            
+            firing_for_this_training = cell2mat(training_set{nn}');
+            
+            % Train two SVM classifiers (choice and modality)
+            svm_training_choice(nn) = svmtrain(firing_for_this_training,answers_choice,'box',1e-5,'tol',1e-7,'autoscale',0);
+            svm_training_modality(nn) = svmtrain(firing_for_this_training,answers_modality,'box',1e-5,'tol',1e-7,'autoscale',0);
+            
+            parfor_progress;
+        end
+        parfor_progress(0);
+        toc; disp('Done!');
+        
+        %% Averaged weights (bagging)
+%         weights_svm_choice_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_choice,'uniform',0));
+%         weights_svm_modality_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_modality,'uniform',0));
+
+        % By default, 'autoscale' = true, so here I should rescale back the weight! HH20170613
+        weights_svm_choice_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_choice,'uniform',0));
+        weights_svm_modality_allbootstrap = cell2mat(arrayfun(@(x)-x.SupportVectors'*x.Alpha,svm_training_modality,'uniform',0));
+        
+        % Orthogonal test
+        angles = acos(sum(weights_svm_choice_allbootstrap.*weights_svm_modality_allbootstrap,1)./...
+            sqrt(sum(weights_svm_choice_allbootstrap.^2,1)./ sum(weights_svm_modality_allbootstrap.^2,1)))/pi*180;
+        
+        weights_svm_choice_mean = mean(weights_svm_choice_allbootstrap,2);
+        weights_svm_choice_mean = weights_svm_choice_mean / max(abs(weights_svm_choice_mean));
+        % svm_weights_choice_sem = std(svm_weights_choice,[],2)/sqrt(n_bootstrap);
+        
+        weights_svm_modality_mean = mean(weights_svm_modality_allbootstrap,2);
+        weights_svm_modality_mean = weights_svm_modality_mean / max(abs(weights_svm_modality_mean));
+        % svm_weights_modality_sem = std(svm_weights_modality,[],2)/sqrt(n_bootstrap);
+        
+        %% Find proper threshold for SVM
+        training_set = cell(n_bootstrap_threshold);
+        bestZ_choice = nan(n_bootstrap_threshold,1);
+        bestZ_modality = nan(n_bootstrap_threshold,1);
+        tic; disp('Find proper threshold for SVM decoders...');
+        
+        parfor nn = 1:n_bootstrap_threshold
+            % Randomly select trials without replacement from the pseudo-trials pool
+            pseudo_trial_pool_perm = cellfun(@(x)x(randperm(size(x,1)),1),pseudo_trial_pool_training,'uniform',false);
+            
+            for conds = 1:4
+                training_set{nn}{conds} = cell2mat(cellfun(@(x)x(1:reps_actual(conds),:),pseudo_trial_pool_perm(:,conds),'uniform',false)');
+            end
+            
+            proj_choice_on_choice = cell2mat(training_set{nn}') * weights_svm_choice_mean;
+            proj_modality_on_modality = cell2mat(training_set{nn}') * weights_svm_modality_mean;
+            
+            % Find the best threshold (the most northwestern point on ROC curve)
+            [~,bestZ_choice(nn)] = rocN(proj_choice_on_choice(logical(answers_choice)),proj_choice_on_choice(~logical(answers_choice)));
+            [~,bestZ_modality(nn)] = rocN(proj_modality_on_modality(logical(answers_modality)),proj_modality_on_modality(~logical(answers_modality)));
+            
+        end
+        toc; disp('Done!');
+        
+        thres_choice = mean(bestZ_choice);
+        thres_modality = mean(bestZ_modality);
+        
+        % ================ SVM Training End ===============
+       
+    end
+        
+        
 %%%%%%%%%%%%%%%%%%%%%%%%%  8. TDR   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 weights_TDR_PCA_SVM_mean = [];
 weights_TDR_PCA_SVM_allbootstrap = [];
@@ -5757,9 +6548,9 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         
         % --- Venn diagram for cell counters -- HH20160915
         % Fig.A: Choice preferences for three modalities
-        venn_HD_1 = select_bottom_line_all_monkey & group_ChoicePrefernce_pvalue(1,:,3)' < 0.05;
-        venn_HD_2 = select_bottom_line_all_monkey & group_ChoicePrefernce_pvalue(2,:,3)' < 0.05;
-        venn_HD_3 = select_bottom_line_all_monkey & group_ChoicePrefernce_pvalue(3,:,3)' < 0.05;
+        venn_HD_1 = select_bottom_line_all_monkey & group_ChoicePreference_pvalue(1,:,3)' < 0.05;
+        venn_HD_2 = select_bottom_line_all_monkey & group_ChoicePreference_pvalue(2,:,3)' < 0.05;
+        venn_HD_3 = select_bottom_line_all_monkey & group_ChoicePreference_pvalue(3,:,3)' < 0.05;
         venn_HD_12 = venn_HD_1 & venn_HD_2;
         venn_HD_13 = venn_HD_1 & venn_HD_3;
         venn_HD_23 = venn_HD_2 & venn_HD_3;
@@ -5771,7 +6562,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         figure(9997);  clf
         [H,S]=venn([sum(venn_HD_1),sum(venn_HD_2),sum(venn_HD_3)],...
             [sum(venn_HD_12),sum(venn_HD_13),sum(venn_HD_23),sum(venn_HD_123)],...
-            'FaceColor',{'none','none','none'},'Edgecolor',{'b','r','g'});
+            'FaceColor',{'none','none','none'},'Edgecolor',{colors(1,:),colors(2,:),colors(3,:)});
         for i = 1:length(S.ZoneCentroid)
             text(S.ZoneCentroid(i,1), S.ZoneCentroid(i,2), num2str(S.ZonePop(i)));
         end
@@ -5794,7 +6585,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
 %         figure(9996);  clf 
 %         [H,S]=venn([sum(venn_HD_any),sum(venn_HD_all),sum(venn_Mem)],...
 %             [sum(venn_HD_any_all),sum(venn_HD_any_Mem),sum(venn_HD_all_Mem),sum(venn_HD_any_all_Mem)],...
-%             'FaceColor',{'none','none','none'},'Edgecolor',{'b','r','g'});
+%             'FaceColor',{'none','none','none'},'Edgecolor',{colors(1,:),colors(2,:),colors(3,:)});
 %         for i = 1:length(S.ZoneCentroid)
 %             text(S.ZoneCentroid(i,1), S.ZoneCentroid(i,2), num2str(S.ZonePop(i)));
 %         end
@@ -5804,7 +6595,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         figure(9995);  clf 
         [H,S]=venn([sum(venn_HD_any),sum(venn_Mem)],...
             [sum(venn_HD_any_Mem)],...
-            'FaceColor',{'none','none'},'Edgecolor',{'b','r'}); 
+            'FaceColor',{'none','none'},'Edgecolor',{colors(1,:),colors(2,:)}); 
         for i = 1:length(S.ZoneCentroid)
             text(S.ZoneCentroid(i,1), S.ZoneCentroid(i,2), num2str(S.ZonePop(i)));
         end
@@ -5924,7 +6715,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
             
             % Annotate tcells
-            plot(weights(select_tcells(select),1),weights(select_tcells(select),2),'+','markersize',16,'color','r','linew',2);
+            plot(weights(select_tcells(select),1),weights(select_tcells(select),2),'+','markersize',16,'color',colors(2,:),'linew',2);
             
             % Show individual cell selected from the figure. HH20150424
             set([gca h.group.dots],'ButtonDownFcn',{@Show_individual_cell,h.group.dots,select});
@@ -5958,7 +6749,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         
         % Annotate tcells
-        plot(weights(select_tcells(select),1),abs(Choice_pref_all(k,select_tcells(select),tt)),'+','markersize',16,'color','r','linew',2);
+        plot(weights(select_tcells(select),1),abs(Choice_pref_all(k,select_tcells(select),tt)),'+','markersize',16,'color',colors(2,:),'linew',2);
         
         % Show individual cell selected from the figure. HH20150424
         h_line = plot(weights(:,1),abs(Choice_pref_all(k,:,tt)),'visible','off'); hold on;
@@ -5986,7 +6777,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
 %         
 %         % Annotate tcells
 %         plot(MemSac_indicator(select_tcells),weights(select_tcells(select),1),...
-%             '+','markersize',16,'color','r','linew',2);
+%             '+','markersize',16,'color',colors(2,:),'linew',2);
 %         
 %         % Show individual cell selected from the figure. HH20150424
 %         h_line = plot(MemSac_indicator(select),(weights(:,1)),'visible','off'); hold on;
@@ -6012,7 +6803,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         
         % Annotate tcells
         plot(MemSac_indicator(select_tcells),weights(select_tcells(select),1),...
-            '+','markersize',16,'color','r','linew',2);
+            '+','markersize',16,'color',colors(2,:),'linew',2);
         
         % Show individual cell selected from the figure. HH20150424
         h_line = plot(MemSac_indicator(select),(weights(:,1)),'visible','off'); hold on;
@@ -6052,7 +6843,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             
             % Annotate tcells
             plot((Modality_pref_all(k,select_tcells(select),tt)), weights(select_tcells(select),2),...
-                '+','markersize',16,'color','r','linew',2);
+                '+','markersize',16,'color',colors(2,:),'linew',2);
             
             % Show individual cell selected from the figure. HH20150424
             h_line = plot((Modality_pref_all(k,:,tt)),weights(:,2),'visible','off'); hold on;
@@ -6065,10 +6856,11 @@ weights_TDR_PCA_SVM_allbootstrap = [];
     function h = Weighted_sum_PSTH(weights,txt,selects)     % Plot weighted sum of firing rates
         
         % ------  PSTH correct only, all choices -----------
-        set(figure(figN),'pos',[95 95 1054 459]); clf; figN = figN + 1;
         
         if ~iscell(weights)  ;  weights = {weights};     end
         if ~iscell(selects) ;  selects = {selects};   end
+        
+        set(figure(figN),'pos',[34   83  584*length(weights)  504*2]); clf; figN = figN + 1;
         
         for pp = 1:length(weights)
             
@@ -6088,14 +6880,23 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 end
             end
             
-            h_subplot = subplot(1,length(weights),pp);
             
             % Note here the errorbars should be STD instead of SEM. (Not independent sampling, but bootstrapping)
+            h_subplot = subplot(2,length(weights),pp);
             h_series = SeriesComparison({PSTH_projected{1} PSTH_projected{2}},...
                 {rate_ts{1} rate_ts{2} time_markers},...
-                'Colors',{'b','b','r','r','g','g'},'LineStyles',{'-','--','-','--','-','--'},...
+                'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},'LineStyles',{'-','--','-','--','-','--'},...
                 'SEM',0,'ErrorBar',2,'Xlabel',[],'Ylabel','Weighted sum of firing','axes',h_subplot);
             hold on;    legend off;     axis tight;
+            xlim([min(xlim) + 200 max(xlim)-300]);   % ylim([0.1 .7]);
+            
+            h_subplot = subplot(2,length(weights),pp+length(weights));
+            h_series = SeriesComparison({PSTH_projected{1}(:,:,1:2:end)-PSTH_projected{1}(:,:,2:2:end) PSTH_projected{2}(:,:,1:2:end)-PSTH_projected{2}(:,:,2:2:end)},...
+                {rate_ts{1} rate_ts{2} time_markers},...
+                'Colors',{colors(1,:),colors(2,:),colors(3,:)},'LineStyles',{'-'},...
+                'SEM',0,'ErrorBar',2,'Xlabel',[],'Ylabel','Weighted sum of firing','axes',h_subplot);
+            hold on;    legend off;     axis tight;
+            
             xlim([min(xlim) + 200 max(xlim)-300]);   % ylim([0.1 .7]);
                       
 %             % Time markers
@@ -6141,11 +6942,24 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                     % ------- Different angles -------
                     % Deal with nans of 0 heading for some cells
                     PSTH_correct_angles_raw_this = PSTH_correct_angles_raw{j}(selects{1},:,:,k);
+                    yyy = nan(size(PSTH_correct_angles_raw_this,2),size(PSTH_correct_angles_raw_this,3));
+                    
+                    % HH20170808
+                    for hh = 1:size(yyy,2) % For each heading
+                        non_nan_this_heading = ~(any(isnan(PSTH_correct_angles_raw_this(:,:,hh)),2));
+                        yyy(:,hh) = PSTH_correct_angles_raw_this(non_nan_this_heading,:,hh)' ...
+                            * weights{1}(non_nan_this_heading,bb) / sum(weights{1}(non_nan_this_heading,bb));
+                    end
+
+                    %{ 
+                    % HH20170808
                     PSTH_correct_angles_raw_this(isnan(PSTH_correct_angles_raw_this)) = 0;
                     
                     % Weighted sum with choice weight
                     yyy = reshape(reshape(PSTH_correct_angles_raw_this,size(PSTH_correct_angles_raw_this,1),[])' ...
-                        * weights{1}(:,bb), size(PSTH_correct_angles_raw_this,2),[]);
+                        * weights{1}(:,bb) / sum(weights{1}(:,bb)), size(PSTH_correct_angles_raw_this,2),[]);
+                    %}
+                    
                     h.projected_angles_allbootstrap{j}(bb,:,:,k) = yyy;
                     
                     % -------- Difference ---------
@@ -6278,8 +7092,8 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             {rate_ts{1} rate_ts{2} time_markers},...
             'OverrideError',{sem_this{1}, sem_this{2}},...
             'OverridePs',{ps_this{1}, ps_this{2}},'ErrorBar',6,...
-            'CompareIndex',[1 3 5;2 4 6],'CompareColor',{'b','r',[0 0.8 0.4]},...
-            'Colors',{'b','b','r','r',[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
+            'CompareIndex',[1 3 5;2 4 6],'CompareColor',{colors(1,:),colors(2,:),[0 0.8 0.4]},...
+            'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
         
         axis tight; legend off;
         set(gcf,'unit','norm','pos',[ 0     0.53255     0.28843     0.35286]);
@@ -6366,7 +7180,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         end
         
         % -- Plot visual PSTH grouped by heading and choice (correct only) for Yong Gu -- HH20170327 @ UNIGE
-        set(figure(1466),'name','Yong Gu needs this'); clf;
+        set(figure(1466),'name','Yong Gu needs this but I don''t see the point'); clf;
         set(gcf,'uni','norm','pos',[0.541       0.526       0.287       0.353]);
         
         j = 1; k = 2;
@@ -6477,7 +7291,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 ys = MemSac_interp_PSTH(:,[pref null]);
                 
                 axes(axis_psth); hold on;
-                SeriesComparison(shiftdim(ys,-1),ts,'Colors',{'g','g'},'LineStyles',{'-','--'},'axes',axis_psth);
+                SeriesComparison(shiftdim(ys,-1),ts,'Colors',{colors(3,:),colors(3,:)},'LineStyles',{'-','--'},'axes',axis_psth);
                 
                 % (2) The two which are nearest to actual PREF location. @HH20150524
                 [~,pref] = min(abs(group_PREF_target_location(ori_cell_no) - MemSac_interp_locations));
@@ -6520,7 +7334,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             legend off;
             title(sprintf('PREF: %g, %s',group_PREF_target_location(ori_cell_no),group_result(ori_cell_no).cellID{2}{1}(30:end)));
             
-            text(-1000,max(ylim)*.95,'Mem\_pref','color','g');
+            text(-1000,max(ylim)*.95,'Mem\_pref','color',colors(3,:));
             text(-1000,max(ylim)*.88,'Act\_pref','color','k');
             
             for sliceN = 1:size(temporal_Slice,1)

@@ -64,7 +64,8 @@ switch(action)
             set(StopOffsetHandle, 'String', '60');    % Delay from digMarker to visual onset. HH20140621
 
         elseif str2num(FILE(strfind(FILE,'m')+1:strfind(FILE,'c')-1)) == 5  % Polo
-            PATH = 'Z:\Data\MOOG\Polo\raw\';
+            PATH = get(PathHandle, 'String');
+            % PATH = 'Z:\Data\MOOG\Polo\raw\'; % There was a conflict with Yong's monkey Chaos (m5) so I disabled it. 20180602
             set(PathHandle, 'String', PATH);
             
             %set start and stop timing offsets for analysis - BJP 3/1/00
@@ -106,7 +107,8 @@ switch(action)
         if (return_val == -1)  %problem opening file
             listtext{length(listtext)+1} = 'ERROR: File could not be opened';
             set(ListHandle, 'String', listtext);
-            wavplay(wavread('Z:\LabTools\Matlab\TEMPO_Analysis\type.wav'),200000,'async');
+            fprintf('ERROR: File could not be opened\n');
+            beep;
         else	%data are loaded, now setup some interface items
             
             % Save the file name to disk. HH20130901

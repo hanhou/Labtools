@@ -2,7 +2,13 @@ function XlsData = ReadXls(FILE,Sheet,HEADS_N)
 
 %% Read xls. HH20140624
 % global num txt raw header;
-[num,txt,raw] = xlsread(FILE,Sheet);
+try
+    [num,txt,raw] = xlsread(FILE,Sheet);
+catch err
+    disp(err);
+    warning('Xls read error... use basic mode');
+    [num,txt,raw] = xlsread(FILE,Sheet,'','basic');
+end
 % [num,txt,raw] = xlsread('Z:\Data\MOOG\Results\Result.xlsm',2);
 
 % Get Header infomation
