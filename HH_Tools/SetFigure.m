@@ -8,10 +8,8 @@ end
 set(gcf,'color','w'); % Color
 % set(findall(gcf,'-property','fontsize'),'fontsize',size); % Font size
 
-for ff = 10:20
-    set(findall(gcf,'fontsize',ff),'fontsize',size); % Font size
-end
-
+set(findall(gcf,'type','axes'),'fontsize',size)
+ 
 set(findall(gcf,'tickdir','i'),'tickdir','o'); % Tick direction
 set(findall(gcf,'type','axes'),'ticklength',[0.02 0],'LineWidth',1.5,'color','none'); % Tick length
 	

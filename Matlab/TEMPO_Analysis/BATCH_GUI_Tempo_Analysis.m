@@ -35,7 +35,7 @@ catch
 end
 
 isopen = xls_check_if_open(File,'');
-if ~isopen  % Open file
+if ~isopen && print_flag ~= -999 % Open file
     winopen('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm');
 end
 
@@ -67,18 +67,20 @@ while (line ~= -1)
         %get path / file
         PATH = line(1:space_index(1) - 1);
         FILE = line(space_index(1) + 1:space_index(2) - 1);
+        mat_PATH = [PATH(1:end-4) 'Analysis\SortedSpikes2\'];
+        
         
         % I use this to indicate that we only need to export the files (for data sharing). HH20141103
         if print_flag == -999
             
-            
-            outpath = [batchfiledir ori_filename(1:strfind(ori_filename,'.')-1) '_Exported\'];
+            exportPath = [batchfiledir ori_filename(1:strfind(ori_filename,'.')-1) '_Exported\'];
             if ~exist(exportPath,'dir')
                 mkdir(exportPath);
             end
             
             htbOK =copyfile([PATH FILE '.htb'],[exportPath FILE '.htb']);
             logOK=copyfile([PATH FILE '.log'],[exportPath FILE '.log']);
+            matOK=copyfile([mat_PATH FILE '.mat'],[exportPath FILE '.mat']);
             
             if ~(htbOK && logOK)
                 errors = errors + 1;

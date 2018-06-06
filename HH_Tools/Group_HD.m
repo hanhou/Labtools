@@ -2162,6 +2162,7 @@ function_handles = {
             end
         end                
     end
+
     function f1p2p7(debug)      % Rate 2.7. Tuning curve analysis. (Dora's tuning) 20161019
         if debug
             dbstack;
@@ -2204,6 +2205,7 @@ function_handles = {
 %         [~,post_t_ind] = min(abs(CP_ts{j} - t_post_center));
 
         tuning_time_center = [550 750 1100 1500];
+        
         for tt = 1:length(tuning_time_center)
             [~,tmp] = min(abs(CP_ts{j} - tuning_time_center(tt)));
             tuning_time_phase(tt) = tmp;
@@ -2221,11 +2223,11 @@ function_handles = {
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Parameters for tuning curve normalization
         
-        % time_for_dynamic_range = find(CP_ts{j} < time_markers{j}(1,2)); % all pre-sac times
-        time_for_dynamic_range = [tuning_time_phase(1) - 5 tuning_time_phase(1) + 5]; % Around stimulus center
-        modalities_share_same_dynamic_range = 1;
+%         time_for_dynamic_range = find(CP_ts{j} < time_markers{j}(1,2)); % all pre-sac times
+        time_for_dynamic_range = [tuning_time_phase(1) - 3 tuning_time_phase(1) + 3]; % Around stimulus center
+        modalities_share_same_dynamic_range = 0;
         linear_or_sigmoid = 1; % 1: linear fitting; 2: sigmoid fitting
-        min_trials_dora_tuning = 1;
+        min_trials_dora_tuning = 3;
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Pack tuning data
@@ -2409,20 +2411,41 @@ function_handles = {
                     
                 elseif linear_or_sigmoid == 1    % Linear fitting using group data. HH20161109
                     hh_index = {1:zero_index zero_index+1:size(this_tuning_correctonly,1)};
+                    
                     for hh = LEFT:RIGHT % LEFT, RIGHT
+                        
                         yy = this_tuning_correctonly(hh_index{hh},:)';
                         xx = unique_heading(hh_index{hh}-(hh==RIGHT))';
                         xx = repmat(xx,size(yy,1),1);
                         xx = xx(~isnan(yy)); yy = yy(~isnan(yy));
-                        [r,p] = corr(xx,yy,'type','pearson');
+                        
+                        % [r,p] = corr(xx,yy,'type','pearson'); 
                         [para,~] = polyfit(xx,yy,1);
-                        tuning_linear_fit_correctonly(:,pp,k,hh) = [r p para];
+                        
+                        % tuning_linear_fit_correctonly(:,pp,k,hh) = [r p para];
+                        tuning_linear_fit_correctonly([3 4],pp,k,hh) = para;
+                        
                     end
+                    
+                    % I use the "delta norm firing as a function of |heading|"
+                    % to combine the two sides. It works!   HH20180606
+                    this_tuning_diff = this_tuning_correctonly(hh_index{2},:) - ...
+                                       flipud(this_tuning_correctonly(hh_index{1},:));
+                    yy_diff = this_tuning_diff';
+                    xx_abs = repmat(unique_heading(hh_index{2}-1)',size(yy_diff,1),1);
+                    xx_abs = xx_abs(~isnan(yy_diff)); yy_diff = yy_diff(~isnan(yy_diff));
+                    [r,p] = corr(xx_abs(:),yy_diff(:),'type','pearson');
+                    
+                    % Share the same p
+                    tuning_linear_fit_correctonly([1 2],pp,k,LEFT) = [r, p]';
+                    tuning_linear_fit_correctonly([1 2],pp,k,RIGHT) = [r, p]';
+
                 end
             end
             
         end
  
+        % ---  Plotting ---
         for pp = 1:length(tuning_time_phase)
             
             for k = 1:3  % For each stim type
@@ -2440,7 +2463,7 @@ function_handles = {
                 % Dora tuning
                 
                 hh_index = {1:zero_index zero_index:length(unique_heading)};
-                cc_marker = {'^','v'};
+                cc_marker = {'<','>'};
                 
                 for cc = 1:2
                     for hh = LEFT:RIGHT
@@ -2479,6 +2502,7 @@ function_handles = {
 
                 
                 try errorbar_tick(h,10000); catch end;
+                
                 title([tuning_time_phase_title{pp} ', t = ' num2str(CP_ts{j}(tuning_time_phase(pp))),...
                     ' n = ' num2str(size(this_tuning_correctonly,2))]);
                 axis tight; xlim(xlim*1.1);
@@ -2488,7 +2512,9 @@ function_handles = {
                 if linear_or_sigmoid == 2        % Plot sigmoid fitting
                     xx = linspace(min(unique_heading),max(unique_heading),100);
                     plot(xx,sigfunc(tuning_sig_fit_correctonly(:,tuning_time_phase(pp),k),xx),'color',colors(k,:),'linew',3);
+               
                 elseif linear_or_sigmoid == 1   % Plot linear fitting
+                
                     line_type = {'-','--'}; % Significant/Insignificant
                     for hh = LEFT:RIGHT % LEFT, RIGHT
                         xx = unique_heading(hh_index{hh})';
@@ -2523,12 +2549,14 @@ function_handles = {
     dora_tuning_sem_each_cell = []; % Cache the dora tuning for each cell calculated in f1p2p8
     dora_tuning_n_each_cell = [];
     partial_corr_timewins = {[0 1500],'0 ~ 1500 ms (all stim)';
-                             [-300 0],'-300 ~ 0 ms (before stim)';
+                             % [-200 0],'-300 ~ 0 ms (before stim)';
                              [0 300],'0 ~ 300 ms (stim start)';
-                             [500 800],'500 ~ 800 ms (acc peak)';
-                             [800 1100],'800 ~ 1100 ms (vel peak)';
-                             [1200 1500],'1200 ~ 1500 ms (stim end)';
-                             [2000 2300],'2000 ~ 2300 ms (after sac)'};
+                             [400 700],'400 ~ 700 ms (acc peak)';
+                             [700 1000],'700 ~ 1000 ms (intermediate)';
+                             [1000 1300],'800 ~ 1100 ms (vel peak)';
+                             [1300 1500],'1300 ~ 1500 ms (stim end)';
+                             [1500 1800],'1500 ~ 2000 ms (delay)';
+                             [2000 2300],'2000 ~ 2300 ms (postsac)'};
     select_for_partial = []; 
 
     function f1p2p8(debug)    % Rate 2.8. Partial correlation analysis. (Dora's method) 20170327 @UNIGE
@@ -2631,7 +2659,7 @@ function_handles = {
                 
                 % Draw line if significant
                 [rrr,ppp] = corr(xx,yy,'type','Pearson');
-                if ppp<0.05
+                if ppp < inf % 0.05
                     coeff = pca([xx yy]);
                     linPara(1) = coeff(2) / coeff(1);
                     linPara(2) = mean(yy)- linPara(1) *mean(xx);
@@ -2659,6 +2687,8 @@ function_handles = {
                     xlabel('Partial corr (Heading)');
                     ylabel('Partial corr (Choice)');
                 end
+                
+                                
             end
         end
     end
@@ -7079,7 +7109,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
    
     function Plot_HD(~,~,ori_cell_no)    % Plot associated HD traces @HH20150426
         
-        % PSTH in HD
+        % ------ PSTH in HD ------
         j_this = 1;
         
         for j = 1:2
@@ -7108,12 +7138,37 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             celltype = 'Int';
         end
         
-        title(sprintf('#%g, %s, %s',...
-            ori_cell_no,celltype,group_result(ori_cell_no).cellID{1}{1}(9:end)));
+        title(sprintf('#%g, %s, %s\np = %.3g,%.3g,%.3g',...
+            ori_cell_no,celltype,group_result(ori_cell_no).cellID{1}{1}(9:end),...
+            group_result(ori_cell_no).ChoicePreference_pvalue(3,:)'));
         
         xlabel('Time to saccade onset (ms)');      ylabel('Firing rate');
         xlim(xlim * 0.9);
         SetFigure(10);
+        
+        % Gaussian vel
+        plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        
+        % --- Choice divergence --- HH20180606
+        set(figure(1466)); clf;
+        set(gcf,'uni','norm','pos',[0.541       0.526       0.287       0.353]);
+
+        for j = 1:2
+            PSTH_diff_hardeasy{j} = PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,1:2:end,:)...
+                - PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,2:2:end,:);
+        end
+        
+        SeriesComparison({reshape(PSTH_diff_hardeasy{1},1,[],6) reshape(PSTH_diff_hardeasy{2},1,[],6)},...
+            {rate_ts{1} rate_ts{2} time_markers},...
+            'Colors',hsv2rgb([2/3 .4 1; 2/3 1 1; 0 .4 1; 0 1 1; 1/3 .4 1; 1/3 1 1]),...
+            'LineStyles',{'-','-'},'figN',1464);
+        title('CD');
+        axis tight; legend off; plot(xlim,[0 0],'k--');
+        set(gcf,'uni','norm','pos',[0.291       0.532       0.287       0.353]);
+        
+        % Gaussian vel
+        plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        
         
         % -- PSTH_diff (Hard and Easy) -- HH20160905
         for j = 1:2
@@ -7128,6 +7183,10 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         title('PSTH\_diff, Hard and Easy');
         axis tight; legend off; plot(xlim,[0 0],'k--');
         set(gcf,'uni','norm','pos',[0.291       0.532       0.287       0.353]);
+        
+        % Gaussian vel
+        plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+
         
         % -- Dora Tuning -- HH20170327 @ UNIGE
         if ~isempty(dora_tuning_mean_each_cell)
@@ -7180,6 +7239,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         end
         
         % -- Plot visual PSTH grouped by heading and choice (correct only) for Yong Gu -- HH20170327 @ UNIGE
+        %{
         set(figure(1466),'name','Yong Gu needs this but I don''t see the point'); clf;
         set(gcf,'uni','norm','pos',[0.541       0.526       0.287       0.353]);
         
@@ -7204,7 +7264,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         
         % Gaussian vel
         plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
-        
+        %}
         
         Plot_memsac([],[],ori_cell_no);
     end
@@ -7226,11 +7286,13 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             
             if ~isempty(group_result(ori_cell_no).mat_raw_MemSac)
                 
-                resp_mean = group_result(ori_cell_no).mat_raw_MemSac.resp_mean(2:end);
-                resp_err = group_result(ori_cell_no).mat_raw_MemSac.resp_err(2:end);
-                p = group_result(ori_cell_no).mat_raw_MemSac.p(2:end);
+                plot_time_range = [2 3 4 6]; % 2:end
+                
+                resp_mean = group_result(ori_cell_no).mat_raw_MemSac.resp_mean(plot_time_range);
+                resp_err = group_result(ori_cell_no).mat_raw_MemSac.resp_err(plot_time_range);
+                p = group_result(ori_cell_no).mat_raw_MemSac.p(plot_time_range);
                 vectSum = group_result(ori_cell_no).mat_raw_MemSac.vectSum(2:end);
-                temporal_Slice = group_result(ori_cell_no).mat_raw_MemSac.temporal_Slice(2:end,:);
+                temporal_Slice = group_result(ori_cell_no).mat_raw_MemSac.temporal_Slice(plot_time_range,:);
                 align_offsets = group_result(ori_cell_no).mat_raw_MemSac.align_offsets;
                 align_markers = group_result(ori_cell_no).mat_raw_MemSac.align_markers;  % Desired markers: target onset & target offset & sac onset
                 unique_heading = group_result(ori_cell_no).mat_raw_MemSac.unique_heading;
@@ -7256,12 +7318,12 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                         sigMarker = '-'; wid = 1;
                     end;
                     
-                    %                 polarwitherrorbar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
-                    %                     [resp_mean{sliceN}'; resp_mean{sliceN}(1)], (p(sliceN) < 0.05) * [resp_err{sliceN}' ; resp_err{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker],wid);
+                    polarwitherrorbar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
+                        [resp_mean{sliceN}'; resp_mean{sliceN}(1)], (p(sliceN) < 0.05) * [resp_err{sliceN}' ; resp_err{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker],wid);
                     
-                    set(polar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
-                        [resp_mean{sliceN}'; resp_mean{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker]),'linewidth',2);
-                    
+                    %                     set(polar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
+%                         [resp_mean{sliceN}'; resp_mean{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker]),'linewidth',2);
+%                     
                     hold on;
                     
                     if p(sliceN) < 0.05
@@ -7308,7 +7370,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 SeriesComparison(shiftdim(ys,-1),ts,'Colors',{'k','k'},'LineStyles',{'-','--'},'axes',axis_psth);
             end
             
-            % (2) The two in 2pt-memsac. @HH20150524
+            % (3) The two in 2pt-memsac. @HH20150524
             TwoPtMemSac_PSTH = group_result(ori_cell_no).TwoPtMemSac_PSTH;
             
             if ~isempty(TwoPtMemSac_PSTH)

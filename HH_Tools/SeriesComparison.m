@@ -45,7 +45,7 @@ addOptional(paras,'PCritical',0.05);  % Colors for significance marker.
 
 addOptional(paras,'Colors',{'b','r','g'}); % (originally for comparing PSTH of LIP neurons)
 addOptional(paras,'LineStyles',{'-'});
-addOptional(paras,'Transparent',1);
+addOptional(paras,'Transparent',0);
 addOptional(paras,'SEM',1);  % SEM (for conventional mean) or STD (for bootstrap)
 addOptional(paras,'Border',[1600, -350]);
 
