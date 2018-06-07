@@ -4,10 +4,10 @@ TEMPO_Defs;
 
 %check if calibration file exists, and read calibration params in from file
 i = size(PATH,2) - 1;
-while PATH(i) ~='\'	%Analysis directory is one branch below Raw Data Dir
+while PATH(i) ~='/'	%Analysis directory is one branch below Raw Data Dir
     i = i - 1;
 end   
-PATHIN = [PATH(1:i) 'Analysis\Eye_Calibration\'];
+PATHIN = [PATH(1:i) 'Analysis/Eye_Calibration/'];
 
 run_loc = find(FILE == 'r');
 file_root_name = FILE(1:run_loc-1);

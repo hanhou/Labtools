@@ -8,10 +8,10 @@ persistent XlsData; % Hold some xls data to prevent read xls file repeatly durin
 
 if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" structure)
     
-    outpath = ['Z:\Data\Tempo\Batch\' config.batch_flag(1:end-2) '\'];
+    outpath = ['Z/Data/TEMPO/Batch/' config.batch_flag(1:end-2) '/'];
     
     % Check directory
-    if ~exist(outpath,'dir')
+    if ~ exist(outpath,'dir')
         mkdir(outpath);
     end
     
@@ -47,28 +47,31 @@ if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" struc
     
     % Save raw data
     save(savefilename,'result');
-    disp('Saving to .mat finished...');
+    disp('Saved to .mat ...');
     
-    % Save figures
+    % Save figures 
+%     %{
     for ff = 1:length(config.save_figures)
         orient landscape;
         set(config.save_figures(ff),'Visible','on','PaperPositionMode','auto','PaperOrientation','landscape');
         %         print(config.save_figures(ff),'-dbitmap',[savefilename '_fig_' num2str(config.save_figures(ff)) '.bmp']);
         
-        saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'jpeg');
+        %         saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'jpeg');
         saveas(config.save_figures(ff),[savefilename '_fig_' num2str(config.save_figures(ff))],'fig');
         
         if ~strcmp(config.batch_flag,'test.m')  % HH20160415
             close(config.save_figures(ff));
         end
     end
+    disp('Saved to .fig...');
+    %}
 end
 
 
 % Print part of data to texts (clipboard / .dat file / Data hub "Result.xlsm")
 
 % try
-    
+    %{
     if ~isempty(config.batch_flag)
         
         % Print to file
@@ -91,11 +94,11 @@ end
         end
         
         fprintf(fid,'%s\t',[result.FILE '_' num2str(result.SpikeChan)]);
-        
+      
     else  % Print to screen
         fid = 1;
     end
-    
+
     toClip = [];
 %     toXls = {};
     
@@ -140,12 +143,12 @@ end
     end
     
     fprintf(fid, '\r\n');
-    
-    if ~isempty(config.batch_flag)  % Close .dat file
-        fclose(fid);
-    end
-    
-    toClip = [toClip(1:end-1) sprintf('\r\n')]; % Delete the last '\t' for clipboard
+
+%     if ~isempty(config.batch_flag)  % Close .dat file
+%         fclose(fid);
+%     end
+%     
+%     toClip = [toClip(1:end-1) sprintf('\r\n')]; % Delete the last '\t' for clipboard
     %     clipboard('copy',toClip);
     
     
@@ -159,49 +162,49 @@ end
     % --- Save back to xls ---
     % (finally I decide to save somethings back to xls for easier and better visualization in xls). HH20150724
     
-    if ~isempty(config.batch_flag) && isfield(config,'xls_column_begin')
+%     if ~isempty(config.batch_flag) && isfield(config,'xls_column_begin')
+%         
+%         % Turn toClip into toXls (Separate strings by TAB and reoranize into cells)
+%         toXls = textscan(toClip,'%s','Delimiter','\t');
+%         toXls = toXls{1}';
+%         
+% %         % Read xls if needed. (only for the first file in BATCH mode)
+%         if isempty(XlsData) || strcmp(config.batch_flag,'test.m')  % If we are in test mode, we reload xls each time. HH20160415
+%             XlsData = ReadXls('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm',2,3);
+%         end
+%         
+%         % Locate where to paste "toClip"
+%         row = find(strcmp(XlsData.txt(:,XlsData.header.FileNo),result.FILE)) + 3; 
         
-        % Turn toClip into toXls (Separate strings by TAB and reoranize into cells)
-        toXls = textscan(toClip,'%s','Delimiter','\t');
-        toXls = toXls{1}';
-        
-        % Read xls if needed. (only for the first file in BATCH mode)
-        if isempty(XlsData) || strcmp(config.batch_flag,'test.m')  % If we are in test mode, we reload xls each time. HH20160415
-            XlsData = ReadXls('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm',2,3);
-        end
-        
-        % Locate where to paste "toClip"
-        row = find(strcmp(XlsData.txt(:,XlsData.header.FileNo),result.FILE)) + 3; 
-        
-        if ~isempty(row)
-            if numel(row) > 1 % More than one SpikeChans
-                row = intersect(row,find(XlsData.num(:,XlsData.header.Chan1) == result.SpikeChan)+3);
-            else % Only one SpikeChan or no SpikeChan (Training sessions)
-            end
-
-            column_begin = XlsData.header.(config.xls_column_begin);
-            column_end = XlsData.header.(config.xls_column_end);
-
-    %         keyboard;
-
-            % Write "toClip" into excel file
-            if length(toXls) == column_end - column_begin + 1;
-                column_begin_name = num2ExcelName(column_begin);
-                range_name = [column_begin_name num2str(row)];
-                try
-                    xlswrite1('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm',toXls,2,range_name);  % Speed-up of xlswrite
-                    disp('Writing to .xls finished...');
-                catch
-                    disp('Writing to .xls failed :<');
-                end
-            else
-                disp('Size not match when write back to xls...');
-                keyboard
-            end
-        else
-            disp('No file entry found in .xls...');
-        end
-    end
+%         if ~isempty(row)
+%             if numel(row) > 1 % More than one SpikeChans
+%                 row = intersect(row,find(XlsData.num(:,XlsData.header.Chan1) == result.SpikeChan)+3);
+%             else % Only one SpikeChan or no SpikeChan (Training sessions)
+%             end
+% 
+%             column_begin = XlsData.header.(config.xls_column_begin);
+%             column_end = XlsData.header.(config.xls_column_end);
+% 
+%     %         keyboard;
+% 
+%             % Write "toClip" into excel file
+%             if length(toXls) == column_end - column_begin + 1;
+%                 column_begin_name = num2ExcelName(column_begin);
+%                 range_name = [column_begin_name num2str(row)];
+%                 try
+%                     xlswrite1('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm',toXls,2,range_name);  % Speed-up of xlswrite
+%                     disp('Writing to .xls finished...');
+%                 catch
+%                     disp('Writing to .xls failed :<');
+%                 end
+%             else
+%                 disp('Size not match when write back to xls...');
+%                 keyboard
+%             end
+%         else
+%             disp('No file entry found in .xls...');
+%         end
+%     end
     
 % catch error
 %     beep;
@@ -212,24 +215,25 @@ end
     if strcmp(config.batch_flag,'test.m')
         assignin('base','result',result);    
     end
+    %}
 
 end
 
-function [col_str] = num2ExcelName(num_loc) % Convert xls column number to column name (such as "A", "AB", ...)
-test = 2;
-old = 0;
-x = 0;
-while test >= 1
-    old = 26^x + old;
-    test = num_loc/old;
-    x = x + 1;
-end
-num_letters = x - 1;
-str_array = zeros(1,num_letters);
-for i = 1:num_letters
-    loc = floor(num_loc/(26^(num_letters-i)));
-    num_loc = num_loc - (loc*26^(num_letters-i));
-    str_array(i) = char(65 + (loc - 1));
-end
-col_str = strcat(str_array(1:length(str_array)));
-end
+% function [col_str] = num2ExcelName(num_loc) % Convert xls column number to column name (such as "A", "AB", ...)
+% test = 2;
+% old = 0;
+% x = 0;
+% while test >= 1
+%     old = 26^x + old;
+%     test = num_loc/old;
+%     x = x + 1;
+% end
+% num_letters = x - 1;
+% str_array = zeros(1,num_letters);
+% for i = 1:num_letters
+%     loc = floor(num_loc/(26^(num_letters-i)));
+%     num_loc = num_loc - (loc*26^(num_letters-i));
+%     str_array(i) = char(65 + (loc - 1));
+% end
+% col_str = strcat(str_array(1:length(str_array)));
+% end

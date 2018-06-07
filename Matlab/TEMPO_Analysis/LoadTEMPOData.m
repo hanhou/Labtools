@@ -29,15 +29,15 @@ end
 % Note that this needs to be careful and checked manually for each cell. HH20150624
 % Also should add the entries in "BATCH_GUI_Tempo_Analysis.m" for overiding in Batch analysis
 rescue_from_CED = {   % FileName   Protocol   Conditions   Headings  Coherence
-    'Z:\Data\MOOG\Polo\raw\m5c77r2.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 35;
-    'Z:\Data\MOOG\Polo\raw\m5c90r2.htb','HD',[1 2 3],[-6 -3 -1.5 -0.75 0 0.75 1.5 3 6], 35;
-    'Z:\Data\MOOG\Polo\raw\m5c91r1.htb','MemSac', nan, 0:45:350, nan;
-    'Z:\Data\MOOG\Polo\raw\m5c118r3.htb','HD',[1 2 3],[-6 -3 -1.5 -0.75 0 0.75 1.5 3 6], 30;
-    'Z:\Data\MOOG\Messi\raw\m10c50r3.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 15;    
-    'Z:\Data\MOOG\Messi\raw\m10c70r3.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 16;
-    'Z:\Data\MOOG\Messi\raw\m10c102r5.htb','DelSac',nan, 0:45:350, nan;
-    'Z:\Data\MOOG\Messi\raw\m10c104r9.htb','HD',[1 2 3], [-8 -4 -2 -1 0 1 2 4 8], 14;
-    'Z:\Data\MOOG\Messi\raw\m10c168r3.htb','HD',[1 2 3], [-8 -4 -2 -1 0 1 2 4 8], 8;
+    'Z/Data/MOOG/Polo/raw/m5c77r2.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 35;
+    'Z/Data/MOOG/Polo/raw/m5c90r2.htb','HD',[1 2 3],[-6 -3 -1.5 -0.75 0 0.75 1.5 3 6], 35;
+    'Z/Data/MOOG/Polo/raw/m5c91r1.htb','MemSac', nan, 0:45:350, nan;
+    'Z/Data/MOOG/Polo/raw/m5c118r3.htb','HD',[1 2 3],[-6 -3 -1.5 -0.75 0 0.75 1.5 3 6], 30;
+    'Z/Data/MOOG/Messi/raw/m10c50r3.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 15;    
+    'Z/Data/MOOG/Messi/raw/m10c70r3.htb','HD',[1 2 3],[-8 -4 -2 -1 0 1 2 4 8], 16;
+    'Z/Data/MOOG/Messi/raw/m10c102r5.htb','DelSac',nan, 0:45:350, nan;
+    'Z/Data/MOOG/Messi/raw/m10c104r9.htb','HD',[1 2 3], [-8 -4 -2 -1 0 1 2 4 8], 14;
+    'Z/Data/MOOG/Messi/raw/m10c168r3.htb','HD',[1 2 3], [-8 -4 -2 -1 0 1 2 4 8], 8;
     };
 
 ff = 1;
@@ -366,8 +366,8 @@ end
 return_value = 1;		%indicates completed OK
 
 %add by AHC 02-22-06
-fa = find(PATH == '\');
-sName = ['Z:\Data\MOOG', PATH(fa(3):fa(4)), 'Analysis\SortedSpikes2\', FILE(1:length(FILE) - 4),'.mat'];
+fa = find(PATH == '/');
+sName = ['Z/Data/MOOG', PATH(fa(3):fa(4)), 'Analysis/SortedSpikes2/', FILE(1:length(FILE) - 4),'.mat'];
 if (exist(sName,'file'))
     [good_data SortedChannel] = PackData(good_data,sName);%get the Spike2 sorted data
     if SortedChannel >0

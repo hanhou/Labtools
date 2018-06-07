@@ -58,7 +58,8 @@ if ~TEMPO_Spike2_match
     else
         disp('*** CAUTION ***: Spike2 sorted data not loaded');
         outputChan = -1;
-        edit LoadSortData;
+        
+        % edit LoadSortData; % Not for cluster
         return;
     end
 else
