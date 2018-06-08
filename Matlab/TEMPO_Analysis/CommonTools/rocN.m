@@ -26,6 +26,8 @@ if sum(isnan(x)) + sum(isnan(y)) > 0 || isempty(x) || isempty(y) % Any NaN or an
     auROC = NaN;
     bestz = NaN;
     perm.pValue = NaN;
+    perm.std = NaN;
+    perm.auROC = NaN;
     return;
 end
 
@@ -85,7 +87,7 @@ auROC = trapz(fa,hit);
 if permuteN > 0
     
     % Generate randPermX and Y
-    [~,randPermSortIndex] = sort(rand(length([x;y]),permuteN),1);
+    [~,randPermSortIndex] = sort(rand(length([x;y]),permuteN),1); % This is really brilliant.
     tempXY = [x;y];
     randPermXY = tempXY(randPermSortIndex);
     randPermX = randPermXY(1:length(x),:);
@@ -113,7 +115,9 @@ if permuteN > 0
     
     perm.std = std(perm.auROCPerm);
 else
-    perm = [];
+    perm.pValue = NaN;
+    perm.std = NaN;
+    perm.auROCPerm = NaN;
 end
 
 if nargout > 1 % Return the best threshold. @HH20150204

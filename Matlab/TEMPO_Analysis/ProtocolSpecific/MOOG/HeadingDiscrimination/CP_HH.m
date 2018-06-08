@@ -254,6 +254,7 @@ for hh = 1:length(unique_heading)
             result.CP_allheadings(hh) = auROC;
             result.CP_0 = auROC;
             result.CP_0_p_perm = perm.pValue;
+            result.CP_0_std_perm = perm.std;
         else
             result.CP_allheadings(hh) = rocN(spike_counts_allheadings_grouped{hh, result.pref}, ...
                 spike_counts_allheadings_grouped{hh, LEFT + RIGHT - result.pref});
@@ -300,7 +301,9 @@ if length(unique_heading)>1
              spike_zscored_grand_grouped{LEFT + RIGHT - result.pref}, [], CP_p_method);
     
     result.CP_grand_p_perm = perm.pValue;
-%     result.CP_grand = rocN(spike_zscored_grand_grouped{result.pref}, ... 
+    result.CP_grand_std_perm = perm.std;
+
+    %     result.CP_grand = rocN(spike_zscored_grand_grouped{result.pref}, ... 
 %              spike_zscored_grand_grouped{LEFT + RIGHT - result.pref});
 
 end

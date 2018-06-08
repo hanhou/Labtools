@@ -1,8 +1,16 @@
-function BATCH_GUI_Tempo_Analysis(batchfiledir, batch_filename, close_flag, print_flag, protocol_filter, analysis_filter)
+function BATCH_GUI_Tempo_Analysis(batchfiledir, batch_filename, close_flag, print_flag, protocol_filter, analysis_filter, fileToRun)
+
+% To slice Batch file in Linux more easily
+if nargin < 7
+    fileToRun = nan;
+end
+
+cd /home/hh
 
 % hostname = char( getHostName( java.net.InetAddress.getLocalHost)); % Get host name
 
 % For parallel processing
+% %{
 if ~verLessThan('matlab','R2014a')
     if isempty(gcp('nocreate'))
         parpool('local',17,'IdleTimeout',inf);
@@ -15,6 +23,7 @@ else
         end
     end
 end
+%}
 
 TEMPO_Defs;
 Path_Defs;
@@ -227,7 +236,7 @@ while (line ~= -1) % Propocessing
             % ==== Cache files ==== % 
             
             nn = nn + 1;
-            para_batch{nn} = {Analysis, SpikeChan , SpikeChan2, StartCode, StopCode,...
+            para_batch_all{nn} = {Analysis, SpikeChan , SpikeChan2, StartCode, StopCode,...
                 BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE, UseSyncPulses, good_flag};
         
         end
@@ -274,14 +283,32 @@ end
 %                     end
 
 N = nn; % Total number of files
+fprintf('Total number of files in the Batch file: %g\n', N);
+SGE = 0;
+
+if isnan(fileToRun)
+    fileToRun = 1:N; 
+elseif any(fileToRun < 0) % SGE control
+    SGE = 1;
+    thisNode = - fileToRun(1);
+    totalNodeN = - fileToRun(2);
+    averN = ceil(N/totalNodeN);
+    fileToRun = (thisNode - 1) * averN + 1 : thisNode * averN; % Could be larger than N but we have intersect below.
+else     % Regular manual control
+    ;    % Do nothing
+end
+
+para_batch_to_run = para_batch_all(intersect(1:N, fileToRun));
+N = length(para_batch_to_run); % New N
+fprintf('To run: %g\n', N);
+
 errorFiles(N).fileName = [];
 
 % ======================== Do parallel processing ===================
 
-parfor_progress(N);
+if ~SGE, parfor_progress(N); end   % Because there could be conflict of parfor_progress.m
 
 PROTOCOLForParWorkers = PROTOCOL;
-
 parfor nn = 1:N
     try   % Error tolerance is important in batch process! HH20140510
         
@@ -291,30 +318,30 @@ parfor nn = 1:N
         %               BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE, UseSyncPulses, good_flag};
         
         %load data file
-        [return_val, g_data, b_data] = LoadTEMPOData(para_batch{nn}{10},para_batch{nn}{11});
+        [return_val, g_data, b_data] = LoadTEMPOData(para_batch_to_run{nn}{10},para_batch_to_run{nn}{11});
         
         if return_val == -1
-            fprintf('*** HTB not found: %s ***\n',[para_batch{nn}{10},para_batch{nn}{11}]);
+            fprintf('*** HTB not found: %s ***\n',[para_batch_to_run{nn}{10},para_batch_to_run{nn}{11}]);
         end
         
-        if return_val == -999 && para_batch{nn}{2} >= 5
+        if return_val == -999 && para_batch_to_run{nn}{2} >= 5
             % I throw an error message only when we are in batch mode and we DO use the offline spike2 data.
             error('Htb & spike2 files not matched ...\n');
         end
         
-        if (para_batch{nn}{13})
+        if (para_batch_to_run{nn}{13})
             select_data = g_data;
         else
             select_data = b_data;
         end
         
-        if para_batch{nn}{6} == -1
-            para_batch{nn}{6} = 1;
+        if para_batch_to_run{nn}{6} == -1
+            para_batch_to_run{nn}{6} = 1;
         end
         
         
-        if para_batch{nn}{7} == -1
-            para_batch{nn}{7} = size(g_data.event_data,3);
+        if para_batch_to_run{nn}{7} == -1
+            para_batch_to_run{nn}{7} = size(g_data.event_data,3);
         end
         
         %get protocol type
@@ -328,19 +355,19 @@ parfor nn = 1:N
         % para_batch{nn} = {Analysis, SpikeChan, SpikeChan2, StartCode, StopCode,...
         %                  6         7           8          9         10    11        12            13
         %               BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE, UseSyncPulses, good_flag};
-        Analysis_Switchyard(select_data, Protocol, para_batch{nn}{1}, para_batch{nn}{2}, para_batch{nn}{3}, para_batch{nn}{4}, para_batch{nn}{5}, ...
-            para_batch{nn}{6}, para_batch{nn}{7}, para_batch{nn}{8}, para_batch{nn}{9}, para_batch{nn}{10}, para_batch{nn}{11}, batch_flag, para_batch{nn}{12});
+        Analysis_Switchyard(select_data, Protocol, para_batch_to_run{nn}{1}, para_batch_to_run{nn}{2}, para_batch_to_run{nn}{3}, para_batch_to_run{nn}{4}, para_batch_to_run{nn}{5}, ...
+            para_batch_to_run{nn}{6}, para_batch_to_run{nn}{7}, para_batch_to_run{nn}{8}, para_batch_to_run{nn}{9}, para_batch_to_run{nn}{10}, para_batch_to_run{nn}{11}, batch_flag, para_batch_to_run{nn}{12});
         
     catch exception
-        errorFiles(nn).fileName = [para_batch{nn}{11}];
+        errorFiles(nn).fileName = [para_batch_to_run{nn}{11}];
         errorFiles(nn).info = exception;
-        fprintf('*** Got error at %s ***\n',para_batch{nn}{11});
+        fprintf('*** Got error at %s ***\n',para_batch_to_run{nn}{11});
         fprintf('\t%s\n\tLine%g\n\t%s\n', exception.message, exception.stack(1).line, exception.stack(1).file)
     end
     
-    parfor_progress;
+    if ~ SGE, parfor_progress; end
 end
-
+if ~ SGE, parfor_progress(0); end
 
 %                     if print_flag
 %                         printhandle = figure;
