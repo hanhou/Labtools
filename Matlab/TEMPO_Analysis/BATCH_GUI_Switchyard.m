@@ -181,7 +181,15 @@ switch(action)
         %do analysis
         a=tic;
         
-        BATCH_GUI_Tempo_Analysis(PATH, FILE, close_flag, print_flag, protocol_type, analysis_type);
+        if_parallel = get( findobj(gcbf, 'Tag', 'ParCheckBox'), 'Value');
+        
+        if if_parallel % HH20180607
+            % New parallel version: fast, no figures, no xls
+            BATCH_GUI_Tempo_Analysis_Parallel(PATH, FILE, close_flag, print_flag, protocol_type, analysis_type);
+        else
+            % Original version: slow, can save figures and write xls
+            BATCH_GUI_Tempo_Analysis(PATH, FILE, close_flag, print_flag, protocol_type, analysis_type);
+        end
         
         toc(a);
         

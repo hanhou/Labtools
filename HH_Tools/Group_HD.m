@@ -23,7 +23,9 @@ stim_type_num = 3;
 % Batch address
 mat_address = {
     % Major protocol goes here (Address, Suffix)
-    'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
+    
+    'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster\','PSTH';
+    % 'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
 %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
 %      'Z:\Data\Tempo\Batch\20160907_HD_allAreas_m5_m10_Smooth20ms','PSTH';
 %      'Z:\Data\Tempo\Batch\20150725_HD_allAreas_m5_m10','PSTH';

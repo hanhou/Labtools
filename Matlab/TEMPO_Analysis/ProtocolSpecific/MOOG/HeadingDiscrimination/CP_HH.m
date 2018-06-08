@@ -11,19 +11,19 @@ function result = CP_HH(headings,choices,spike_counts,CP_p_method, IF_FIGURE)
 %   @HH20140925
 
 % tic
-% Parallel computing
-if strcmp(version,'8.6.0.267246 (R2015b)')
-    if isempty(gcp('nocreate'))
-        parpool local;
-    end
-else
-    if matlabpool('size') == 0
-        try
-            matlabpool;
-        catch
-        end
-    end
-end
+% % Parallel computing
+% if ~verLessThan('matlab','R2014a')
+%     if isempty(gcp('nocreate'))
+%         parpool local;
+%     end
+% else
+%     if matlabpool('size') == 0
+%         try
+%             matlabpool;
+%         catch
+%         end
+%     end
+% end
 
 % if  isempty(gcp('nocreate'))
 %     try parpool(4); catch ; end
@@ -117,8 +117,13 @@ if ~if_fake
     end
     
     % Pack data
-    [rr,pp] = corrcoef(unique_heading, resp_mean);
+    [rr,~] = corrcoef(unique_heading, resp_mean);
+    
+    if ~isnan(rr)
     result.pref = (rr(1,2) <= 0) * LEFT + (rr(1,2) > 0) * RIGHT;
+    else
+        result.pref = RIGHT; % Happened when there is no spike if the CP window is small enough...
+    end
     
     result.Neu_tuning = [unique_heading, resp_mean, resp_se];
     result.Neu_tuning_correctonly = [unique_heading, resp_mean_correctonly, resp_se_correctonly];
@@ -210,7 +215,17 @@ if ~if_fake
 else % If faked, just let the preferred to be RIGHT
     result.pref = RIGHT;
 end
+
 %% Choice probability
+% Automatically change the "dead-ahead" if the bias is huge
+% if abs(Psy_bias) > 0.5
+%     [~,h_0]=min(abs(Psy_bias-unique_heading)); % HH20130905
+%     %      [~,h_0]=min(abs(rightward_prop-0.5)); % HH20140510
+% else
+%     h_0 = find(unique_heading >= 0,1);
+% end
+h_0 = find(unique_heading >= 0,1);
+result.dead_ahead = unique_heading(h_0);
 
 % ------  Group data according to choices and calucate CP for all headings ------
 spike_counts_allheadings_grouped = cell(length(unique_heading),2);
@@ -230,8 +245,20 @@ for hh = 1:length(unique_heading)
     % When we calculate CP, we only consider headings that have at least 3 LEFT & RIGHT choices.
     if (sum(curr_heading & (choices == LEFT)) >= 3) && (sum(curr_heading & (choices == RIGHT)) >= 3)
         % Calculate CP for current heading: rocN(pref,null)
-        result.CP_allheadings(hh) = rocN(spike_counts_allheadings_grouped{hh, result.pref}, ...
-            spike_counts_allheadings_grouped{hh, LEFT + RIGHT - result.pref});
+        
+        if hh == h_0
+            % Calculate p value here using the new rocN. HH20180607
+            [auROC, ~, perm] = rocN(spike_counts_allheadings_grouped{hh, result.pref}, ...
+                spike_counts_allheadings_grouped{hh, LEFT + RIGHT - result.pref} , [], CP_p_method);
+            
+            result.CP_allheadings(hh) = auROC;
+            result.CP_0 = auROC;
+            result.CP_0_p_perm = perm.pValue;
+        else
+            result.CP_allheadings(hh) = rocN(spike_counts_allheadings_grouped{hh, result.pref}, ...
+                spike_counts_allheadings_grouped{hh, LEFT + RIGHT - result.pref});
+        end
+        
     else
         result.CP_allheadings(hh) = NaN;
     end
@@ -240,18 +267,7 @@ end
 
 result.spike_counts_allheadings_grouped = spike_counts_allheadings_grouped;
 
-% Automatically change the "dead-ahead" if the bias is huge
-% if abs(Psy_bias) > 0.5
-%     [~,h_0]=min(abs(Psy_bias-unique_heading)); % HH20130905
-%     %      [~,h_0]=min(abs(rightward_prop-0.5)); % HH20140510
-% else
-%     h_0 = find(unique_heading >= 0,1);
-% end
-h_0 = find(unique_heading >= 0,1);
 
-% CP for "0 heading"
-result.dead_ahead = unique_heading(h_0);
-result.CP_0 = result.CP_allheadings(h_0);
 
 % ----- Calculate Grand CP -----
 
@@ -276,26 +292,33 @@ if length(unique_heading)>1
     % Group z-scored firing rates for all headings and calculate grand CP
     spike_zscored_grand_grouped{LEFT} = spike_zscored(choices == LEFT & ~isnan(spike_zscored));
     spike_zscored_grand_grouped{RIGHT} = spike_zscored(choices == RIGHT & ~isnan(spike_zscored));
-    result.CP_grand = rocN(spike_zscored_grand_grouped{result.pref}, spike_zscored_grand_grouped{LEFT + RIGHT - result.pref});
-    
     result.spike_zscored = spike_zscored;
     result.spike_zscored_grand_grouped = spike_zscored_grand_grouped;
     
+    % Use the updated version of rocN which now can do the permutation. HH20180607
+    [result.CP_grand, ~, perm] = rocN(spike_zscored_grand_grouped{result.pref}, ... 
+             spike_zscored_grand_grouped{LEFT + RIGHT - result.pref}, [], CP_p_method);
+    
+    result.CP_grand_p_perm = perm.pValue;
+%     result.CP_grand = rocN(spike_zscored_grand_grouped{result.pref}, ... 
+%              spike_zscored_grand_grouped{LEFT + RIGHT - result.pref});
+
 end
 
 % ---- P value for CPs -----
 
 % Method 1: Permutation test
-
+%{
 if CP_p_method > 0
 
     % P value for CP at "0 heading"
-    if ~isnan(result.CP_0)
+%     %{
+     if ~isnan(result.CP_0)
         spike_counts_0_all_choices = cat(1,spike_counts_allheadings_grouped{h_0,:});             % Data to be permuted
         CP_0_perm = nan(CP_p_method,1);        % Pre-allocation
         n_pref = length(spike_counts_allheadings_grouped{h_0,result.pref});
         
-        parfor i = 1 : CP_p_method   % For each permutation (total times: CP_p_method)
+        for i = 1 : CP_p_method   % For each permutation (total times: CP_p_method)
             % Permuted CP_0
             rand_choice_pref = randperm(length(spike_counts_0_all_choices),n_pref);
             rand_choice_null = setdiff(1:length(spike_counts_0_all_choices),rand_choice_pref);
@@ -316,35 +339,38 @@ if CP_p_method > 0
     else
         result.CP_0_p_perm = NaN;
     end
-    
-    if length(unique_heading)>1
-        
-        % P value for grand CP (same as above)
-        if ~isnan(result.CP_grand)
-            spike_zscored_all_choices = cat(1,spike_zscored_grand_grouped{:});  % Data to be permuted
-            CP_grand_perm = zeros(CP_p_method,1);  % Pre-allocation
-            
-            parfor i = 1 : CP_p_method   % For each permutation (total times: CP_p_method)
-                % Permuted Grand CP
-                rand_choice_pref = randperm(length(spike_zscored_all_choices),length(spike_zscored_grand_grouped{result.pref}));
-                rand_choice_null = setdiff(1:length(spike_zscored_all_choices),rand_choice_pref);
-                CP_grand_perm(i) = rocN(spike_zscored_all_choices(rand_choice_pref),spike_zscored_all_choices(rand_choice_null));
-            end
-            
-            % Two-tail test
-            if result.CP_grand > 0.5
-                result.CP_grand_p_perm = 2 * (1 - sum(result.CP_grand > CP_grand_perm) / length(CP_grand_perm));
-            else
-                result.CP_grand_p_perm = 2 * sum(result.CP_grand > CP_grand_perm) / length(CP_grand_perm);
-            end
-        else
-            result.CP_grand_p_perm = NaN;
-        end
-        
-    end
+  
+%     result.CP_0_p_perm = NaN;
+% %     
+%     if length(unique_heading)>1
+%         
+%         % P value for grand CP (same as above)
+%         if ~isnan(result.CP_grand)
+%             spike_zscored_all_choices = cat(1,spike_zscored_grand_grouped{:});  % Data to be permuted
+%             CP_grand_perm = zeros(CP_p_method,1);  % Pre-allocation
+%             
+%             parfor i = 1 : CP_p_method   % For each permutation (total times: CP_p_method)
+%                 % Permuted Grand CP
+%                 rand_choice_pref = randperm(length(spike_zscored_all_choices),length(spike_zscored_grand_grouped{result.pref}));
+%                 rand_choice_null = setdiff(1:length(spike_zscored_all_choices),rand_choice_pref);
+%                 CP_grand_perm(i) = rocN(spike_zscored_all_choices(rand_choice_pref),spike_zscored_all_choices(rand_choice_null));
+%             end
+%             
+%             % Two-tail test
+%             if result.CP_grand > 0.5
+%                 result.CP_grand_p_perm = 2 * (1 - sum(result.CP_grand > CP_grand_perm) / length(CP_grand_perm));
+%             else
+%                 result.CP_grand_p_perm = 2 * sum(result.CP_grand > CP_grand_perm) / length(CP_grand_perm);
+%             end
+%         else
+%             result.CP_grand_p_perm = NaN;
+%         end
+%         
+%     end
 else % CP_p_method <=0
-        result.CP_grand_p_perm = NaN;
+    result.CP_grand_p_perm = NaN;
 end
+%}
 
 % Method 2: Two sample t-test (parametric, but much faster)
 if CP_p_method ~= 0
@@ -356,12 +382,3 @@ if CP_p_method ~= 0
 end
 
 % toc
-
-
-function CP_perm = PermutedCP(spike_counts_0_all_choices,n_pref)
-
-rates = spike_counts_0_all_choices{:};
-
-rand_choice_pref = randperm(length(rates),n_pref);
-rand_choice_null = setdiff(1:length(rates),rand_choice_pref);
-CP_perm = rocN_GPU(rates(rand_choice_pref),rates(rand_choice_null));

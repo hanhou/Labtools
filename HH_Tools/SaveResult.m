@@ -47,7 +47,7 @@ if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" struc
     
     % Save raw data
     save(savefilename,'result');
-    disp('Saving to .mat finished...');
+    disp('Saved to .mat ...');
     
     % Save figures
     for ff = 1:length(config.save_figures)
@@ -62,6 +62,7 @@ if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" struc
             close(config.save_figures(ff));
         end
     end
+    disp('Saved to .fig...');
 end
 
 
