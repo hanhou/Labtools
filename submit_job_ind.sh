@@ -23,3 +23,4 @@ do
 	qsub -l h="clc00$node" -v ThisNode=$i,TotalNodes=$# job_ind.sh # Independent jobs
 	echo "Submitted ($i/$#)th part to clc00$node"
 done
+qstat

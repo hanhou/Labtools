@@ -17,7 +17,9 @@
 ##$ -e ~/job-nobackup.$JOB_ID.$TASK_ID.err
 
 BatchPath="/home/hh/Z/Data/TEMPO/Batch/"
-BatchFile="20180607_HD_all_IONCluster.m"
+
+BatchFile="Memsac_all_IONCluster.m"
+#BatchFile="HD_all_IONCluster.m"
 
 #echo "Starting job: $SGE_TASK_ID / $TotalNodes"
 echo "Starting job: $ThisNode / $TotalNodes"
