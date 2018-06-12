@@ -11,6 +11,38 @@ if_figure = isempty(batch_flag);
 TEMPO_Defs;
 Path_Defs;
 
+
+%% Commented by HH20140523
+%
+%% Added by HH20140523
+%%{
+
+%% Get data
+
+%%%%%%%%%%%%%%%%%%% Parameters %%%%%%%%%%%%%%%%%%%
+method = 0; % 0: Maximum likelihood; 1: Square error
+tolerance = 10;
+
+% Define align markers and offsets
+align_markers = {
+    % Marker    Before(ms)    After(ms)    Notes    Which other markers are presented?   Their notes
+    VSTIM_ON_CD,  -500, 2200, 'Stim On' , [VSTIM_OFF_CD SACCADE_BEGIN_CD], {'Stim Off','Sac On'};
+    SACCADE_BEGIN_CD,  -1000, 500, 'Saccade On' , [VSTIM_ON_CD VSTIM_OFF_CD], {'Stim On', 'Stim Off'};
+    %     VSTIM_ON_CD,  -500, 2200, 'Stim On' , [VSTIM_OFF_CD SACCADE_BEGIN_CD], {'Stim Off','Sac On'};
+    %     SACCADE_BEGIN_CD,  -500, 700, 'Saccade On' , [VSTIM_ON_CD VSTIM_OFF_CD], {'Stim On', 'Stim Off'};
+    };
+
+% Permutation numbers
+CD_perm_N = -1; 
+CP_perm_N = -1; 
+ChoicePref_perm_N = 1000;
+ModalityPref_perm_N = ChoicePref_perm_N;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+tic;
+
+
 % Override the default eye channel settings. HH20150722
 if data.one_time_params(LEFT_EYE_X_CHANNEL) > 0 % NOT (Is NaN (not overriden) or is zero (rescued from CED))
     LEYE_H = data.one_time_params(LEFT_EYE_X_CHANNEL);
@@ -27,214 +59,6 @@ end
 if data.one_time_params(RIGHT_EYE_Y_CHANNEL) > 0
     REYE_V = data.one_time_params(RIGHT_EYE_Y_CHANNEL);
 end
-
-%% Commented by HH20140523
-%{
-tic
-
-temp_azimuth = data.moog_params(AZIMUTH,:,MOOG);
-temp_elevation = data.moog_params(ELEVATION,:,MOOG);
-temp_stim_type = data.moog_params(STIM_TYPE,:,MOOG);
-temp_heading   = data.moog_params(HEADING, :, MOOG);
-temp_amplitude = data.moog_params(AMPLITUDE,:,MOOG);
-temp_num_sigmas = data.moog_params(NUM_SIGMAS,:,MOOG);
-temp_total_trials = data.misc_params(OUTCOME, :);
-temp_spike_data = data.spike_data(SpikeChan,:);
-temp_spike_rates = data.spike_rates(SpikeChan, :);
-%now, remove trials from direction and spike_rates that do not fall between BegTrial and EndTrial
-trials = 1:length(temp_azimuth);		% a vector of trial indices
-select_trials = ( (trials >= BegTrial) & (trials <= EndTrial) );
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Manually omit trials, i.e. due to bumps, lost isolation, etc. (CRF 8-2009)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% omit_trials = [537:563];
-% select_trials(omit_trials) = 0;
-%
-% sumSpikeRates_equalzero = sum(temp_spike_rates<0.1)
-% sumSpikeRates_lessthantwo = sum(temp_spike_rates<2)
-% maxSpikeRate = max(temp_spike_rates)
-% edges = [0 1 2 4 8 16 100];
-% histc(temp_spike_rates,edges)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-stim_type = temp_stim_type( select_trials );
-heading = temp_heading( select_trials );
-amplitude= temp_amplitude( select_trials );
-num_sigmas= temp_num_sigmas( select_trials );
-total_trials = temp_total_trials( select_trials);
-spike_rates = temp_spike_rates( select_trials);
-unique_stim_type = munique(stim_type');
-unique_heading = munique(heading');
-unique_amplitude = munique(amplitude');
-unique_num_sigmas = munique(num_sigmas');
-
-h_title{1}='Vestibular';
-h_title{2}='Visual';
-h_title{3}='Combined';
-
-% timebin for plot PSTH
-timebin=50;
-% sample frequency depends on test duration
-frequency=length(temp_spike_data)/sum(select_trials);
-% length of x-axis
-x_length = frequency/timebin;
-% x-axis for plot PSTH
-x_time=1:(frequency/timebin);
-
-% remove null trials, bad trials, and trials outside Begtrial~Engtrial
-stim_duration = length(temp_spike_data)/length(temp_azimuth);
-Discard_trials = find(trials <BegTrial | trials >EndTrial);
-for i = 1 : length(Discard_trials)
-    temp_spike_data( 1, ((Discard_trials(i)-1)*stim_duration+1) :  Discard_trials(i)*stim_duration ) = 9999;
-end
-spike_data = temp_spike_data( temp_spike_data~=9999 );
-spike_data( find(spike_data>100) ) = 1; % something is absolutely wrong
-
-% monkey's choice
-LEFT = 1;
-RIGHT = 2;
-for i= 1 : length(spike_rates)
-    temp = data.event_data(1,:,i + BegTrial-1);
-    events = temp(temp>0);  % all non-zero entries
-    if (sum(events == IN_T1_WIN_CD) > 0)
-        choice(i) = RIGHT;
-    elseif (sum(events == IN_T2_WIN_CD) > 0)
-        choice(i) = LEFT;
-    else
-        disp('Neither T1 or T2 chosen.  This should not happen!.  File must be bogus.');
-    end
-end
-% if FILE=='m2c384r2.htb'
-%    choice(889) =2; % for cell m2c384r2 % for some reason the choice is 0 for
-% end
-
-% count spikes from raster data (spike_data)
-max_count = 1;
-time_step=1;
-time_step_left=1;
-time_step_right=1;
-for k=1: length(unique_stim_type)
-    lefttemp =find( (heading == unique_heading(5)) & (stim_type == unique_stim_type(k)) & choice==1 ) ;
-    righttemp =find( (heading == unique_heading(5)) & (stim_type == unique_stim_type(k)) & choice==2 ) ;
-    for i=1:length(unique_heading)
-        select = logical( (heading==unique_heading(i)) & (stim_type==unique_stim_type(k)) );
-        act_found = find( select==1 );
-        % count spikes per timebin on every same condition trials
-        for repeat=1:length(act_found)
-            for n=1:(x_length)
-                temp_count(repeat,n)=sum(spike_data(1,(frequency*(act_found(repeat)-1)+time_step):(frequency*(act_found(repeat)-1)+n*timebin)));
-                time_step=time_step+timebin;
-            end
-            time_step=1;
-        end
-        count_y_trial{i,k}(:,:) = temp_count;  % each trial's PSTH
-     
-        % get the average of the total same conditions if repetion is > 1
-        dim=size(temp_count);
-        count_y{i,k} = mean(temp_count);
-        max_count_y(i,k) = max(count_y{i,k});
-    end
-    
-%     for repeat_left=1:length(lefttemp)
-%         for n=1:(x_length)
-%             temp_count_left(repeat_left,n)=sum(spike_data(1,(frequency*(lefttemp(repeat)-1)+time_step):(frequency*(lefttemp(repeat)-1)+n*timebin)));
-%             time_step_left=time_step_left+timebin;
-%         end
-%         time_step_left=1;
-%     end
-%     count_y_left(k,:) = mean(temp_count_left);
-%
-%     for repeat_right=1:length(righttemp)
-%         for n=1:(x_length)
-%             temp_count_right(repeat_right,n)=sum(spike_data(1,(frequency*(righttemp(repeat)-1)+time_step):(frequency*(righttemp(repeat)-1)+n*timebin)));
-%             time_step_right=time_step_right+timebin;
-%         end
-%         time_step_right=1;
-%     end
-%     count_y_right(k,:) = mean(temp_count_right);
-    % normalize PSTH to 1 for each stimulus condition
-%     for i=1:length(unique_heading)
-%         count_y{i,k} = count_y{i,k} / max(max_count_y(:,k));
-%     end
-end
-
-% this part find which heading is the maximum response or minimum response
-for k=1: length(unique_stim_type)
-    for i = 1 : length(unique_heading)
-        ss(i) = sum(count_y{i,k}(x_length*3/10:x_length*5.5/10)); % only use 2 middle second data
-    end
-    mm=find( ss==max(ss));
-    nn=find( ss==min(ss));
-    max_index(k) = mm(1);
-    min_index(k) = nn(1);
-end
-
-% plot PSTH now
-% get the largest count_y so that make the scale in each figures equal
-% plot two lines as stimulus start and stop marker
-x_start = [StartEventBin(1,1)/timebin, StartEventBin(1,1)/timebin];
-x_stop =  [StopEventBin(1,1)/timebin,  StopEventBin(1,1)/timebin];
-y_marker=[0,max(max(max_count_y))];
-% define figure
-figure(2);
-set(2,'Position', [5,5 1000,680], 'Name', 'Tuning');
-orient portrait; %changed from landscape by asb (30 july 2007)
-axis off;
-
-xoffset=0;
-yoffset=0;
-
-% now plot
-for k=1: length(unique_stim_type)
-    
-    axes('position',[0 0 1 1]);
-    xlim([-50,50]);
-    ylim([-50,50]);
-    % here starts the column identification
-    text(-25,45, 'vestibular');
-    text(0,45, 'visual');
-    text(25,45, 'combined');
-    text(-45, 45, [FILE ', SpChan ' num2str(SpikeChan)]);
-    if k == 1
-        for j = 1:length(unique_heading)
-            text(-48, 45-j*8, num2str(unique_heading(j)) );
-        end
-    end
-    axis off;
-    hold on;
-    
-    for i=1:length(unique_heading)
-        axes('position',[0.31*(k-1)+0.1 (0.92-0.08*i) 0.25 0.05]); %this changes the size and location of each row of figures.
-         
-        plot( x_time,count_y{i,k}(1,:) );
-        hold on;
-        plot( x_start, y_marker, 'r-');
-        plot( x_stop,  y_marker, 'r-');
-        set( gca, 'xticklabel', ' ' );
-        % set the same scale for all plot
-        xlim([0,x_length]);
-        ylim([max(max(max_count_y))*0,max(max(max_count_y))]);
-    end
-end
-
-toc;
-
-%}
-
-%% Added by HH20140523
-%%{
-
-%% Get data
-
-%%%%%%%%%%%%%%%%%%% Parameters %%%%%%%%%%%%%%%%%%%
-method = 0; % 0: Maximum likelihood; 1: Square error
-tolerance = 10;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-tic;
 
 
 % -- Trial information
@@ -344,17 +168,6 @@ end
 
 %% 1. Align data
 
-% Define align markers and offsets
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-align_markers = {
-    % Marker    Before(ms)    After(ms)    Notes    Which other markers are presented?   Their notes
-    VSTIM_ON_CD,  -500, 2200, 'Stim On' , [VSTIM_OFF_CD SACCADE_BEGIN_CD], {'Stim Off','Sac On'};
-    SACCADE_BEGIN_CD,  -2000, 700, 'Saccade On' , [VSTIM_ON_CD VSTIM_OFF_CD], {'Stim On', 'Stim Off'};
-    %     VSTIM_ON_CD,  -500, 2200, 'Stim On' , [VSTIM_OFF_CD SACCADE_BEGIN_CD], {'Stim Off','Sac On'};
-    %     SACCADE_BEGIN_CD,  -500, 700, 'Saccade On' , [VSTIM_ON_CD VSTIM_OFF_CD], {'Stim On', 'Stim Off'};
-    };
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % ------------ Patch in HD_dt cells. HH20160919 -----------
 % To include 18 HD_dt typical cells into my original HD tasks, I align PSTH using the center of the Gaussian movement instead of the
@@ -867,8 +680,10 @@ for sortInd = 1:length(sort_info) % For each figure
                             end
                             
                             % Cache the p values and sign for plot indicators later
-                            pp_for_indicator(1,:) = pp;
-                            data_diff_for_indicator(1,:) = mean(firstData,1) - mean(secondData,1);
+                            if if_figure
+                                pp_for_indicator(1,:) = pp;
+                                data_diff_for_indicator(1,:) = mean(firstData,1) - mean(secondData,1);
+                            end
                             
                             % Save data
                             PSTH{j,sortInd,k}.ps(1,:) = pp;
@@ -976,8 +791,10 @@ for sortInd = 1:length(sort_info) % For each figure
                                 end
                                 
                                 % Cache the p values and sign for plot indicators later
-                                pp_for_indicator(catNum_Out,:) = pp;
-                                data_diff_for_indicator(catNum_Out,:) = mean(firstData,1) - mean(secondData,1);
+                                if if_figure
+                                    pp_for_indicator(catNum_Out,:) = pp;
+                                    data_diff_for_indicator(catNum_Out,:) = mean(firstData,1) - mean(secondData,1);
+                                end
                                 
                                 % Save data
                                 PSTH{j,sortInd,k}.ps(catNum_Out,:) = pp;
@@ -1101,11 +918,7 @@ end % sort_bases
 
 drawnow;
 
-
 %% 4. Choice Divergence and Preference
-% --- Controls all CP_HH and rocN callings --
-CP_perm_N = 5000;
-% -------------------------------------------
 
 fprintf('Choice Divergence...\n')
 
@@ -1148,30 +961,41 @@ for j = 1:size(align_markers,1) % Include two align methods. @HH20150417
     %     j = 1;
     rate_ts{j} = PSTH{j,1,1}.ts;
     ChoiceDivergence_ALL{j} = NaN(3,length(rate_ts{j}));
+    ChoiceDivergence_ALL_perm{j}.std = NaN(3,length(rate_ts{j})); % HH20180608
+    ChoiceDivergence_ALL_perm{j}.p = NaN(3,length(rate_ts{j}));
+    
     ChoiceDivergence_Difficult{j} = NaN(3,length(rate_ts{j}));
     ChoiceDivergence_Easy{j} = NaN(3,length(rate_ts{j}));
     Pref_Null_ALL{j} = NaN(3,length(rate_ts{j}));
     
+    
     for stim_type = 1:length(unique_stim_type)  % Always output three conditions
         
+        fprintf('>');
         k = find(stim_type == unique_stim_type);
         
         if ~isempty(k)   % We have this condition
             
             % Calculate auROC for each time bin
             for tt = 1:length(rate_ts{j})
-                ChoiceDivergence_ALL{j}(stim_type,tt) = rocN(PSTH{j,ALL_CHOICE,1}.raw{2*k-1}(:,tt),...
-                    PSTH{j,ALL_CHOICE,1}.raw{2*k}(:,tt)) - 0.5;      % Default: first larger
                 
-                ChoiceDivergence_Difficult{j}(stim_type,tt) = rocN(PSTH{j,CHOICE_DIFFICULT,k}.raw{1}(:,tt),...
-                    PSTH{j,CHOICE_DIFFICULT,k}.raw{2}(:,tt)) - 0.5;
+                [auROC, ~, perm] = rocN(PSTH{j,ALL_CHOICE,1}.raw{2*k-1}(:,tt),...
+                    PSTH{j,ALL_CHOICE,1}.raw{2*k}(:,tt), [], CD_perm_N);      % Default: first larger
+
+                ChoiceDivergence_ALL{j}(stim_type,tt) = 2 * (auROC - 0.5);
+                ChoiceDivergence_ALL_perm{j}.std(stim_type,tt) = 2 * perm.std;
+                ChoiceDivergence_ALL_perm{j}.p(stim_type,tt) = perm.pValue;
                 
-                ChoiceDivergence_Easy{j}(stim_type,tt) = rocN(PSTH{j,CHOICE_DIFFICULT,k}.raw{3}(:,tt),...
-                    PSTH{j,CHOICE_DIFFICULT,k}.raw{4}(:,tt)) - 0.5;
+                ChoiceDivergence_Difficult{j}(stim_type,tt) = 2 * (rocN(PSTH{j,CHOICE_DIFFICULT,k}.raw{1}(:,tt),...
+                    PSTH{j,CHOICE_DIFFICULT,k}.raw{2}(:,tt)) - 0.5); % Fixed the factor of 2. HH20180608
+                
+                ChoiceDivergence_Easy{j}(stim_type,tt) = 2 * (rocN(PSTH{j,CHOICE_DIFFICULT,k}.raw{3}(:,tt),...
+                    PSTH{j,CHOICE_DIFFICULT,k}.raw{4}(:,tt)) - 0.5);
                 
                 Pref_Null_ALL{j}(stim_type,tt) = PSTH{j,ALL_CHOICE,1}.ys(2*k-1,tt) - PSTH{j,ALL_CHOICE,1}.ys(2*k,tt);
                 
             end
+            
             
             if ~first_larger % If not, flip (Never flip now, see above @HH20150417)
                 ChoiceDivergence_ALL{j}(stim_type,:) = - ChoiceDivergence_ALL{j}(k,:);
@@ -1183,13 +1007,16 @@ for j = 1:size(align_markers,1) % Include two align methods. @HH20150417
         
     end
     
+    
     if if_figure
         
         set(0,'defaultAxesColorOrder',[0 0 1; 1 0 0; 0 1 0; 1 0.8 0; 0 1 1;]);
         
         set(0,'currentfig',1899);
         subplot(1,2,j);
-        plot(rate_ts{j}, ChoiceDivergence_ALL{j}','Linewidth',2); SetFigure(); axis tight;
+        plot(rate_ts{j}, ChoiceDivergence_ALL{j}','Linewidth',2); SetFigure();  hold on;
+        plot(rate_ts{j}, ChoiceDivergence_ALL_perm{j}.std','linestyle','--','linew',1)
+        axis tight;
         if j == 2 ;title([FILE 'unit' num2str(SpikeChan) ', reps = '  num2str(repetitionN) ', Choice Divergence']); end
         %     print(1899,'-dbitmap',[mat_file_fullname{i} '_ChoiceDivergenceAll.bmp']);
         
@@ -1223,6 +1050,9 @@ for j = 1:size(align_markers,1) % Include two align methods. @HH20150417
     end
     
 end;
+
+fprintf('\n');
+
 
 %% Choice preference (related to "PREF" of this cell).  @HH20150418
 %  Will be transformed to be related to "Contralateral" in GROUP_GUI
@@ -1263,7 +1093,7 @@ for stim_type = 1:length(unique_stim_type)  % Always output three conditions
             fake_spk_pref = mean(PSTH{choice_or_mod_pref_timewin{cmpt,1},ALL_CHOICE,1}.raw{2*k-1}(:,choice_or_mod_pref_timewin{cmpt,2}),2);
             fake_spk_null = mean(PSTH{choice_or_mod_pref_timewin{cmpt,1},ALL_CHOICE,1}.raw{2*k}(:,choice_or_mod_pref_timewin{cmpt,2}),2);
             
-            [auROC, ~, perm] = rocN (fake_spk_pref, fake_spk_null , [], CP_perm_N);
+            [auROC, ~, perm] = rocN (fake_spk_pref, fake_spk_null , [], ChoicePref_perm_N);
             
             ChoicePreference(cmpt,stim_type) = 2*(auROC-0.5);
             ChoicePreference_pvalue(cmpt,stim_type) =  perm.pValue ;
@@ -1284,7 +1114,8 @@ modality_pair = {[1 2],[1 3],[2 3]};  % The later is set to be "Pref modality"
 for j = 1:size(align_markers,1) % Include two align methods.
     
     ModalityDivergence{j} = NaN(3,length(rate_ts{j}));
-    
+    ModalityDivergence_choice_separate = NaN(2,length(rate_ts{j}));
+
     if length(unique_stim_type) >= 3 % If we have all three modalities (or more than three in dt-experiments. HH20160415)
         
         raw_for_md = PSTH{j,ALL_CHOICE,1}.raw;
@@ -1300,7 +1131,8 @@ for j = 1:size(align_markers,1) % Include two align methods.
                 % Calculate auROC for each time bin
                 for tt = 1:length(rate_ts{j})
                     ModalityDivergence_choice_separate(choice,tt) = ...
-                        rocN(raw_for_md{2*(pref_mod-1)+choice}(:,tt), raw_for_md{2*(null_mod-1)+choice}(:,tt)) - 0.5;      % Default: first larger
+                        2 * (rocN(raw_for_md{2*(pref_mod-1)+choice}(:,tt), ...
+                        raw_for_md{2*(null_mod-1)+choice}(:,tt)) - 0.5);      % Default: first larger
                 end
             end
             
@@ -1351,7 +1183,8 @@ if length(unique_stim_type) >= 3 % If we have all three modalities (or more than
             fake_1_heading_choice = [ones(length(fake_spk_pref_mod_null_choice),1) * RIGHT; ones(length(fake_spk_null_mod_null_choice),1) * LEFT];
             
             temp = CP_HH([fake_0_heading; fake_1_heading], [fake_0_heading_choice; fake_1_heading_choice],...
-                [fake_spk_pref_mod_pref_choice; fake_spk_null_mod_pref_choice; fake_spk_pref_mod_null_choice; fake_spk_null_mod_null_choice],CP_perm_N,0);
+                [fake_spk_pref_mod_pref_choice; fake_spk_null_mod_pref_choice; fake_spk_pref_mod_null_choice; fake_spk_null_mod_null_choice],...
+                ModalityPref_perm_N,0);
             
             ModalityPreference(cmpt,mp) = 2*(temp.CP_grand-0.5);
             ModalityPreference_pvalue(cmpt,mp) =  temp.CP_grand_p_perm ;
@@ -1372,8 +1205,8 @@ end
 fprintf('CP...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Time windows
-binSize_CP = 50;  % in ms
-stepSize_CP = 50; % in ms
+binSize_CP = 250;  % in ms  % According to Shadlen 2001
+stepSize_CP = 10; % in ms  % Match PSTH, CD, and others
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Saving
 % result.binSize_CP = binSize_CP;
@@ -1428,6 +1261,7 @@ for k = 1: length(unique_stim_type)   % For each stim type
     
     for j = 1:size(align_markers,1)  % For each temporal alignment
         
+        fprintf('.')
         % Saving Psy to both of the time alignements
         CP{j,k}.Psy_func = [unique_heading, rightward_prop, num_headings];
         CP{j,k}.Psy_para = [Psy_bias,Psy_thres];
@@ -1438,11 +1272,11 @@ for k = 1: length(unique_stim_type)   % For each stim type
         % Preallocation
         CP{j,k}.CP_grand = zeros(1,length(CP_ts{j}));
         CP{j,k}.CP_p = zeros(1,length(CP_ts{j}));
+        CP{j,k}.CP_std = zeros(1,length(CP_ts{j}));
         CP{j,k}.Neu_thres = zeros(1,length(CP_ts{j}));
         CP{j,k}.ts = CP_ts{j};
         
         for tt = 1:length(CP_ts{j})    % For each CP time window
-            fprintf('.')
             
             winBeg = ceil(((tt-1) * stepSize_CP) / spike_timeWin) + 1;
             winEnd = ceil(((tt-1) * stepSize_CP + binSize_CP) / spike_timeWin) + 1;
@@ -1452,10 +1286,18 @@ for k = 1: length(unique_stim_type)   % For each stim type
             
             if ~isempty(batch_flag)
                 CP_result = CP_HH(headings,choices,spike_counts,CP_perm_N,0);    % Permutation for Batch
-                CP{j,k}.CP_p(tt) = CP_result.CP_grand_p_perm;
+                
+                if CP_perm_N > 0
+                    CP{j,k}.CP_p(tt) = CP_result.CP_grand_p_perm;
+                else
+                    CP{j,k}.CP_p(tt) = CP_result.CP_grand_p_ttest;
+                end
+                
+                CP{j,k}.CP_std(tt)  = CP_result.CP_grand_std_perm;
             else
                 CP_result = CP_HH(headings,choices,spike_counts,-1,0);    % Fast version
                 CP{j,k}.CP_p(tt) = CP_result.CP_grand_p_ttest;
+                CP{j,k}.CP_std(tt)  = NaN;
             end
             
             % Keep all data first
@@ -1468,7 +1310,6 @@ for k = 1: length(unique_stim_type)   % For each stim type
             
         end
         
-        fprintf('\n')
         
         if ~isempty(CP_ts{j}) % In case there are no CP windows
             
@@ -1498,8 +1339,9 @@ for k = 1: length(unique_stim_type)   % For each stim type
         
         
     end
-    
 end
+
+fprintf('\n')
 
 %% Neuro tuning of different time duration (center, pre, post) % HH20150403
 % Note: This should be modified so that only the correct trials are
@@ -1667,7 +1509,7 @@ if exist('CP','var')  % Full version
         PREF, PREF_CP_obsolete, PREF_target_location, outcome_mask_enable, ...
         binSize_rate, stepSize_rate, rate_ts, binSize_CP, stepSize_CP, CP_ts ,...
         spike_aligned, spike_hist, CP, PSTH,...
-        ChoiceDivergence_ALL, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
+        ChoiceDivergence_ALL, ChoiceDivergence_ALL_perm, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
         ModalityDivergence, ModalityPreference, ModalityPreference_pvalue);
     % Figures to save
     if if_figure
@@ -1683,7 +1525,7 @@ else
         PREF, PREF_target_location, outcome_mask_enable, ...
         binSize_rate, stepSize_rate, rate_ts,...
         spike_aligned, spike_hist, PSTH,...
-        ChoiceDivergence_ALL, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
+        ChoiceDivergence_ALL, ChoiceDivergence_ALL_perm, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
         ModalityDivergence, ModalityPreference, ModalityPreference_pvalue);
     
     %     result = PackResult(FILE, SpikeChan, repetitionN, unique_stim_type, ... % Obligatory!!

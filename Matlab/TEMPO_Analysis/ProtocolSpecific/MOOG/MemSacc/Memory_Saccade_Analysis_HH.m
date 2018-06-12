@@ -245,7 +245,7 @@ if memSacOK
         temporal_Slice = {
             -500 -200 VSTIM_ON_CD 'Background' 'k';          % Background: -500 ~ -100 ms (04)
             75 400 VSTIM_ON_CD 'LS' 'r';               % LS: 75 ~ 275 ms (04);
-            25 900 VSTIM_OFF_CD 'Memory'  'g';          % Sustained: 200 ~ 800 ms (04);
+            25 900 VSTIM_OFF_CD 'Memory'  'g';          % Sustained: 25 ~ 900 ms (05);
             -300 -50 SACCADE_BEGIN_CD 'pre-S' 'b';         %  pre-S: -200 ~ 0 (07);
             -50 50 SACCADE_BEGIN_CD 'S-Co' 'c';  % Saccade-coincident: -25 ~ 75 (07)
             100 500 SACCADE_BEGIN_CD 'post-S' 'm';     % post-S: 50 ~ 500 (07)
@@ -255,7 +255,7 @@ if memSacOK
         temporal_Slice = {
             -500 -200 VSTIM_ON_CD 'Background' 'k';          % Background: -500 ~ -100 ms (04)
             75 400 VSTIM_ON_CD 'LS' 'r';               % LS: 75 ~ 275 ms (04);
-            25 500 VSTIM_OFF_CD 'Memory'  'g';          % Sustained: 200 ~ 800 ms (04);
+            25 500 VSTIM_OFF_CD 'Memory'  'g';          % Sustained: 25 ~ 500 ms (05);
             -300 -50 SACCADE_BEGIN_CD 'pre-S' 'b';         %  pre-S: -200 ~ 0 (07);
             -50 50 SACCADE_BEGIN_CD 'S-Co' 'c';  % Saccade-coincident: -25 ~ 75 (07)
             100 500 SACCADE_BEGIN_CD 'post-S' 'm';     % post-S: 50 ~ 500 (07)
@@ -331,24 +331,31 @@ for i = 1:length(unique_heading)  % For each heading (delayed-saccade direction)
         result_PSTH_anne_raw{j,i} = spike_hist{j}(select_binary,:);
         result_PSTH_anne_mean{j,i} = mean(result_PSTH_anne_raw{j,i}(~isnan(result_PSTH_anne_raw{j,i}(:,1)),:),1);
         
+        % HH20180609
+        result_PSTH_anne_sem{j,i} = nanstd(result_PSTH_anne_raw{j,i},[],1)./sqrt(size(result_PSTH_anne_raw{j,i},1));
     end
     
 end
 
 
 %% Interp PSTH for GROUP_GUI. @HH20150524
-MemSac_interp_locations = 0:5:360;  % Resoluation = 1 degree
+MemSac_interp_locations = 0:5:360;  % Resoluation = 5 degree
 MemSac_original_locations = [unique_heading' unique_heading(1)+360]; % Make it circular
 
 for j = 1:length(align_markers)
-    MemSac_PSTH = reshape([result_PSTH_anne_mean{j,:}],length(t_centers{j}),[]); % Aligned to saccade onset
+    MemSac_PSTH = reshape([result_PSTH_anne_mean{j,:}],length(t_centers{j}),[]); 
     MemSac_original_PSTH = MemSac_PSTH(:,[1:end 1]);
+    
+    MemSac_PSTH_sem = reshape([result_PSTH_anne_sem{j,:}],length(t_centers{j}),[]);
+    MemSac_original_PSTH_sem = MemSac_PSTH_sem(:,[1:end 1]);
     
     % Interpolate original Memsac traces into higher spatial resolution
     MemSac_interp_PSTH{j} = nan(size(MemSac_original_PSTH,1),length(MemSac_interp_locations));
+    MemSac_interp_PSTH_sem{j} = nan(size(MemSac_original_PSTH_sem,1),length(MemSac_interp_locations));
     
     for tttt = 1:size(MemSac_original_PSTH,1)
         MemSac_interp_PSTH{j}(tttt,:) = interp1(MemSac_original_locations, MemSac_original_PSTH(tttt,:), MemSac_interp_locations);
+        MemSac_interp_PSTH_sem{j}(tttt,:) = interp1(MemSac_original_locations, MemSac_original_PSTH_sem(tttt,:), MemSac_interp_locations);
     end
 end
 
@@ -564,8 +571,8 @@ end
 result = PackResult(FILE, SpikeChan, repetitionN, unique_stim_type, ... % Obligatory!!
                     p, vectSum, vectAmp, DDI, activityIndex, PREF_NULL_DI, ...
                     align_markers, plot_markers, binSize, temporal_Slice, unique_heading, ...
-                    t_centers, align_offsets, result_PSTH_old_mean,  result_PSTH_anne_mean, result_PSTH_anne_raw,...
-                    MemSac_interp_locations, MemSac_interp_PSTH,...
+                    t_centers, align_offsets, result_PSTH_old_mean,  result_PSTH_anne_mean, result_PSTH_anne_raw, result_PSTH_anne_sem,...
+                    MemSac_interp_locations, MemSac_interp_PSTH, MemSac_interp_PSTH_sem,...
                     resp_trial, resp_mean, resp_err);
 
 config.suffix = 'MemSac';
@@ -573,7 +580,8 @@ config.xls_column_begin = 'p_bkgnd';
 config.xls_column_end = 'AI_post';
 
 % Figures to save
-config.save_figures = gcf;
+h_gcf = gcf;
+config.save_figures = h_gcf.Number;
 
 % Only once
 config.sprint_once_marker = 'gggg';

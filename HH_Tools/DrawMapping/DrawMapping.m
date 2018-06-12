@@ -10,9 +10,9 @@ if nargin == 0
     % monkey_hemi = 'Messi_L'; % AP -4:0.8
     monkey_hemi = 3; % 
 end;
+clc; clear global
 
 %% Parameters
-clc; clear global
 global maxX maxY maxZ movDis GMTypes data;
 global hemisphere monkey; global gridRange;
 global MRI_path MRI_offset AP0; global MRI_offset_new;
@@ -21,9 +21,9 @@ global overlapTransparent;
 
 linWid = 1.3;
 % overlapping = [-10 10; -10 10]; start_end_markers = false; % First row for area annotation; second for unit annotation
-% overlapping = [-1 0; -1 0]; start_end_markers = false; % First row for area annotation; second for unit annotation
+% overlapping = [-2 0; -2 0]; start_end_markers = false; % First row for area annotation; second for unit annotation
 overlapping = [0 0; 0 0]; start_end_markers =0; % First row for area annotation; second for unit annotation
-overlapTransparent = 1;
+overlapTransparent = 0.5;
 
 maxX = 30; % Grid size
 maxY = 30;
@@ -1053,7 +1053,7 @@ for i =  1:size(to_plot,1)
     any_sig = any(choice_pref_this([2 4 6]) < 0.05);
     
     if any_sig
-        plot(xx,yy,['ko'],'linewid',1,'markerfacecol',max_color{max_ind},'markersize',7);
+        plot(xx,yy,'wo','linewid',0.1,'markerfacecol',max_color{max_ind},'markersize',7);
     else
         plot(xx,yy,'ko','linewid',1,'markerfacecol','none','markersize',7);
 %         plot(xx,yy,'ro','linewid',0.4,'markerfacecol','none','markersize',7);

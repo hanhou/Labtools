@@ -24,18 +24,22 @@ stim_type_num = 3;
 mat_address = {
     % Major protocol goes here (Address, Suffix)
     
-    'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster\','PSTH';
-    % 'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
-%     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
-%      'Z:\Data\Tempo\Batch\20160907_HD_allAreas_m5_m10_Smooth20ms','PSTH';
-%      'Z:\Data\Tempo\Batch\20150725_HD_allAreas_m5_m10','PSTH';
-%      'Z:\Data\Tempo\Batch\20150418_LIP_HD_m5_m10_modifiedBatch','PSTH';
-    %  'Z:\Data\Tempo\Batch\20150411_LIP_HD_m5','PSTH';
-    %  'Z:\Data\Tempo\Batch\20141118_LIP_Decision_WithAUC_ResultPSTHOrderChanged','PSTH';
+    %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git
+    'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
+    
+    %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
+    %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
+    %     'Z:\Data\Tempo\Batch\20160907_HD_allAreas_m5_m10_Smooth20ms','PSTH';
+    %     'Z:\Data\Tempo\Batch\20150725_HD_allAreas_m5_m10','PSTH';
+    %     'Z:\Data\Tempo\Batch\20150418_LIP_HD_m5_m10_modifiedBatch','PSTH';
+    %     'Z:\Data\Tempo\Batch\20150411_LIP_HD_m5','PSTH';
+    %     'Z:\Data\Tempo\Batch\20141118_LIP_Decision_WithAUC_ResultPSTHOrderChanged','PSTH';
     
     % Associative protocols
-    'Z:\Data\Tempo\Batch\20150725_BP_allAreas_m5_m10','MemSac';
-    % 'Z:\Data\Tempo\Batch\20150411_LIP_memSac_m5_m10','MemSac';
+    'Z:\Data\Tempo\Batch\20180608_Memsac_all_IONCluster','MemSac';
+    
+    %     'Z:\Data\Tempo\Batch\20150725_BP_allAreas_m5_m10','MemSac';
+    %     'Z:\Data\Tempo\Batch\20150411_LIP_memSac_m5_m10','MemSac';
     };
 
 % Global Mask for each protocol (for XLS)
@@ -199,7 +203,7 @@ end
                                 group_result(major_i).(['mat_raw_' mat_address{pp,2}]) = raw.result;  % Dynamic structure
                             end
                         end
-                    catch
+                    catch err
                         fprintf('Error Loading %s\n',[mat_file_name '_' mat_address{pp,2}]);
                         keyboard;
                     end
@@ -447,8 +451,11 @@ for i = 1:length(group_result)
         group_result(i).MemSac_DDI = group_result(i).mat_raw_MemSac.DDI;
         group_result(i).MemSac_vectSum = group_result(i).mat_raw_MemSac.vectSum;
         group_result(i).MemSac_AI = group_result(i).mat_raw_MemSac.activityIndex;
+        
+        % Only align to saccade here
         group_result(i).MemSac_ts = group_result(i).mat_raw_MemSac.t_centers{3};
         group_result(i).MemSac_PSTH = reshape([group_result(i).mat_raw_MemSac.result_PSTH_anne_mean{3,:}],length(group_result(i).MemSac_ts),[]);
+
     end
 
     if ~isempty(group_result(i).mat_raw_2ptMemSac)
@@ -456,8 +463,13 @@ for i = 1:length(group_result)
         group_result(i).TwoPtMemSac_DDI = group_result(i).mat_raw_2ptMemSac.DDI;
         group_result(i).TwoPtMemSac_vectSum = group_result(i).mat_raw_2ptMemSac.vectSum;
         group_result(i).TwoPtMemSac_AI = group_result(i).mat_raw_2ptMemSac.activityIndex;
+        
+        % Only align to saccade here
         group_result(i).TwoPtMemSac_ts = group_result(i).mat_raw_2ptMemSac.t_centers{3};
-        group_result(i).TwoPtMemSac_PSTH = reshape([group_result(i).mat_raw_2ptMemSac.result_PSTH_anne_mean{3,:}],length(group_result(i).TwoPtMemSac_ts),[]);
+        group_result(i).TwoPtMemSac_PSTH = reshape([group_result(i).mat_raw_2ptMemSac.result_PSTH_anne_mean{3,:}],...
+                                                    length(group_result(i).TwoPtMemSac_ts),[]);
+  
+    
     end
 
     %     catch
@@ -573,6 +585,9 @@ for j = 1:2
     CP{j} = NaN(N,length(CP_ts{j}),3);
     
     ChoiceDiv_All{j} = NaN(N,length(rate_ts{j}),3);
+    ChoiceDiv_All_perm{j}.std = NaN(N,length(rate_ts{j}),3);  % HH20180608
+    ChoiceDiv_All_perm{j}.p = NaN(N,length(rate_ts{j}),3);
+
     ChoiceDiv_Easy{j} = NaN(N,length(rate_ts{j}),3);
     ChoiceDiv_Difficult{j} = NaN(N,length(rate_ts{j}),3);
     ChoiceDiv_EasyMinusDifficult{j} = NaN(N,length(rate_ts{j}),3);
@@ -713,6 +728,10 @@ for i = 1:N
             
             % Stim type check already done
             ChoiceDiv_All{j}(i,:,stim_type) = smooth(group_result(i).mat_raw_PSTH.ChoiceDivergence_ALL{j}(stim_type,:),smooth_factor_for_divergence);
+            ChoiceDiv_All_perm{j}.std(i,:,stim_type) = smooth(group_result(i).mat_raw_PSTH.ChoiceDivergence_ALL_perm{j}.std(stim_type,:),smooth_factor_for_divergence);
+            ChoiceDiv_All_perm{j}.p(i,:,stim_type) = smooth(group_result(i).mat_raw_PSTH.ChoiceDivergence_ALL_perm{j}.p(stim_type,:),smooth_factor_for_divergence);
+
+            
             ChoiceDiv_Easy{j}(i,:,stim_type) = smooth(group_result(i).mat_raw_PSTH.ChoiceDivergence_Easy{j}(stim_type,:),smooth_factor_for_divergence);
             ChoiceDiv_Difficult{j}(i,:,stim_type) = smooth(group_result(i).mat_raw_PSTH.ChoiceDivergence_Difficult{j}(stim_type,:),smooth_factor_for_divergence);
             
@@ -777,9 +796,11 @@ for i = 1:N
         % Save data for individual cell plotting
         group_result(i).MemSac_interp_locations = group_result(i).mat_raw_MemSac.MemSac_interp_locations;
         group_result(i).MemSac_interp_PSTH = group_result(i).mat_raw_MemSac.MemSac_interp_PSTH{3};
+        group_result(i).MemSac_interp_PSTH_alignVisON = group_result(i).mat_raw_MemSac.MemSac_interp_PSTH{1}; % Added align to Vis Off
         
-        % Find temporal periods
-        MemSac_actual_DI_period = [3];  % I use memory and pre period to calculate the actual DI
+        
+        % --- Calculate Memsac DI using user defined period ----
+        MemSac_actual_DI_period = [3];  % [3,4] % I use memory and pre period to calculate the actual DI
         
         MemSac_temporal_Slice = group_result(i).mat_raw_MemSac.temporal_Slice;
         MemSac_align_offsets = group_result(i).mat_raw_MemSac.align_offsets;
@@ -791,7 +812,7 @@ for i = 1:N
             
             ppp = MemSac_actual_DI_period(p_ind);
             
-            if MemSac_temporal_Slice{ppp,3} == 7  % Precise windows (because MemSac_PSTH is aligned to saccade onset)
+            if MemSac_temporal_Slice{ppp,3} == 7  % Precise windows (because MemSac_ts has been aligned to 7 (saccade onset))
                 add_ind = MemSac_temporal_Slice{ppp,1} <= MemSac_ts & MemSac_ts <= MemSac_temporal_Slice{ppp,2};
             else  % Windows that is not so precise
                 % Mean shift
@@ -1260,7 +1281,7 @@ cell_selection();
                             % Anterior-posterior
                             AP = - (this_pos_raw(1) - xyoffsets(1)) * 0.8; % in mm, P - --> AP0 --> + A
                             % Ventral-dorsal
-                            VD = (this_pos_raw(2) - xyoffsets(2)) * 0.8 - AP * tan(30/180*pi); % LIP are inclined
+                            VD = (this_pos_raw(2) - xyoffsets(2)) * 0.8 - AP * tan(30/180*pi); % LIPs are inclined by about 30 degree
                             
                             % Depth to the surface of cortical sheet
                             which_GM_is_LIP = find((this_mapping_data{ee}{4}(:,1) == LIP));
@@ -1359,6 +1380,7 @@ function_handles = {
     'Mean Rate Metrics', {
     'Correct only, all choices (conventional)', @f1p1;
     '   All single cell traces',@f1p1p6;
+    '      Example cells (SuppFig.2)', @f1p1p4;
     '   All single cell fittings',@f1p1p7;
     '   Different weighting methods',@f1p1p5;
     'Different headings' , @f1p2;
@@ -1425,7 +1447,8 @@ function_handles = {
     'Others',{
     'Cell Counter',@f9p1;
     'Target first vs. Target last',@f9p2;
-    'Test',@f9p9;
+    '-----------------------------------', @cell_selection;
+    'Export Associated Memsac Files',@f9p9;
     };
     
     'NoShow',{@cell_selection};
@@ -1979,6 +2002,68 @@ function_handles = {
         
     end
 
+    function f1p1p4(debug) % Plot Example cells for Supplementary Figure 2
+        if debug  ; dbstack;   keyboard;      end
+        
+        to_plot_ori = {
+            % Four example cells in Figure 1
+        %{
+            [
+            61 % m5c313r2u05
+            126 % m10c133r3_4_7
+            31 % m5c174r1
+            120
+            ]; % m10c121r3
+        %}
+            % Other exmples in SuppleFig 2
+%         %{
+            [ 
+            162
+            152
+            91
+            % 114 % Same as 91
+            95
+            % 128
+            29
+            149
+            6
+            74
+            130
+            
+            ]
+          %}
+            [  % Bad cells
+            70
+            134
+            58
+            103
+            103
+            77
+            ]
+       
+                       
+            }; % Manually selected
+        
+        toPlotFigN = length(to_plot_ori);
+        for ff = 1:toPlotFigN
+            
+            toPlotN = length(to_plot_ori{ff});
+            
+            figure(5837+ff); clf; % A large figure
+            set(gcf,'uni','norm','pos',[0.001   0.04    0.626    0.78/4*toPlotN]);
+            hs = tight_subplot(toPlotN,5,[0.06*4/toPlotN 0.06],[0.1 0.1]*4/toPlotN, [0.05 0.05]);
+            
+            hs = reshape(hs,[],5);
+            
+            for ee = 1:toPlotN
+                Plot_HD([],[],to_plot_ori{ff}(ee),hs(ee,:));
+            end
+            
+            % set(hs(1:end-1,:),'xtick','')
+        end
+    end
+
+
     function f1p2p5(debug)      % Rate 2.5. Different headings, Gu's idea, Enhance index (comb/max ratio) distribution through time
         if debug
             dbstack;
@@ -2206,7 +2291,7 @@ function_handles = {
 %         [~,pre_t_ind] = min(abs(CP_ts{j} - t_pre_center));
 %         [~,post_t_ind] = min(abs(CP_ts{j} - t_post_center));
 
-        tuning_time_center = [550 750 1100 1500];
+        tuning_time_center = [600 750 1100 1500];
         
         for tt = 1:length(tuning_time_center)
             [~,tmp] = min(abs(CP_ts{j} - tuning_time_center(tt)));
@@ -3206,7 +3291,7 @@ function_handles = {
             % Linear sum of vest and vis
             plot(rate_ts{j}, sum(ys_CD{j}(1:2,:)),'k-');
             
-            axis tight;  ylim([-0.1 0.4]);
+            axis tight;  ylim([-0.1 0.9]);
             plot(xlim,[0 0],'k--');
             
             % Gaussian vel
@@ -3231,7 +3316,7 @@ function_handles = {
             'CompareIndex',[1:3;1:3],...
             'CompareColor',[mat2cell(colors,ones(3,1))]);
         
-        xlim([-300 2300]); ylim([-0.05 0.4]); legend off;  plot(xlim,[0 0],'k--'); 
+        xlim([-300 2300]); ylim([-0.1 0.7 ]); legend off;  plot(xlim,[0 0],'k--'); 
         title(sprintf('Choice divergence (SU, N = %g)',sum(select_for_div)));
         set(gcf,'unit','norm','pos',[0.00952380952380952 0.521904761904762 0.315476190476191 0.385714285714286]);
         % Gaussian vel
@@ -3240,14 +3325,14 @@ function_handles = {
         SetFigure(17);
         
         %% A or V? HH20151220
-        figure(); plot(rate_ts{1},ys_CD{1}');
-        hold on;
+        figure(2247); clf; plot(rate_ts{1},ys_CD{1}');  
+        hold on; title('A or V?')
         plot(Gauss_vel(:,1) + time_markers{1}(1),Gauss_vel(:,2)*range(ylim)/5 + min(ylim),'--','linew',3,'color',[0.6 0.6 0.6]);
         dt_Gauss = Gauss_vel(2,1)-Gauss_vel(1,1);
         Gauss_acc = diff(Gauss_vel(:,2));
         plot(Gauss_vel(2:end,1),Gauss_acc);
-        plot(Gauss_vel(1:end,1),[0 ;cumsum(abs(Gauss_acc))]/10,'k','linew',2);
-        plot(Gauss_vel(1:end,1),[cumsum(Gauss_vel(:,2))]/1000,'k','linew',2);
+        plot(Gauss_vel(1:end,1),[0 ;cumsum(abs(Gauss_acc))]/10*3,'k','linew',2);
+        plot(Gauss_vel(1:end,1),[cumsum(Gauss_vel(:,2))]/100*2/3,'k','linew',2);
         
         
         %% Linear fitting combined trace
@@ -3258,9 +3343,12 @@ function_handles = {
         ramping2 = ys_CD{1}(2,t_select);
         ramping3 = ys_CD{1}(3,t_select);
         
-        w = fminsearch(@(w) sum((w(1)*ramping1 + w(2)*ramping2 - ramping3).^2), [.5 .5])
+        w = fminsearch(@(w) sum((w(1)*ramping1 + w(2)*ramping2 - ramping3).^2), [.5 .5]);
         
-        figure(); plot(ts(t_select),ramping1,colors(1,:),ts(t_select),ramping2,colors(2,:),ts(t_select),ramping3,colors(3,:),ts(t_select),ramping1*w(1)+ramping2*w(2),'k');
+        figure(2308); clf
+        plot(ts(t_select),ramping1,'b',ts(t_select),ramping2,'r',...
+            ts(t_select),ramping3,'g',ts(t_select),ramping1*w(1)+ramping2*w(2),'k');
+        title(sprintf('Fitting Choice Div: w1 = %g, w2 = %g',w(1),w(2)))
         
         
     end
@@ -3789,13 +3877,16 @@ function_handles = {
         % =================== Correlations 2. Mem-sac v.s. CP
         
         j = 2; % Not much time-sensitive, so I use j = 2 here.
-        CP_interest = -500;
+        CP_interest = [-400 -100];  % min and max interval. HH20180609
         
-        CP_interval = CP_ts{j} == CP_interest ;
+        %  CP_interval = CP_ts{j} == CP_interest ;
+        
+        CP_interval = find(abs(CP_ts{j} - CP_interest(1)) == min(abs(CP_ts{j} - CP_interest(1)))) : ...
+                      find(abs(CP_ts{j} - CP_interest(2)) == min(abs(CP_ts{j} - CP_interest(2))));
         
         for k = 1:3
-            CP_NS{k} = find_bottom_line(CP_p{j}(select_bottom_line,CP_interval,k) > 0.05);
-            CP_S{k} = find_bottom_line(CP_p{j}(select_bottom_line,CP_interval,k) <= 0.05);
+            CP_NS{k} = find_bottom_line(any(CP_p{j}(select_bottom_line,CP_interval,k) > 0.05,2));
+            CP_S{k} = find_bottom_line(any(CP_p{j}(select_bottom_line,CP_interval,k) <= 0.05,2));
         end
         
         
@@ -3831,12 +3922,13 @@ function_handles = {
         plot(MemSac_indicator(select_tcells),mean(CP{j}(select_tcells,CP_interval,3),2),...
             '+','markersize',tcell_cross_size,'color','k','linew',2);
         
-        h = LinearCorrelation({  mean(ChoiceDiv_All{j}(CP_NS{1},rate_ts{j} > -400 & rate_ts{j} < -100,1),2)+0.5,...
-            mean(ChoiceDiv_All{j}(CP_S{1},rate_ts{j} > -400 & rate_ts{j} < -100,1),2)+0.5,...
-            mean(ChoiceDiv_All{j}(CP_NS{2},rate_ts{j} > -400 & rate_ts{j} < -100,2),2)+0.5,...
-            mean(ChoiceDiv_All{j}(CP_S{2},rate_ts{j} > -400 & rate_ts{j} < -100,2),2)+0.5,...
-            mean(ChoiceDiv_All{j}(CP_NS{3},rate_ts{j} > -400 & rate_ts{j} < -100,3),2)+0.5,...
-            mean(ChoiceDiv_All{j}(CP_S{3},rate_ts{j} > -400 & rate_ts{j} < -100,3),2)+0.5},...
+        % ========== CD and CP ========        
+        h = LinearCorrelation({  mean(ChoiceDiv_All{j}(CP_NS{1},rate_ts{j} > -400 & rate_ts{j} < -100,1),2) / 2 + 0.5,...
+            mean(ChoiceDiv_All{j}(CP_S{1},rate_ts{j} > -400 & rate_ts{j} < -100,1),2) / 2 + 0.5,...
+            mean(ChoiceDiv_All{j}(CP_NS{2},rate_ts{j} > -400 & rate_ts{j} < -100,2),2)/ 2 + 0.5,...
+            mean(ChoiceDiv_All{j}(CP_S{2},rate_ts{j} > -400 & rate_ts{j} < -100,2),2)/ 2 + 0.5,...
+            mean(ChoiceDiv_All{j}(CP_NS{3},rate_ts{j} > -400 & rate_ts{j} < -100,3),2)/ 2 + 0.5,...
+            mean(ChoiceDiv_All{j}(CP_S{3},rate_ts{j} > -400 & rate_ts{j} < -100,3),2)/ 2 + 0.5},...
             {  mean(CP{j}(CP_NS{1},CP_interval,1),2),...
             mean(CP{j}(CP_S{1},CP_interval,1),2),...
             mean(CP{j}(CP_NS{2},CP_interval,2),2),...
@@ -3844,7 +3936,7 @@ function_handles = {
             mean(CP{j}(CP_NS{3},CP_interval,3),2),...
             mean(CP{j}(CP_S{3},CP_interval,3),2)},...
             'CombinedIndex',[3 12 48],...
-            'Xlabel','Choice Div (pre) + 0.5','Ylabel',['CP at Sac ' num2str(CP_interest)],...
+            'Xlabel','Choice Div (pre)/2 + 0.5','Ylabel',['CP at Sac ' num2str(CP_interest)],...
             'FaceColors',{'none',colors(1,:),'none',colors(2,:),'none',colors(3,:)},'Markers',{'o'},...
             'LineStyles',{'b:','b:','r:','r:','g:','g:','b-','r-','g-'},'MarkerSize',marker_size,...
             'figN',figN,'XHist',nHist,'YHist',nHist,'SameScale',1); figN = figN + 1;
@@ -3854,11 +3946,11 @@ function_handles = {
         
         set(gcf,'name',['j = ' num2str(j)]);
         % Annotate tcells
-        plot(.5+mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,1),2),mean(CP{j}(select_tcells,CP_interval,1),2),...
+        plot(.5 + .5* mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,1),2),mean(CP{j}(select_tcells,CP_interval,1),2),...
             '+','markersize',tcell_cross_size,'color','k','linew',2);
-        plot(.5+mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,2),2),mean(CP{j}(select_tcells,CP_interval,2),2),...
+        plot(.5 + .5*mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,2),2),mean(CP{j}(select_tcells,CP_interval,2),2),...
             '+','markersize',tcell_cross_size,'color','k','linew',2);
-        plot(.5+mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,3),2),mean(CP{j}(select_tcells,CP_interval,3),2),...
+        plot(.5 + .5*mean(ChoiceDiv_All{j}(select_tcells,rate_ts{j} > -400 & rate_ts{j} < -100,3),2),mean(CP{j}(select_tcells,CP_interval,3),2),...
             '+','markersize',tcell_cross_size,'color','k','linew',2);
         
         
@@ -4547,13 +4639,15 @@ function_handles = {
             
             A_forplot(isnan(A_forplot)) = -0.5; % This workaround is to avoid that cells which are next the NaNs cannot be displayed.
             
-            [nn, tt] = meshgrid(1:size(A_forplot,1), 1:size(A_forplot,2));
+            % [nn, tt] = meshgrid(1:size(A_forplot,1), 1:size(A_forplot,2));
             
             set(figure(2099+figN),'name',['CDiv and MDiv, hot-gram, j_PCA_A = ' num2str(j_PCA_A)],...
                 'unit','norm','pos',[0.581547619047619 0.177142857142857 0.414880952380952 0.738095238095238]); 
             clf; figN = figN+1;
-            h1 = surf(tt,nn,A_forplot','Edgecolor','none');
-            view(0,90);
+            
+            % h1 = surf(tt,nn,A_forplot','Edgecolor','none');
+            h1 = imagesc(A_forplot);
+            axis xy;
             
             % Annotate time separations
             hold on;
@@ -4563,20 +4657,20 @@ function_handles = {
             % Stim on / stim off / sac on
             for ttt = 1:3
                 for tt = 0:5
-                    plot3(CD_begin_at + tt*length(rate_ts{j_PCA_A}) + find(rate_ts{j_PCA_A} >= time_markers{j_PCA_A}(1,ttt),1) * [1 1],...
-                        [1 size(A_forplot,1)],[1 1],'k','linesty',marker_for_time_markers{j_PCA_A}{ttt},'linewid',1.5);
+                    plot(CD_begin_at + tt*length(rate_ts{j_PCA_A}) + find(rate_ts{j_PCA_A} >= time_markers{j_PCA_A}(1,ttt),1) * [1 1],...
+                        [1 size(A_forplot,1)],'k','linesty',marker_for_time_markers{j_PCA_A}{ttt},'linewid',1.5);
                 end
             end
             
             % End
             plot3([CD_begin_at CD_begin_at],[1 size(A_forplot,1)],[1 1],'k','linewid',3);
             for tt = 1:6
-                plot3(CD_begin_at + tt*[length(rate_ts{j_PCA_A})  length(rate_ts{j_PCA_A})],[1 size(A_forplot,1)],[1 1],'k','linewid',3);
+                plot(CD_begin_at + tt*[length(rate_ts{j_PCA_A})  length(rate_ts{j_PCA_A})],[1 size(A_forplot,1)],'k','linewid',3);
             end
             
             % Annotate tcells
             cell_loc = select_tcells(select_bottom_line);
-            h2 = plot3(0,find(cell_loc(sort_order))+.5,1,'+','markersize',5,'color','k','linew',1.5);
+            h2 = plot(0,find(cell_loc(sort_order))+.5,'+','markersize',5,'color','k','linew',1.5);
             
             % Annotate sort methods
             temp_beg = @(x)((x<=5)*((x-1)*enlarge_factor) + 1 + (x>5)*(CD_begin_at+(x-5)-1));
@@ -4585,7 +4679,7 @@ function_handles = {
             sort_begin_forplot = temp_beg(sort_begin);
             sort_end_forplot = temp_end(sort_end);
             
-            plot3([sort_begin_forplot sort_end_forplot],[size(A_forplot,1)+1 size(A_forplot,1)+1],[1 1],colors(2,:),'linewid',5);
+            plot([sort_begin_forplot sort_end_forplot],[size(A_forplot,1)+1 size(A_forplot,1)+1],'color',colors(2,:),'linewid',5);
             xlabel('Temporal features');
             ylabel('Cell Number');
             
@@ -6711,11 +6805,79 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         %}
     end
 
-    function f9p9(debug)      % Test
+    function f9p9(debug)      % Export Associated Memsac Files
         if debug;  dbstack;  keyboard;  end
         
+        % Read batch file with all cells
+        f = fopen('Z:\Data\Tempo\Batch\20150725_BP_allAreas_m5_m10.m');
+        line = fgetl(f);  ii = 0;
         
-        keyboard;
+        while line ~= -1
+            if line(1) ~= '%'
+                ii = ii + 1;
+                all_ori_batch{ii} = line;
+                tmp = textscan(line,'%s');
+                all_ori_name{ii} = tmp{1}{2};
+                all_ori_spikeChan(ii) = str2double(tmp{1}{end});
+            end
+            line = fgetl(f);
+        end
+        fclose(f);
+        
+        % HH20180608
+        exportPath = 'Z:\Data\Tempo\Batch\ExportedAssociatedMemsacFiles\';
+        new_f = fopen([exportPath 'batch_file.m'],'a');
+        
+        progressbar;
+        for ii = 1:length(group_result)
+            
+            PATH = 'Z:\Data\MOOG\';
+            
+            if xls_num{1}(ii,header.Monkey) == 5
+                monkeyName = 'Polo';
+            else
+                monkeyName = 'Messi';
+            end
+            
+            if ~isempty(group_result(ii).mat_raw_MemSac)
+                FILE = group_result(ii).mat_raw_MemSac.FILE;
+                SpikeChan = group_result(ii).mat_raw_MemSac.SpikeChan;
+                %                 htbOK = copyfile([PATH monkeyName '\raw\' FILE '.htb'],[exportPath FILE '.htb']);
+                %                 logOK= copyfile([PATH monkeyName '\raw\' FILE '.log'],[exportPath FILE '.log']);
+                %                 matOK= copyfile([PATH monkeyName '\Analysis\SortedSpikes2\' FILE '.mat'],[exportPath FILE '.mat']);
+                
+                % Write new batch file
+                where = find(strcmp(all_ori_name,FILE) & all_ori_spikeChan == SpikeChan);
+                if length(where) ~= 1 % Should be unique
+                    error('No batch info?')
+                else
+                    fprintf(new_f,'%s\n',all_ori_batch{where});
+                end
+            end
+            
+            if ~isempty(group_result(ii).mat_raw_2ptMemSac)
+                FILE = group_result(ii).mat_raw_2ptMemSac.FILE;
+                SpikeChan = group_result(ii).mat_raw_2ptMemSac.SpikeChan;
+                %                 htbOK = copyfile([PATH monkeyName '\raw\' FILE '.htb'],[exportPath FILE '.htb']);
+                %                 logOK= copyfile([PATH monkeyName '\raw\' FILE '.log'],[exportPath FILE '.log']);
+                %                 matOK= copyfile([PATH monkeyName '\Analysis\SortedSpikes2\' FILE '.mat'],[exportPath FILE '.mat']);
+                
+                % Write new batch file
+                where = find(strcmp(all_ori_name,FILE) & all_ori_spikeChan == SpikeChan);
+                if length(where) ~= 1 % Should be unique
+                    error('No batch info?')
+                else
+                    fprintf(new_f,'%s\n',all_ori_batch{where});
+                end
+            end
+            
+            
+            progressbar(ii/length(group_result));
+        end
+        
+        fclose(new_f);
+
+        edit([exportPath 'batch_file.m']);
     end
 
 %     keyboard;
@@ -7109,8 +7271,9 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         guidata(gcbo,h_marker);
     end
    
-    function Plot_HD(~,~,ori_cell_no)    % Plot associated HD traces @HH20150426
+    function Plot_HD(~,~,ori_cell_no,h_1463_axes)    % Plot associated HD traces @HH20150426
         
+       
         % ------ PSTH in HD ------
         j_this = 1;
         
@@ -7119,20 +7282,31 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             sem_this{j} = group_result(ori_cell_no).mat_raw_PSTH.PSTH{j,1,1}.sem';
             ps_this{j} = group_result(ori_cell_no).mat_raw_PSTH.PSTH{j,1,1}.ps';
         end
-            
+        
+        % ------ Adapted for batch plot example cells ---
+        if nargin < 4
+            figure(1463); clf ;
+            set(gcf,'uni','norm','pos',[0.005       0.597       0.992       0.304]);
+            h_1463_axes = tight_subplot(1,5,[0.1 0.06],[0.2 0.15],[0.05 0.05]);
+        end
+        
+        % --- 1. Raw PSTHs ---
+        % h_1463_PSTH = subplot_tight(1,5,1,[0.1 0.06],[0.2 0.15 0.05 0.05]);       
+        h_1463_PSTH = h_1463_axes(1);
+        axes(h_1463_PSTH)
+        
         SeriesComparison({shiftdim(ys_this{1},-1) shiftdim(ys_this{2},-1)},...
             {rate_ts{1} rate_ts{2} time_markers},...
             'OverrideError',{sem_this{1}, sem_this{2}},...
             'OverridePs',{ps_this{1}, ps_this{2}},'ErrorBar',6,...
-            'CompareIndex',[1 3 5;2 4 6],'CompareColor',{colors(1,:),colors(2,:),[0 0.8 0.4]},...
-            'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),[0 0.8 0.4],[0 0.8 0.4]},'LineStyles',{'-','--'},'figN',1463);
+            'CompareIndex',[1 3 5;2 4 6],'CompareColor',{colors(1,:),colors(2,:),colors(3,:)},...
+            'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},...
+            'Transparent',transparent,'LineStyles',{'-','--'},'axes',h_1463_PSTH);
         
         axis tight; legend off;
-        set(gcf,'unit','norm','pos',[ 0     0.53255     0.28843     0.35286]);
+        xlim([-300 2300]);        
+        xticks([0 1000 2050]); xticklabels({'Stim','1000 ms','Sac'});
         
-%         for t = 1:3
-%             plot([1 1] * time_markers{j_this}(1,t),ylim,'k','linestyle',marker_for_time_markers{j_this}{t},'linew',1.5);
-%         end
         
         if group_result(ori_cell_no).Waveform_broad
             celltype = 'Pyr';
@@ -7140,39 +7314,96 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             celltype = 'Int';
         end
         
-        title(sprintf('#%g, %s, %s\np = %.3g,%.3g,%.3g',...
-            ori_cell_no,celltype,group_result(ori_cell_no).cellID{1}{1}(9:end),...
-            group_result(ori_cell_no).ChoicePreference_pvalue(3,:)'));
         
-        xlabel('Time to saccade onset (ms)');      ylabel('Firing rate');
-        xlim(xlim * 0.9);
-        SetFigure(10);
+        id_this = group_result(ori_cell_no).cellID{1}{1};
+        name_this = id_this(strfind(id_this,'u'):end);
+        pos_this = group_result(ori_cell_no).position;
+        
+        hemi = 'L' * (pos_this(2) == 1) + 'R' * (pos_this(2) == 2);
+                
+        title(sprintf('#%g, %s, %s\n%s: AP%gML%.2gD%g',...
+            ori_cell_no,celltype, name_this, hemi, pos_this(3:5)));
+        
+        % xlabel('Time to saccade onset (ms)');      ylabel('Firing rate');
         
         % Gaussian vel
-        plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        plot(Gauss_vel(:,1) + time_markers{1}(1),0 + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
         
-        % --- Choice divergence --- HH20180606
-        set(figure(1466)); clf;
-        set(gcf,'uni','norm','pos',[0.541       0.526       0.287       0.353]);
+        
+        % --- 2. PSTH_difference ---
+        h_1463_PSTH_diff = h_1463_axes(2);
+        axes(h_1463_PSTH_diff)
 
         for j = 1:2
-            PSTH_diff_hardeasy{j} = PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,1:2:end,:)...
-                - PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,2:2:end,:);
+            psth_diff{j} = ys_this{j}(:,[1 3 5]) - ys_this{j}(:,[2 4 6]);
+            psth_diff_sem{j} = sqrt(sem_this{j}(:,[1 3 5]).^2 + sem_this{j}(:,[2 4 6]));
         end
         
-        SeriesComparison({reshape(PSTH_diff_hardeasy{1},1,[],6) reshape(PSTH_diff_hardeasy{2},1,[],6)},...
+        SeriesComparison({shiftdim(psth_diff{1},-1) shiftdim(psth_diff{2},-1)},...
             {rate_ts{1} rate_ts{2} time_markers},...
-            'Colors',hsv2rgb([2/3 .4 1; 2/3 1 1; 0 .4 1; 0 1 1; 1/3 .4 1; 1/3 1 1]),...
-            'LineStyles',{'-','-'},'figN',1464);
+            'OverrideError',{psth_diff_sem{1}, psth_diff_sem{2}},...
+            'CompareIndex',[1 2 3;1 2 3],'CompareColor',{colors(1,:),colors(2,:),colors(3,:)},...
+            'Colors',{colors(1,:),colors(2,:),colors(3,:)},...
+            'Transparent',transparent,'LineStyles',{'-'},'axes',h_1463_PSTH_diff);
+        
+        axis tight; legend off;
+        xlim([-300 2300]);
+        xticks([0 1000 2050]); xticklabels({'Stim','1000 ms','Sac'});
+
+        % Gaussian vel
+        plot(xlim,[0 0], 'k--')
+        % ylim([max(-20,min(ylim)) max(ylim)]);
+        
+        posi_neg_ratio = max(5, max(ylim)/abs(min(ylim)));
+        ylim([-max(ylim)/posi_neg_ratio max(ylim)]);
+        
+        plot(Gauss_vel(:,1) + time_markers{1}(1), 0 + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+
+        title(sprintf('\\DeltaPSTH, p = %.3g,%.3g,%.3g',...
+            group_result(ori_cell_no).ChoicePreference_pvalue(3,:)'));
+      
+        % --- 3. Choice Divergence with newly added p value ---
+        h_1463_CD = h_1463_axes(3);
+        axes(h_1463_CD)
+        
+        for j = 1:2
+            CD_this{j} = ChoiceDiv_All{j}(ori_cell_no,:,:);
+            CD_perm_this{j} = 1.96 * ChoiceDiv_All_perm{j}.std(ori_cell_no,:,:);
+            ps_CD_this{j} = squeeze(ChoiceDiv_All_perm{j}.p(ori_cell_no,:,:));
+        end
+        
+        ylim([-0.2 1.1]);
+         
+        SeriesComparison({CD_this{1}, CD_this{2}},...
+            {rate_ts{1} rate_ts{2} time_markers},...
+            'Colors',{colors(1,:),colors(2,:),colors(3,:)},...
+            'OverridePs',{ps_CD_this{1}, ps_CD_this{2}},'ErrorBar',4,...
+            'CompareIndex',[1 2 3 ; 1 2 3],'CompareColor',{colors(1,:),colors(2,:),colors(3,:)},...
+            'Transparent',transparent,'LineStyles',{'-'},'axes',h_1463_CD, 'Ylim',[-0.2 1]);
+ 
+        %         hh = SeriesComparison({CD_perm_this{1}, CD_perm_this{2}},...
+        %             {rate_ts{1} rate_ts{2} time_markers},...
+        %             'Colors',{colors(1,:),colors(2,:),colors(3,:)},...
+        %             'LineStyles',{'-'},'figN',1467,'hold',1);
+        %         set([hh.h{:}],'linew',0.5)
+        legend off; plot(xlim,[0 0],'k--');
+        
         title('CD');
-        axis tight; legend off; plot(xlim,[0 0],'k--');
-        set(gcf,'uni','norm','pos',[0.291       0.532       0.287       0.353]);
+        xlim([-300 2300]);
+        % ylim([-0.2 1.1]);
+        ylim([-max(ylim)/posi_neg_ratio max(ylim)]); % Same as deltaPSTH
         
         % Gaussian vel
         plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        xticks([0 1000 2050]); xticklabels({'Stim','1000 ms','Sac'});
+        yticks([0 0.5 1]);  yticklabels(num2str([0 0.5 1],'%0.1f\n'));
         
         
         % -- PSTH_diff (Hard and Easy) -- HH20160905
+        %{
+        figure(1466); clf;
+        set(gcf,'uni','norm','pos',[0.013       0.099       0.286       0.352]);
+        
         for j = 1:2
             PSTH_diff_hardeasy{j} = PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,1:2:end,:)...
                 - PSTH_hard_easy_raw_cellBtB4Bk{j}(ori_cell_no,:,2:2:end,:);
@@ -7181,14 +7412,14 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         SeriesComparison({reshape(PSTH_diff_hardeasy{1},1,[],6) reshape(PSTH_diff_hardeasy{2},1,[],6)},...
             {rate_ts{1} rate_ts{2} time_markers},...
             'Colors',hsv2rgb([2/3 .4 1; 2/3 1 1; 0 .4 1; 0 1 1; 1/3 .4 1; 1/3 1 1]),...
-            'LineStyles',{'-','-'},'figN',1464);
+            'LineStyles',{'-','-'},'figN',1466);
         title('PSTH\_diff, Hard and Easy');
         axis tight; legend off; plot(xlim,[0 0],'k--');
-        set(gcf,'uni','norm','pos',[0.291       0.532       0.287       0.353]);
         
         % Gaussian vel
         plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
-
+        xlim([-300 2300]);
+        %}
         
         % -- Dora Tuning -- HH20170327 @ UNIGE
         if ~isempty(dora_tuning_mean_each_cell)
@@ -7268,32 +7499,36 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
         %}
         
-        Plot_memsac([],[],ori_cell_no);
+        Plot_memsac([], [], ori_cell_no, h_1463_axes);
     end
 
-    function Plot_memsac(~,~,ori_cell_no)    % Plot associated mem-sac traces @HH20150426
+    function Plot_memsac(~, ~, ori_cell_no, h_1463_axes)    % Plot associated mem-sac traces @HH20150426
         
-%         set(figure(1462),'pos',[-1243 452 712 394]); clf;
-        if ishandle(1462)
-            figure(1462); clf;
-        else
-            set(figure(1462), 'unit','norm','pos',[0.00366032210834553 0.0572916666666667 0.418740849194729 0.385416666666667]);
-        end
+        %         set(figure(1462),'pos',[-1243 452 712 394]); clf;
+        %         if ishandle(1462)
+        %             figure(1462); clf;
+        %         else
+        %             set(figure(1462), 'unit','norm','pos',[0.00366032210834553 0.0572916666666667 0.418740849194729 0.385416666666667]);
+        %         end
+        %
+        %                 axis_typing = axes('Position',[0.032 0.672 0.459 0.296]);
+        %                 axis_polar = axes('Position',[0.039 0.096 0.345 0.586]);
+        %                 axis_psth = axes('Position',[0.521 0.17 0.426 0.728]);
         
-        axis_typing = axes('Position',[0.032 0.672 0.459 0.296]);
-        axis_polar = axes('Position',[0.039 0.096 0.345 0.586]);
-        axis_psth = axes('Position',[0.521 0.17 0.426 0.728]);
+        h_1463_memPSTH = h_1463_axes(4);
+        h_1463_memPolar = h_1463_axes(5);
         
         try
             
             if ~isempty(group_result(ori_cell_no).mat_raw_MemSac)
                 
-                plot_time_range = [2 3 4 6]; % 2:end
+                % plot_time_range = [2 3 4 6]; % 2:end
+                plot_time_range = [3]; % Memory
                 
                 resp_mean = group_result(ori_cell_no).mat_raw_MemSac.resp_mean(plot_time_range);
                 resp_err = group_result(ori_cell_no).mat_raw_MemSac.resp_err(plot_time_range);
                 p = group_result(ori_cell_no).mat_raw_MemSac.p(plot_time_range);
-                vectSum = group_result(ori_cell_no).mat_raw_MemSac.vectSum(2:end);
+                vectSum = group_result(ori_cell_no).mat_raw_MemSac.vectSum(plot_time_range);
                 temporal_Slice = group_result(ori_cell_no).mat_raw_MemSac.temporal_Slice(plot_time_range,:);
                 align_offsets = group_result(ori_cell_no).mat_raw_MemSac.align_offsets;
                 align_markers = group_result(ori_cell_no).mat_raw_MemSac.align_markers;  % Desired markers: target onset & target offset & sac onset
@@ -7301,16 +7536,31 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 
                 %             PREF_target_location = group_result(ori_cell_no).mat_raw_PSTH.PREF_target_location; % Note this would be [-90,270]! HH20160906
                 %             PREF_target_location = mod(PREF_target_location,360); % Changed to [0,360] HH20160906
+                                
+                % Memsac PSTH: align to VisOn and SacOn. HH20180609
+                MemSac_interp_PSTH = group_result(ori_cell_no).mat_raw_MemSac.MemSac_interp_PSTH([1 3]);
+                MemSac_interp_PSTH_sem = group_result(ori_cell_no).mat_raw_MemSac.MemSac_interp_PSTH_sem([1 3]);
+                MemSac_interp_PSTH_ts = group_result(ori_cell_no).mat_raw_MemSac.t_centers([1 3]);
+
+                mem_sac_align_offset = mean(align_offsets); % This is time of [VisON, VisON, Saccade]
+                mem_sac_time_marker = {mem_sac_align_offset - mem_sac_align_offset(1), mem_sac_align_offset - mem_sac_align_offset(3)};
+                mem_sac_border = [mem_sac_align_offset(2)-100 -300]; % for SeriesComparison
+                mem_sac_lims = [-300 mem_sac_align_offset(2)+700];
                 
-                MemSac_interp_PSTH = group_result(ori_cell_no).MemSac_interp_PSTH;
                 MemSac_interp_locations = group_result(ori_cell_no).MemSac_interp_locations;
+                
+                [~,pref] = min(abs(group_PREF_target_location(ori_cell_no) - MemSac_interp_locations));
+                %                     [~,pref] = min(abs(group_PREF_target_location_notebook(ori_cell_no) - MemSac_interp_locations));
+                pref = mod(pref-1,length(MemSac_interp_locations)-1)+1;
+                null = mod(pref + (length(MemSac_interp_locations)-1)/2 -1, length(MemSac_interp_locations)-1)+1; % The opposite position
                 
                 % Polar plot
                 [~, polarOrder] = sort(max(cell2mat(resp_mean'),[],2),1,'descend'); % The largest goes first in the polar plot
-                SetFigure(13);
+                
+                axes(h_1463_memPolar);
+                title_text = '';
                 
                 for sliceN = polarOrder(:)'
-                    axes(axis_polar);
                     
                     if strcmp(temporal_Slice{sliceN,5},''); continue; end
                     
@@ -7321,100 +7571,187 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                     end;
                     
                     polarwitherrorbar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
-                        [resp_mean{sliceN}'; resp_mean{sliceN}(1)], (p(sliceN) < 0.05) * [resp_err{sliceN}' ; resp_err{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker],wid);
+                        [resp_mean{sliceN}'; resp_mean{sliceN}(1)], (p(sliceN) < 0.05 || 1 ) * [resp_err{sliceN}' ; resp_err{sliceN}(1)],...
+                        [temporal_Slice{sliceN,5} sigMarker], wid, 1);  % Simple mode = 1
                     
                     %                     set(polar([unique_heading/180*pi; unique_heading(1)/180*pi], ...
-%                         [resp_mean{sliceN}'; resp_mean{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker]),'linewidth',2);
-%                     
+                    %                         [resp_mean{sliceN}'; resp_mean{sliceN}(1)],[temporal_Slice{sliceN,5} sigMarker]),'linewidth',2);
+                    %
                     hold on;
+                    
+                    h_p = polar([vectSum(sliceN) vectSum(sliceN)]/180*pi,...
+                        [0  max(ylim)],[temporal_Slice{sliceN,5} '-']);
+                    
+                    
+                    %                     h_p = polar([vectSum(sliceN) vectSum(sliceN)]/180*pi,...
+                    %                                 [max(cell2mat(resp_mean))*0.9 max(cell2mat(resp_mean))*1.3],[temporal_Slice{sliceN,5} '-']);
                     
                     if p(sliceN) < 0.05
                         %         h_p = polar([vectSum(sliceN) vectSum(sliceN)]/180*pi,[0 vectAmp(sliceN)],[temporal_Slice{sliceN,5} '-']);
-                        h_p = polar([vectSum(sliceN) vectSum(sliceN)]/180*pi,[max(cell2mat(resp_mean))*0.9 max(cell2mat(resp_mean))*1.3],[temporal_Slice{sliceN,5} '-']);
                         set(h_p,'LineWidth',3);
                     else
-                        h_p = polar([vectSum(sliceN) vectSum(sliceN)]/180*pi,[max(cell2mat(resp_mean))*0.9 max(cell2mat(resp_mean))*1.3],[temporal_Slice{sliceN,5} '-']);
                         set(h_p,'LineWidth',1);
                     end
                     %
-                    axes(axis_typing); axis off;
-                    text(0,- sliceN * 0.15+1.1,sprintf('%s:  \\itp_ = %4.2g',temporal_Slice{sliceN,4},p(sliceN)),'color',temporal_Slice{sliceN,5},...
-                        'FontSize',14 * (p(sliceN) < 0.05) + 7 * (p(sliceN) >= 0.05 || isnan(p(sliceN))));
+                    % axes(axis_typing); axis off;
+                    %                     text(0,- sliceN * 0.15+1.1,sprintf('%s:  \\itp_ = %4.2g',temporal_Slice{sliceN,4},p(sliceN)),'color',temporal_Slice{sliceN,5},...
+                    %                         'FontSize',14 * (p(sliceN) < 0.05) + 7 * (p(sliceN) >= 0.05 || isnan(p(sliceN))));
                     drawnow;
+                    title_text = [title_text sprintf('%s:  \\itp_ = %4.2g\n',temporal_Slice{sliceN,4},p(sliceN))];
                 end
+                
+                % Target position
+                axes(h_1463_memPolar);
+                radi = max(xlim);
+                pref_theta = MemSac_interp_locations(pref)/180*pi;
+                plot(radi*cos(pref_theta),radi*sin(pref_theta),'ok','markersize',5,'linew',2,'markerfacecol','k');
+                
+                null_theta = MemSac_interp_locations(null)/180*pi;
+                plot(radi*cos(null_theta),radi*sin(null_theta),'ok','markersize',5,'linew',2);
+                
+                text(min(xlim),min(ylim),title_text);
+                
                 
                 % ----- PSTH plot -----
                 
                 % (1) The one which is nearest to the vect_sum of Mem-period
                 
-                [~,pref] = min(abs(vectSum(2) - MemSac_interp_locations));
+                %{
+                which_is_memory = (plot_time_range == 3);
+                
+                [~,pref] = min(abs(vectSum(which_is_memory) - MemSac_interp_locations));
                 pref = mod(pref-1,length(MemSac_interp_locations)-1)+1;
                 null = mod(pref + (length(MemSac_interp_locations)-1)/2 -1, length(MemSac_interp_locations)-1)+1; % The opposite position
                 
-                ts = group_result(ori_cell_no).mat_raw_MemSac.t_centers{3};
-                ys = MemSac_interp_PSTH(:,[pref null]);
+                for jjj = 1:2
+                    ys{jjj} = shiftdim(MemSac_interp_PSTH{jjj}(:,[pref null]),-1);
+                    sems{jjj} = MemSac_interp_PSTH_sem{jjj}(:,[pref null]);
+                end
                 
-                axes(axis_psth); hold on;
-                SeriesComparison(shiftdim(ys,-1),ts,'Colors',{colors(3,:),colors(3,:)},'LineStyles',{'-','--'},'axes',axis_psth);
+                axes(h_1463_memPSTH); hold on;
+                
+                SeriesComparison({ys{1},ys{2}},...
+                                 {MemSac_interp_PSTH_ts{1},MemSac_interp_PSTH_ts{2},mem_sac_time_marker},...
+                                'OverrideError',{sems{1},sems{2}},...
+                                'ErrorBar', 2, 'CompareIndex',[],...
+                                'Colors',{colors(3,:),colors(3,:)},...
+                                'Border', mem_sac_border,  'LineStyles',{'-','--'},'axes',h_1463_memPSTH);
+                
+                text(-1000,max(ylim)*.95,'MemsacPref\_interp','color',colors(3,:));
+                %}
                 
                 % (2) The two which are nearest to actual PREF location. @HH20150524
-                [~,pref] = min(abs(group_PREF_target_location(ori_cell_no) - MemSac_interp_locations));
-                pref = mod(pref-1,length(MemSac_interp_locations)-1)+1;
-                null = mod(pref + (length(MemSac_interp_locations)-1)/2 -1, length(MemSac_interp_locations)-1)+1; % The opposite position
-                
-                axes(axis_polar);
-                set(polar([MemSac_interp_locations(pref) MemSac_interp_locations(pref)]/180*pi,[0 max(cell2mat(resp_mean))*1.3],'k-'),'linew',2);
-                set(polar([MemSac_interp_locations(null) MemSac_interp_locations(null)]/180*pi,[0 max(cell2mat(resp_mean))*1.3],'k--'),'linew',2);
-                
-                ys = MemSac_interp_PSTH(:,[pref null]);
-                
-                axes(axis_psth);
-                SeriesComparison(shiftdim(ys,-1),ts,'Colors',{'k','k'},'LineStyles',{'-','--'},'axes',axis_psth);
+                if isempty(group_result(ori_cell_no).TwoPtMemSac_PSTH) % Only if there is not TwoPtMemSac
+
+                    
+                    %                 set(polar([MemSac_interp_locations(pref) MemSac_interp_locations(pref)]/180*pi,[0 max(cell2mat(resp_mean))*1.3],'k-'),'linew',3);
+                    %                 set(polar([MemSac_interp_locations(null) MemSac_interp_locations(null)]/180*pi,[0 max(cell2mat(resp_mean))*1.3],'k--'),'linew',3);
+                    
+                    
+                    for jjj = 1:2
+                        ys{jjj} = shiftdim(MemSac_interp_PSTH{jjj}(:,[pref null]),-1);
+                        sems{jjj} = MemSac_interp_PSTH_sem{jjj}(:,[pref null]);
+                    end
+                    
+                    axes(h_1463_memPSTH); hold on;
+                    
+                    SeriesComparison({ys{1},ys{2}},...
+                        {MemSac_interp_PSTH_ts{1},MemSac_interp_PSTH_ts{2},mem_sac_time_marker},...
+                        'OverrideError',{sems{1},sems{2}},...
+                        'ErrorBar', 2, 'CompareIndex',[],...
+                        'Colors',{'k'},'hold', 1,'Ylim',[0 max(max(max((ys{:}))))], ...
+                        'Transparent',transparent,'Border', mem_sac_border, 'LineStyles',{'-','--'},'axes',h_1463_memPSTH);
+                    
+                    text(0,max(ylim)*.88,'ActualFixP\_interp','color','k');
+                end
             end
             
             % (3) The two in 2pt-memsac. @HH20150524
             TwoPtMemSac_PSTH = group_result(ori_cell_no).TwoPtMemSac_PSTH;
             
-            if ~isempty(TwoPtMemSac_PSTH)
-                ts = group_result(ori_cell_no).TwoPtMemSac_ts;
-                ys = TwoPtMemSac_PSTH(:,:);
+            if ~isempty(TwoPtMemSac_PSTH) 
+                
+                % Memsac PSTH 2pt: align to VisOn and SacOn. HH20180609
+                MemSac_interp_PSTH_ts = group_result(ori_cell_no).mat_raw_2ptMemSac.t_centers([1 3]);
+                
+                align_offsets = group_result(ori_cell_no).mat_raw_MemSac.align_offsets;
+                mem_sac_align_offset = mean(align_offsets); % This is time of [VisON, VisON, Saccade]
+                mem_sac_time_marker = {mem_sac_align_offset - mem_sac_align_offset(1), mem_sac_align_offset - mem_sac_align_offset(3)};
+                mem_sac_border = [mem_sac_align_offset(2)-100 -300]; % for SeriesComparison
+                mem_sac_lims = [-300 mem_sac_align_offset(2)+700];
+               
+                plot_aligns = [1 3];
+                
+                for jjj = 1:2
+                    MemSac_interp_PSTH{jjj} = reshape...
+                        ([group_result(ori_cell_no).mat_raw_2ptMemSac.result_PSTH_anne_mean{plot_aligns(jjj),:}],...
+                        length(MemSac_interp_PSTH_ts{jjj}),[]);
+                    MemSac_interp_PSTH_sem{jjj} = reshape...
+                        ([group_result(ori_cell_no).mat_raw_2ptMemSac.result_PSTH_anne_sem{plot_aligns(jjj),:}],...
+                        length(MemSac_interp_PSTH_ts{jjj}),[]);
+                end
+                
                 % If HD_pref is on the left, flip 2pt-MemSac to let PREF go first
                 if 90 <= group_PREF_target_location(ori_cell_no) && group_PREF_target_location(ori_cell_no) <=270
-                    ys = fliplr(ys);
+                    for jjj = 1:2
+                        MemSac_interp_PSTH{jjj} = fliplr(MemSac_interp_PSTH{jjj});
+                        MemSac_interp_PSTH_sem{jjj} = fliplr(MemSac_interp_PSTH_sem{jjj});
+                    end
                 end
-                SeriesComparison(shiftdim(ys,-1),ts,'Colors',{hsv2rgb([0.8 1 0.6])},'LineStyles',{'-','--'},'axes',axis_psth);
-                text(-1000,max(ylim)*.81,'2pt','color',hsv2rgb([0.8 1 0.6]));
                 
-                temporal_Slice = group_result(ori_cell_no).mat_raw_2ptMemSac.temporal_Slice(2:end,:);
-                align_offsets = group_result(ori_cell_no).mat_raw_2ptMemSac.align_offsets;
-                align_markers = group_result(ori_cell_no).mat_raw_2ptMemSac.align_markers;  % Desired markers: target onset & target offset & sac onset
+                for jjj = 1:2
+                    ys{jjj} = shiftdim(MemSac_interp_PSTH{jjj},-1);
+                    sems{jjj} = MemSac_interp_PSTH_sem{jjj};
+                end
+                
+                axes(h_1463_memPSTH); hold on;
+                
+                SeriesComparison({ys{1},ys{2}},...
+                    {MemSac_interp_PSTH_ts{1},MemSac_interp_PSTH_ts{2},mem_sac_time_marker},...
+                    'OverrideError',{sems{1},sems{2}},...
+                    'ErrorBar', 2, 'CompareIndex',[],...
+                    'Colors',{'k'}, 'hold', 1, 'Ylim',[0 max(max(max((ys{:}))))],...
+                    'Transparent',transparent,'Border', mem_sac_border, 'LineStyles',{'-','--'},'axes',h_1463_memPSTH);
+                
+                text(0,max(ylim)*.81,'2pt','color',hsv2rgb([0.8 1 0.6]));
+                
+                %                 temporal_Slice = group_result(ori_cell_no).mat_raw_2ptMemSac.temporal_Slice(2:end,:);
+                %                 align_offsets = group_result(ori_cell_no).mat_raw_2ptMemSac.align_offsets;
+                %                 align_markers = group_result(ori_cell_no).mat_raw_2ptMemSac.align_markers;  % Desired markers: target onset & target offset & sac onset
 
             end
             
             % Annotating
-            xlabel('Time to saccade onset (ms)');   ylabel('Firing rate');
-            plot([0 0],ylim,'k-','linew',1.5);
-            axis tight;
+            % xlabel('Time to saccade onset (ms)');   
+            ylabel('Firing rate (Hz)');
+            xlim(mem_sac_lims)
             legend off;
-            title(sprintf('PREF: %g, %s',group_PREF_target_location(ori_cell_no),group_result(ori_cell_no).cellID{2}{1}(30:end)));
             
-            text(-1000,max(ylim)*.95,'Mem\_pref','color',colors(3,:));
-            text(-1000,max(ylim)*.88,'Act\_pref','color','k');
+            % title(sprintf('PREF: %g, %s',group_PREF_target_location(ori_cell_no),group_result(ori_cell_no).cellID{2}{1}(30:end)));
+            title(sprintf('%s',group_result(ori_cell_no).cellID{2}{1}(30:end)));
             
             for sliceN = 1:size(temporal_Slice,1)
-                if temporal_Slice{sliceN,3} == 7 % Precise windows
-                    plot([temporal_Slice{sliceN,1} temporal_Slice{sliceN,2}],[max(ylim) max(ylim)],temporal_Slice{sliceN,5},'linew',15);
+                if temporal_Slice{sliceN,3} == 4 % Precise windows
+                    plot([temporal_Slice{sliceN,1} temporal_Slice{sliceN,2}],[max(ylim) max(ylim)],temporal_Slice{sliceN,5},'linew',5);
                 else  % Windows that is not so precise
                     % Mean shift
-                    meanShift = mean(align_offsets(:,align_markers == temporal_Slice{sliceN,3})-align_offsets(:,align_markers==7),1);
+                    meanShift = mean(align_offsets(:,align_markers == temporal_Slice{sliceN,3})-align_offsets(:,align_markers==4),1);
                     plot( [meanShift meanShift],ylim,'k--','LineWidth',1);
-                    plot(meanShift+[temporal_Slice{sliceN,1} temporal_Slice{sliceN,2}],[max(ylim) max(ylim)],temporal_Slice{sliceN,5},'linew',15);
+                    plot(meanShift + [temporal_Slice{sliceN,1} temporal_Slice{sliceN,2}],[max(ylim) max(ylim)],temporal_Slice{sliceN,5},'linew',5);
                 end
             end
             
+            % Plot target manually
+            plot([0 mem_sac_time_marker{1}(2)],[max(ylim) max(ylim)],'r','linew',5);
+
+            xticks([0 1000 sum(abs(mem_sac_border))+100]); xticklabels({'TargOn','1000 ms','Sac'});
+            ylim([0 max(ylim)])
+            
+            SetFigure(13)
+            
         catch err
             err
-%             keyboard
+            % keyboard
         end
     end
 

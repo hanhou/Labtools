@@ -1,5 +1,5 @@
 function hpol = polarInHeading(varargin)
-    %POLAR  Polar coordinate plot. Modified by HH for plotting "eading"
+    %POLAR  Polar coordinate plot. Modified by HH for plotting "heading"
     %   POLAR(THETA, RHO) makes a plot using polar coordinates of
     %   the angle THETA, in radians, versus the radius RHO.
     %   POLAR(THETA, RHO, S) uses the linestyle specified in string S.
@@ -20,12 +20,12 @@ function hpol = polarInHeading(varargin)
     
     % Parse possible Axes input
     [cax, args, nargs] = axescheck(varargin{:});
-    error(nargchk(1, 3, nargs, 'struct'));
+    error(nargchk(1, 4, nargs, 'struct'));
     
     % Transferred from azimuth to heading. HH20140415
     aziToHeading = @(x)(mod(270-x,360)-180); % Transferred from azimuth to heading
     
-    if nargs < 1 || nargs > 3
+    if nargs < 1 || nargs > 4
         error(message('MATLAB:polar:InvalidDataInputs'));
     elseif nargs == 2
         theta = args{1};
@@ -54,9 +54,15 @@ function hpol = polarInHeading(varargin)
             th = (1 : mr)';
             theta = th(:, ones(1, nr));
         end
-    else % nargs == 3
+    else % nargs == 3 or 4
         [theta, rho, line_style] = deal(args{1 : 3});
+        if nargs == 3
+            simple_mode = 0;
+        else
+            simple_mode = args{4};
+        end
     end
+    
     if ischar(theta) || ischar(rho)
         error(message('MATLAB:polar:InvalidInputType'));
     end
@@ -71,7 +77,7 @@ function hpol = polarInHeading(varargin)
     hold_state = ishold(cax);
     
     % get x-axis text color so grid is in same color
-    tc = get(cax, 'XColor');
+    tc = [0.7 0.7 0.7];%get(cax, 'XColor');
     ls = get(cax, 'GridLineStyle');
     
     % Hold on to current Text defaults, reset them to the
@@ -101,16 +107,22 @@ function hpol = polarInHeading(varargin)
         v = [get(cax, 'XLim') get(cax, 'YLim')];
         ticks = sum(get(cax, 'YTick') >= 0);
         delete(hhh);
+        
         % check radial limits and ticks
         rmin = 0;
         rmax = v(4);
         rticks = max(ticks - 1, 2);
+        
         if rticks > 5   % see if we can reduce the number
             if rem(rticks, 2) == 0
                 rticks = rticks / 2;
             elseif rem(rticks, 3) == 0
                 rticks = rticks / 3;
             end
+        end
+        
+        if simple_mode % Override
+            rticks = 1;
         end
         
         % define a circle
@@ -132,6 +144,7 @@ function hpol = polarInHeading(varargin)
         c82 = cos(82 * pi / 180);
         s82 = sin(82 * pi / 180);
         rinc = (rmax - rmin) / rticks;
+        
         for i = (rmin + rinc) : rinc : rmax
             hhh = line(xunit * i, yunit * i, 'LineStyle', ls, 'Color', tc, 'LineWidth', 1, ...
                 'HandleVisibility', 'off', 'Parent', cax);
@@ -139,10 +152,16 @@ function hpol = polarInHeading(varargin)
                 ['  ' num2str(i)], 'VerticalAlignment', 'bottom', ...
                 'HandleVisibility', 'off', 'Parent', cax);
         end
-        set(hhh, 'LineStyle', '-'); % Make outer circle solid
+        
+        set(hhh, 'LineStyle', '-','linew',2); % Make outer circle solid
         
         % plot spokes
-        th = (1 : 6) * 2 * pi / 12;
+        if ~simple_mode
+            th = (1 : 6) * 2 * pi / 12;
+        else
+            th = [];
+        end
+        
         cst = cos(th);
         snt = sin(th);
         cs = [-cst; cst];
@@ -151,19 +170,22 @@ function hpol = polarInHeading(varargin)
             'HandleVisibility', 'off', 'Parent', cax);
         
         % annotate spokes in degrees
-        rt = 1.1 * rmax;
-        for i = 1 : length(th)
-            text(rt * cst(i), rt * snt(i), int2str(aziToHeading(i * 30)),...
-                'HorizontalAlignment', 'center', ...
-                'HandleVisibility', 'off', 'Parent', cax);                 % Transferred from azimuth to heading
-            if i == length(th)
-                % Transferred from azimuth to heading
-                loc = int2str(aziToHeading(0));
-            else
-                loc = int2str(aziToHeading(180 + i * 30));                 % Transferred from azimuth to heading
+        if ~simple_mode
+            rt = 1.1 * rmax;
+            for i = 1 : length(th)
+                text(rt * cst(i), rt * snt(i), int2str(aziToHeading(i * 30)),...
+                    'HorizontalAlignment', 'center', ...
+                    'HandleVisibility', 'off', 'Parent', cax);                 % Transferred from azimuth to heading
+                if i == length(th)
+                    % Transferred from azimuth to heading
+                    loc = int2str(aziToHeading(0));
+                else
+                    loc = int2str(aziToHeading(180 + i * 30));                 % Transferred from azimuth to heading
+                end
+                
+                text(-rt * cst(i), -rt * snt(i), loc, 'HorizontalAlignment', 'center', ...
+                    'HandleVisibility', 'off', 'Parent', cax);
             end
-            text(-rt * cst(i), -rt * snt(i), loc, 'HorizontalAlignment', 'center', ...
-                'HandleVisibility', 'off', 'Parent', cax);
         end
         
         % set view to 2-D

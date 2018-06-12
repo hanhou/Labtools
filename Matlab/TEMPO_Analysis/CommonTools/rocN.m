@@ -26,6 +26,8 @@ if sum(isnan(x)) + sum(isnan(y)) > 0 || isempty(x) || isempty(y) % Any NaN or an
     auROC = NaN;
     bestz = NaN;
     perm.pValue = NaN;
+    perm.std = NaN;
+    perm.auROC = NaN;
     return;
 end
 
@@ -113,9 +115,9 @@ if permuteN > 0
     
     perm.std = std(perm.auROCPerm);
 else
-    perm.pValue = [];
-    perm.std = [];
-    perm.auROCPerm = [];
+    perm.pValue = NaN;
+    perm.std = NaN;
+    perm.auROCPerm = NaN;
 end
 
 if nargout > 1 % Return the best threshold. @HH20150204

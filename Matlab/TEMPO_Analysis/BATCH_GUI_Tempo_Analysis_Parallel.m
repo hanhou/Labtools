@@ -348,7 +348,7 @@ parfor nn = 1:N
     
     parfor_progress;
 end
-
+parfor_progress(0);
 
 %                     if print_flag
 %                         printhandle = figure;

@@ -37,6 +37,7 @@ addOptional(paras,'OverridePs',[]); % P values overrided by inputs. HH20160908
 
 addOptional(paras,'figN',999);
 addOptional(paras,'axes',[]);
+addOptional(paras,'hold',0); % Don't hold on
 
 addOptional(paras,'ErrorBar',2);  % Sum of (1: Normal Errorbar; 2: Shaded Errorbar; 4: Significance marker)
 addOptional(paras,'CompareIndex',[]);  % Pair of statistic test for drawing significance marker: {[1 3 5; 2 4 6]}. HH20160427
@@ -48,6 +49,8 @@ addOptional(paras,'LineStyles',{'-'});
 addOptional(paras,'Transparent',0);
 addOptional(paras,'SEM',1);  % SEM (for conventional mean) or STD (for bootstrap)
 addOptional(paras,'Border',[1600, -350]);
+addOptional(paras,'Gap',100);
+addOptional(paras,'YLim',[]);
 
 % addOptional(paras,'Markers',{'o','o','s','^','v','<','>'}); addOptional(paras,'MarkerSize',15);
 % addOptional(paras,'FaceColors',{'k','none',[0.8 0.8 0.8]});
@@ -65,17 +68,22 @@ compare_index = paras.Results.CompareIndex;
 compare_color = paras.Results.CompareColor;
 p_critical = paras.Results.PCritical;
 border = paras.Results.Border;
+gap = paras.Results.Gap;
 override_error = paras.Results.OverrideError;
 override_ps = paras.Results.OverridePs;
+
+y_lims_requested = paras.Results.YLim;
 
 % --------- End input parser ----------
 
 transparent = paras.Results.Transparent;
 
 if isempty(paras.Results.axes)
-    figure(paras.Results.figN); clf;
+    figure(paras.Results.figN); 
+    if ~ paras.Results.hold, clf, end
 else
     axes(paras.Results.axes);
+    if paras.Results.hold, hold on, end
 end
 hold on;
 
@@ -136,7 +144,6 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
     
     % Config
     %     border = [2500, -2500];
-    gap = 50; % in ms
     time_markers = ts{3};
     
     % Plot range
@@ -171,7 +178,7 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
             
             error_type = find(fliplr(dec2bin(paras.Results.ErrorBar))=='1');
             
-            if sum(error_type == 2)>0 && (~all(errors == 0) && ~all(isnan(errors)))
+            if sum(error_type == 2)>0 && (~all(errors == 0)|| 1) && (~all(isnan(errors)))
                 result.h{j}(cat) = shadedErrorBar(ts{j}(plot_range{j})+offset{j},means(plot_range{j}),errors(plot_range{j}),...
                     'lineprops',{'Color',colors{1+mod(cat-1,length(colors))},...
                                  'LineStyle',paras.Results.LineStyles{1+mod(cat-1,length(paras.Results.LineStyles))}},...
@@ -192,10 +199,16 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
     end
       
     % Significance indicators. HH20160427
-    axis tight; ylims = ylim;
+    
+    if isempty(y_lims_requested)
+        axis tight; 
+        ylims = ylim;
+    else
+        ylims = y_lims_requested;
+    end
     
     for j = 1:2
-        if sum(error_type == 3)>0 && ~all(errors == 0)
+        if sum(error_type == 3)>0 && ( ~all(errors == 0) || ~isempty(override_ps))
             for cc = 1:size(compare_index,2)
                 
                 % Compute p values
@@ -216,7 +229,7 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
                 dy = mean(y1,1)-mean(y2,1);
                 
                 % Plotting
-                indicator_pos = zeros(size(dy)) + (cc-1)*ylims(2)/50;
+                indicator_pos = zeros(size(dy)) + (cc-1)* range(ylims)/50;
                 indicator_pos (dy > 0) = indicator_pos (dy > 0) + ylims(2)*1.05;
                 
                 lineColor = compare_color{cc};
@@ -228,14 +241,17 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
     end
     
     % Time markers
-    axis tight;
+    if isempty(y_lims_requested)
+        axis tight; 
+    end
+    
     marker_for_time_markers{1} = {'-','-','--'};
     marker_for_time_markers{2} = {'--','--','-'};
     
     for j = 1:2
         for tt = 1:3
             if  ts{j}(find(plot_range{j}==1,1)) <= time_markers{j}(1,tt) && time_markers{j}(1,tt) <= ts{j}(find(plot_range{j}==1,1,'last'))
-                plot([1 1] * time_markers{j}(1,tt) + offset{j},ylim,'k','linestyle',marker_for_time_markers{j}{tt},'linew',2);
+                plot([1 1] * time_markers{j}(1,tt) + offset{j},ylim,'k','linestyle',marker_for_time_markers{j}{tt},'linew',1);
             end
         end
     end
@@ -245,7 +261,11 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
     ylabel(paras.Results.Ylabel);
     if isempty(paras.Results.axes) ;SetFigure(); end
     
-    
+    % Add a white box
+    patch([border(1) border(1) border(1)+gap border(1)+gap],...
+          [min(ylim) max(ylim) max(ylim) min(ylim)],'w','edgecolor','w','linew',3)
+      
+    % axis tight; 
 end
 
 
