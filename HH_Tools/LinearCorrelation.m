@@ -26,8 +26,12 @@ paras = inputParser;
 addOptional(paras,'figN',2499);
 addOptional(paras,'logx',0);
 addOptional(paras,'logy',0);
-addOptional(paras,'Method','Pearson');
+
+addOptional(paras,'MethodOfCorr','Pearson');
+addOptional(paras,'FittingMethod',1); % Type 1: Normal squared error (LSM); Type 2: Perpendicular error (solved by PCA)
+
 addOptional(paras,'CombinedIndex',[]);
+addOptional(paras,'NoCombinedNoPlotCorr',-1);   %  If true, then only plot those in CombinedIndex, no single ones.
 addOptional(paras,'Style','ko--');
 addOptional(paras,'LineStyles',{'k-','k:','r-','b-','g-','c-','m-'});
 addOptional(paras,'Markers',{'o','o','s','^','v','<','>'});
@@ -124,6 +128,15 @@ else % Use the requested axis
     
 end
 
+NoCombinedNoPlotCorr = paras.Results.NoCombinedNoPlotCorr;
+if NoCombinedNoPlotCorr == -1  % Not specified, automatically define. Backward compatibility
+    if isempty(paras.Results.CombinedIndex) % Clearly, the user wanted to plot fittings for each raw data
+        NoCombinedNoPlotCorr = 0;
+    else
+        NoCombinedNoPlotCorr = 1;
+    end        
+end
+
 corr_inds = [2.^((1:length(x))-1) paras.Results.CombinedIndex];
 
 xx_all = [];
@@ -165,41 +178,77 @@ for i = 1:length(corr_inds)
     
     if ~isempty(xx)
        
-        [r,p] = corr(xx,yy,'type',paras.Results.Method);
+        if ~ NoCombinedNoPlotCorr || i > length(x) 
         
-        if strcmpi(paras.Results.Method,'Spearman') % Minimize perpendicular distance (PCA)
-            coeff = pca([xx yy]);
-            if ~isempty(coeff)
-                linPara(1) = coeff(2) / coeff(1);
-                linPara(2) = mean(yy)- linPara(1) *mean(xx);
-            else
-                linPara = [nan nan];
+            [r,p] = corr(xx,yy,'type',paras.Results.MethodOfCorr);
+            
+            if paras.Results.FittingMethod == 2 % Minimize perpendicular distance (PCA)
+                
+                %             coeff = pca([xx yy]);
+                %             if ~isempty(coeff)
+                %                 linPara(1) = coeff(2) / coeff(1);
+                %                 linPara(2) = mean(yy)- linPara(1) * mean(xx);
+                %             else
+                %                 linPara = [nan nan];
+                %             end
+                
+                % New version of regressing perpendicular error HH20180613
+                fitType1 = regress_perp(xx,yy,1,0.05);
+                
+                if ~isempty(fitType1)
+                    linPara(1) = fitType1.k;
+                    linPara(2) = fitType1.b;
+                else
+                    linPara = [nan nan];
+                end
+                linParaSE = [std(fitType1.bootK) std(fitType1.bootB)];
+                
+                h.group(i).fitType1 = fitType1;
+                
+                % -- Plotting
+                xxx = linspace(min(xx),max(xx),150);
+                Y = linPara(1) * xxx + linPara(2);
+                
+                xxx = xxx(min(yy) <= Y & Y <= max(yy));
+                Y = Y(min(yy) <= Y & Y <= max(yy));
+                
+            elseif paras.Results.FittingMethod == 1 % LMS method
+                
+                % [linPara,S] = polyfit(xx,yy,1);
+                
+                [b,~,stat]= glmfit(xx,yy); % glmfit can directly give us std of coeffs (se)
+                linPara = fliplr(b'); % Note the definitions different
+                linParaSE = fliplr(stat.se');
+                
+                % -- Plotting
+                xxx = linspace(min(xx),max(xx),100);
+                Y = polyval(linPara,xxx);
+                
             end
             
-            % -- Plotting
-            xxx = linspace(min(xx),max(xx),150);
-            Y = linPara(1) * xxx + linPara(2);
+            % -- Saving
+            h.group(i).line = plot(xxx,Y,paras.Results.LineStyles{1+mod(i-1,length(paras.Results.LineStyles))},'linewidth',2);
+            non_empty_line = [non_empty_line i];
             
-            xxx = xxx(min(yy) <= Y & Y <= max(yy));
-            Y = Y(min(yy) <= Y & Y <= max(yy));
-            S = [];
-            
-        else % LMS method
-            [linPara,S]=polyfit(xx,yy,1);
-            
-            % -- Plotting
-            xxx = linspace(min(xx),max(xx),100);
-            Y = polyval(linPara,xxx);
+            %     h.group(i).text = text(xxx(end),Y(end),sprintf('\\itr\\rm = %3.3f, \\itp\\rm = %3.3f',r,p),'color',paras.Results.LineStyles{i}(1));
+            line_leg{i} = ['[' num2str(combs) '] ' sprintf('\n\\itr^2\\rm = %3.3g,\\itp\\rm = %2.2e, \\itk\\rm = %3.3g\\pm%.1g',r^2,p,linPara(1),linParaSE(1))];
+
+            h.group(i).r_square = r^2;
+            h.group(i).p = p;
+            h.group(i).para = linPara;
+            h.group(i).paraSE = linParaSE;
+            % h.group(i).S = S;
+
         end
         
         axes(h.ax_raw);
         
         if i <= length(x)   % Stuffs for raw data (no combinations)
+            hold on;
             h.group(i).dots = plot(xx,yy,paras.Results.Markers{1+mod(i-1,length(paras.Results.Markers))},...
                 'Color',paras.Results.LineStyles{1+mod(i-1,length(paras.Results.LineStyles))}(1),...
                 'MarkerFaceColor',paras.Results.FaceColors{1+mod(i-1,length(paras.Results.FaceColors))},...
                 'MarkerSize',paras.Results.MarkerSize);
-            hold on;
             
             dot_leg{i} = num2str(i);
             non_empty_dot = [non_empty_dot i];        
@@ -211,18 +260,6 @@ for i = 1:length(corr_inds)
             yy_all = [yy_all; yy];
         end
         
-        % -- Saving
-        
-        h.group(i).line = plot(xxx,Y,paras.Results.LineStyles{1+mod(i-1,length(paras.Results.LineStyles))},'linewidth',2);
-        non_empty_line = [non_empty_line i];
-        
-        %     h.group(i).text = text(xxx(end),Y(end),sprintf('\\itr\\rm = %3.3f, \\itp\\rm = %3.3f',r,p),'color',paras.Results.LineStyles{i}(1));
-        line_leg{i} = ['[' num2str(combs) '] ' sprintf('\\itr^2\\rm = %3.3g, \\itp\\rm = %3.3g, \\itk\\rm = %3.3g',r^2,p,linPara(1))];
-        
-        h.group(i).r_square = r^2;
-        h.group(i).p = p;
-        h.group(i).para = linPara;
-        h.group(i).S = S;
     end
 
 end
@@ -312,7 +349,8 @@ if paras.Results.XHist
         end
         
         axis tight;
-        xlim(xlims);
+        % xlim(xlims);
+        linkaxes([h.ax_xhist h.ax_raw],'x');
     end
 end
 

@@ -859,6 +859,7 @@ end
 % 1 = Background, 2 = LS, 3 = Mem, 4 = Pre, 5 = Co, 6 = Post
 
 MemSac_indicator = mean(group_MemSac_DDI(:,[3]),2); % Global DDI
+MemSac_indicator_p = group_MemSac_ps(:,3);
 MemSac_indicator_txt = 'MemSac\_DDI ([3])';
 
 % MemSac_indicator = group_MemSac_actual_DI; % Actual target locations DI
@@ -1402,8 +1403,11 @@ function_handles = {
     };
     
     'Correlations', {
-    'Mem-sac vs. CD/CP', @f3p1;
+    'Mem-sac vs. pre/post CDiv/CP, CDiv vs. CP', @f3p1;
+    'Mem-sac vs. abs(CPref)', @f3p1p2;
     'Choice Preference vs. Modality Preference', @f3p2;
+    'Choice Preference between modalities', @f3p2p2;
+    'Choice Preference: pre and post', @f3p2p3;
     'Psychophysics vs. CD', @f3p3;
     'Cell position and type',@f3p4;
     };
@@ -1875,11 +1879,11 @@ function_handles = {
         end
         
         methods_of_select = {
-            select_bottom_line, 'All cells';
+            % select_bottom_line, 'All cells';
             select_tcells, 'Typical cells';
             };
                 
-        for ms = 1:2
+        for ms = 1:size(methods_of_select,1)
             set(figure(999-ms),'name',['Average PSTH (correct only, all headings), ' methods_of_select{ms,2}],'pos',[27 57 919 898]); clf
             h_subplot = tight_subplot(3,2,[0.05 0.1],[0.05 0.15],[0.12 0.03]);
             
@@ -2250,18 +2254,14 @@ function_handles = {
         end                
     end
 
+    tuning_pack = [];
+
     function f1p2p7(debug)      % Rate 2.7. Tuning curve analysis. (Dora's tuning) 20161019
         if debug
             dbstack;
             keyboard;
         end
-        
-        methods_of_select = {
-            select_tcells, 'Typical cells';
-        };
-        
-        unique_abs_heading = unique(abs(group_result(representative_cell).mat_raw_PSTH.heading_per_trial));
-        
+                
         %% Tuning: At 3 different phases. HH20150414
         % Now this part is dirty and quick.
         % Here are several things to be done:
@@ -2274,7 +2274,20 @@ function_handles = {
         select_for_tuning = select_tcells; 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        find_for_tuning = find(select_for_tuning);
+        % find_for_tuning = find(select_for_tuning);
+        
+        
+        any_cell = any(group_ChoicePreference_pvalue(:,:,3) < 0.05,1)';
+        
+        for k = 1:3
+            tuning_cell = (group_ChoicePreference_pvalue(k,:,3) < 0.05)';
+            tmp = any_cell + tuning_cell;
+            tmp(tmp == 0) = [];
+            tuning_cell_in_any_cell{k} = find(tmp == 2);
+        end
+        
+        find_for_tuning = find(any_cell);
+   
         
         % Time centers (of CP time windows, width = 500 ms)
 %         t_stim_center_earlier = mean(time_markers{j}(1,1:2)) -100; % Stim center + sensory delay
@@ -2291,7 +2304,9 @@ function_handles = {
 %         [~,pre_t_ind] = min(abs(CP_ts{j} - t_pre_center));
 %         [~,post_t_ind] = min(abs(CP_ts{j} - t_post_center));
 
-        tuning_time_center = [600 750 1100 1500];
+        %         tuning_time_center = [605 750 1100 1500];
+        % tuning_time_center = [605 1000 1200 1500];
+        tuning_time_center = [655 950 1200 1500];
         
         for tt = 1:length(tuning_time_center)
             [~,tmp] = min(abs(CP_ts{j} - tuning_time_center(tt)));
@@ -2312,133 +2327,142 @@ function_handles = {
         
 %         time_for_dynamic_range = find(CP_ts{j} < time_markers{j}(1,2)); % all pre-sac times
         time_for_dynamic_range = [tuning_time_phase(1) - 3 tuning_time_phase(1) + 3]; % Around stimulus center
-        modalities_share_same_dynamic_range = 0;
+        modalities_share_same_dynamic_range = 1;
         linear_or_sigmoid = 1; % 1: linear fitting; 2: sigmoid fitting
         min_trials_dora_tuning = 3;
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        % Pack tuning data
-        for i = 1:sum(select_for_tuning)  % For cells
+        if isempty(tuning_pack) % Only run once if needed
             
-            % Only include three modalities
-            if length(group_result(find_for_tuning(i)).mat_raw_PSTH.unique_stim_type) < 3
-                continue;
-            end
-            
-            % Align preferred direcions to 'rightward'. So if PREF == 1 for a certain cell, we
-            % flip all its tuning curve.
-            flip_tuning = group_result(find_for_tuning(i)).PREF_PSTH == 1;
-            
-            % Find dynamic range
-            dynamic_min_own_range = inf * [1 1 1]; % Each modality have its own dynamic range
-            dynamic_max_own_range = -inf * [1 1 1];
-            
-            dynamic_min = inf; % Each modality have its own dynamic range
-            dynamic_max = -inf;
-            
-            % Pack data (all tuning phases)
-            
-            for pp = 1:length(CP_ts{j})
-                for k = 1:3
-                    this_raw = group_result(find_for_tuning(i)).mat_raw_PSTH.CP{j,k}.raw_CP_result{pp};
-                    this_tuning = this_raw.Neu_tuning(:,2);
-                    this_tuning_correctonly = this_raw.Neu_tuning_correctonly(:,2);
-                    this_tuning_dora = this_raw.Neu_tuning_Dora_matrix_mean';  % HH20161019
-                    this_tuning_dora_n = this_raw.Neu_tuning_Dora_matrix_n';
+            progressbar()
+            % Pack tuning data
+            for i = 1:sum(select_for_tuning)  % For cells
+                
+                progressbar(i/sum(select_for_tuning))
+                
+                % Only include three modalities
+                if length(group_result(find_for_tuning(i)).mat_raw_PSTH.unique_stim_type) < 3
+                    continue;
+                end
+                
+                % Align preferred direcions to 'rightward'. So if PREF == 1 for a certain cell, we
+                % flip all its tuning curve.
+                flip_tuning = group_result(find_for_tuning(i)).PREF_PSTH == 1;
+                
+                % Find dynamic range
+                dynamic_min_own_range = inf * [1 1 1]; % Each modality have its own dynamic range
+                dynamic_max_own_range = -inf * [1 1 1];
+                
+                dynamic_min = inf; % Each modality have its own dynamic range
+                dynamic_max = -inf;
+                
+                % Pack data (all tuning phases)
+                
+                
+                for pp = 1:length(CP_ts{j})
                     
-                    % @HH20160214: Patch calculation for LEFT & RIGHT choices of 0 headings (because I failed to do this
-                    % in the original CP_HH and I feel hesitant to redo all the batch files from A to Z right now...).
-                    % Note, sadly, that this could be NaN because I also failed to pack the spike counts into
-                    % spike_counts_allheadings_grouped if the number of left/right choices were fewer than 3... WTF...
-
-                    % @HH20160907. Today I redo all the batch files finally!
                     
-                    % Discard dora tuning which has less than "min_trials_dora_tuning" trials. HH20161109
-                    this_tuning_dora(this_tuning_dora_n<min_trials_dora_tuning) = nan;
-
-                    if length(this_tuning) == length(unique_heading)
-                        zero_spikes_left_right = [mean(this_raw.spike_counts_allheadings_grouped{zero_index, 1}); mean(this_raw.spike_counts_allheadings_grouped{zero_index, 2})];
-                        this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); zero_spikes_left_right; this_tuning_correctonly(zero_index+1:end)];
-                    else % No zero heading at all in the file 
-                        zero_spikes_left_right = [nan;nan];
-                        this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); zero_spikes_left_right; this_tuning_correctonly(zero_index:end)];
-                        this_tuning = [this_tuning(1:zero_index-1); nan ;this_tuning(zero_index:end)];
-                        this_tuning_dora = [this_tuning_dora(1:zero_index-1,:); nan nan; this_tuning_dora(zero_index:end,:)];
-                    end
-                    
-%                     this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); this_tuning_correctonly(zero_index+1:end)]; % No zero version
-                    
-                    % Align preferred direcions to 'rightward'. So if PREF == 1 for a certain cell, we
-                    % flip all its tuning curve.
-                    if flip_tuning
-                        this_tuning = flipud(this_tuning);
-                        this_tuning_correctonly = flipud(this_tuning_correctonly);
+                    for k = 1:3
+                        this_raw = group_result(find_for_tuning(i)).mat_raw_PSTH.CP{j,k}.raw_CP_result{pp};
+                        this_tuning = this_raw.Neu_tuning(:,2);
+                        this_tuning_correctonly = this_raw.Neu_tuning_correctonly(:,2);
+                        this_tuning_dora = this_raw.Neu_tuning_Dora_matrix_mean';  % HH20161019
+                        this_tuning_dora_n = this_raw.Neu_tuning_Dora_matrix_n';
                         
-                        % For the dora tuning matrix, if PREF == left, should flip both lr and ud.HH20161019
-                        %               -    0    +                             null   0    pref
-                        %   L choice    xx   xx   nan     ==>   null choice      xx     xx    nan
-                        %   R choice    nan  xx  xx             pref choice      nan    xx    xx
-                        this_tuning_dora = flipud(this_tuning_dora);   
-                        this_tuning_dora = fliplr(this_tuning_dora);   
-                    end
-                    
-                    % Undate dynamic range
-                    if sum(pp == time_for_dynamic_range) > 0
-                        dynamic_min = min(dynamic_min, min(this_tuning_correctonly(:)));
-                        dynamic_max = max(dynamic_max, max(this_tuning_correctonly(:)));
+                        % @HH20160214: Patch calculation for LEFT & RIGHT choices of 0 headings (because I failed to do this
+                        % in the original CP_HH and I feel hesitant to redo all the batch files from A to Z right now...).
+                        % Note, sadly, that this could be NaN because I also failed to pack the spike counts into
+                        % spike_counts_allheadings_grouped if the number of left/right choices were fewer than 3... WTF...
                         
-                        dynamic_min_own_range(k) = min(dynamic_min_own_range(k), min(this_tuning_correctonly(:)));
-                        dynamic_max_own_range(k) = max(dynamic_min_own_range(k), max(this_tuning_correctonly(:)));
-                    end
-                    
-                    % Pack data
-                    try
-                        tuning_pack{1}{k,pp}(:,i) = this_tuning';
-                        tuning_pack{2}{k,pp}(:,i) = this_tuning_correctonly';
-                        tuning_pack{3}{k,pp}(:,:,i) = this_tuning_dora';  % HH20161019
-                    catch
-                        tuning_pack{1}{k,pp}(:,i) = nan;
-                        tuning_pack{2}{k,pp}(:,i) = nan;
-                        tuning_pack{3}{k,pp}(:,:,i) = nan;
-                        keyboard;
+                        % @HH20160907. Today I redo all the batch files finally!
+                        
+                        % Discard dora tuning which has less than "min_trials_dora_tuning" trials. HH20161109
+                        this_tuning_dora(this_tuning_dora_n<min_trials_dora_tuning) = nan;
+                        
+                        if length(this_tuning) == length(unique_heading)
+                            zero_spikes_left_right = [mean(this_raw.spike_counts_allheadings_grouped{zero_index, 1}); mean(this_raw.spike_counts_allheadings_grouped{zero_index, 2})];
+                            this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); zero_spikes_left_right; this_tuning_correctonly(zero_index+1:end)];
+                        else % No zero heading at all in the file
+                            zero_spikes_left_right = [nan;nan];
+                            this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); zero_spikes_left_right; this_tuning_correctonly(zero_index:end)];
+                            this_tuning = [this_tuning(1:zero_index-1); nan ;this_tuning(zero_index:end)];
+                            this_tuning_dora = [this_tuning_dora(1:zero_index-1,:); nan nan; this_tuning_dora(zero_index:end,:)];
+                        end
+                        
+                        %                     this_tuning_correctonly = [this_tuning_correctonly(1:zero_index-1); this_tuning_correctonly(zero_index+1:end)]; % No zero version
+                        
+                        % Align preferred direcions to 'rightward'. So if PREF == 1 for a certain cell, we
+                        % flip all its tuning curve.
+                        if flip_tuning
+                            this_tuning = flipud(this_tuning);
+                            this_tuning_correctonly = flipud(this_tuning_correctonly);
+                            
+                            % For the dora tuning matrix, if PREF == left, should flip both lr and ud.HH20161019
+                            %               -    0    +                             null   0    pref
+                            %   L choice    xx   xx   nan     ==>   null choice      xx     xx    nan
+                            %   R choice    nan  xx  xx             pref choice      nan    xx    xx
+                            this_tuning_dora = flipud(this_tuning_dora);
+                            this_tuning_dora = fliplr(this_tuning_dora);
+                        end
+                        
+                        % Undate dynamic range
+                        if sum(pp == time_for_dynamic_range) > 0
+                            dynamic_min = min(dynamic_min, min(this_tuning_correctonly(:)));
+                            dynamic_max = max(dynamic_max, max(this_tuning_correctonly(:)));
+                            
+                            dynamic_min_own_range(k) = min(dynamic_min_own_range(k), min(this_tuning_correctonly(:)));
+                            dynamic_max_own_range(k) = max(dynamic_min_own_range(k), max(this_tuning_correctonly(:)));
+                        end
+                        
+                        % Pack data
+                        try
+                            tuning_pack{1}{k,pp}(:,i) = this_tuning';
+                            tuning_pack{2}{k,pp}(:,i) = this_tuning_correctonly';
+                            tuning_pack{3}{k,pp}(:,:,i) = this_tuning_dora';  % HH20161019
+                        catch
+                            tuning_pack{1}{k,pp}(:,i) = nan;
+                            tuning_pack{2}{k,pp}(:,i) = nan;
+                            tuning_pack{3}{k,pp}(:,:,i) = nan;
+                            keyboard;
+                        end
                     end
                 end
-            end
-            
-            % Normalization according to dynamic range of each neuron
-            % (lowest in all tuning curve = 0, highest = 1)
-            offset = dynamic_min;
-            gain = dynamic_max - dynamic_min;
-            
-            offset_own_range = dynamic_min_own_range;
-            gain_own_range = dynamic_max_own_range - dynamic_min_own_range;
-            
-            for pp = 1:length(CP_ts{j})
-                for k = 1:3
-                    if modalities_share_same_dynamic_range
-                        % Three modalities share the same dynamic range
-                        tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) - offset;
-                        tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) / gain;
-                        
-                        tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) - offset;
-                        tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) / gain;
-                        
-                        tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) - offset;
-                        tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) / gain;  % HH20161019
-                    else
-                        % Three modalities have their own dynamic ranges
-                        tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) - offset_own_range(k);
-                        tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) / gain_own_range(k);
-                        
-                        tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) - offset_own_range(k);
-                        tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) / gain_own_range(k);
-                        
-                        tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) - offset_own_range(k);  % HH20161019
-                        tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) / gain_own_range(k);
+                
+                % Normalization according to dynamic range of each neuron
+                % (lowest in all tuning curve = 0, highest = 1)
+                offset = dynamic_min;
+                gain = dynamic_max - dynamic_min;
+                
+                offset_own_range = dynamic_min_own_range;
+                gain_own_range = dynamic_max_own_range - dynamic_min_own_range;
+                
+                for pp = 1:length(CP_ts{j})
+                    for k = 1:3
+                        if modalities_share_same_dynamic_range
+                            % Three modalities share the same dynamic range
+                            tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) - offset;
+                            tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) / gain;
+                            
+                            tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) - offset;
+                            tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) / gain;
+                            
+                            tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) - offset;
+                            tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) / gain;  % HH20161019
+                        else
+                            % Three modalities have their own dynamic ranges
+                            tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) - offset_own_range(k);
+                            tuning_pack{1}{k,pp}(:,i) = tuning_pack{1}{k,pp}(:,i) / gain_own_range(k);
+                            
+                            tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) - offset_own_range(k);
+                            tuning_pack{2}{k,pp}(:,i) = tuning_pack{2}{k,pp}(:,i) / gain_own_range(k);
+                            
+                            tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) - offset_own_range(k);  % HH20161019
+                            tuning_pack{3}{k,pp}(:,:,i) = tuning_pack{3}{k,pp}(:,:,i) / gain_own_range(k);
+                        end
                     end
                 end
+                
             end
-            
         end
         
         % Get means and sems
@@ -2465,8 +2489,9 @@ function_handles = {
         end
         
         % Plotting tuning curves at three time points
-        set(figure(2099+figN),'pos',[9 206 1210 754],'name',['Tuning curve, j = ' num2str(j)]); clf; figN = figN+1;
-
+        set(figure(145506),'name',['Dora tuning, j = ' num2str(j)]); clf;
+        set(gcf,'uni','norm','pos',[0.002       0.381       0.725       0.535]);
+        
         for pp = 1:length(CP_ts{j})
             
             for k = 1:3
@@ -2476,7 +2501,9 @@ function_handles = {
                 tuning_mean_all(:,pp,k) = nanmean(this_tuning_all,2);
                 tuning_sem_all(:,pp,k) = nanstd(this_tuning_all,[],2)./sqrt(sum(~isnan(this_tuning_all),2));
                 
-                this_tuning_correctonly =  tuning_pack{2}{k,pp}(:,~isnan(tuning_pack{2}{k,pp}(1,:)));
+                % this_tuning_correctonly =  tuning_pack{2}{k,pp}(:,~isnan(tuning_pack{2}{k,pp}(1,:)));
+                this_tuning_correctonly =  tuning_pack{2}{k,pp}(:,  tuning_cell_in_any_cell{k}); % HH20180612
+                
                 tuning_mean_correctonly(:,pp,k) = nanmean(this_tuning_correctonly,2);
                 tuning_sem_correctonly(:,pp,k) = nanstd(this_tuning_correctonly,[],2)./sqrt(sum(~isnan(this_tuning_correctonly),2));;
 
@@ -2528,6 +2555,7 @@ function_handles = {
                     tuning_linear_fit_correctonly([1 2],pp,k,RIGHT) = [r, p]';
 
                 end
+
             end
             
         end
@@ -2581,20 +2609,19 @@ function_handles = {
                 title([tuning_time_phase_title{pp} ', n = ' num2str(size(this_tuning_all,2))]);
                 axis tight; xlim(xlim*1.1);
                 
-                % Correct only with fitting
+                % --------- Correct only with fitting ----------
                 subplot(2,length(tuning_time_phase),pp + length(tuning_time_phase));  hold on; ylabel('Correct only');
+                
                 plot(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),'o','markersize',9,'color',colors(k,:),'LineWid',2);
-                h = errorbar(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),...
-                    tuning_sem_correctonly(:,tuning_time_phase(pp),k),'color',colors(k,:),'LineWid',2,'linestyle','none');
-
                 
-                try errorbar_tick(h,10000); catch end;
+                errorbar(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),...
+                    tuning_sem_correctonly(:,tuning_time_phase(pp),k),'color',colors(k,:),'LineWid',2,'linestyle','none','capsize',0);
                 
-                title([tuning_time_phase_title{pp} ', t = ' num2str(CP_ts{j}(tuning_time_phase(pp))),...
-                    ' n = ' num2str(size(this_tuning_correctonly,2))]);
-                axis tight; xlim(xlim*1.1);
+                % try errorbar_tick(h,10000); catch end;
                 
-                SetFigure(15);
+                title([tuning_time_phase_title{pp} ', t = ' num2str(CP_ts{j}(tuning_time_phase(pp)))]);
+                text(0,0.3+0.02*k,sprintf('n = %g, p = %.2g', size(tuning_cell_in_any_cell{k},1), ...
+                           tuning_linear_fit_correctonly(2,tuning_time_phase(pp),k,1)),'color',colors(k,:));
                 
                 if linear_or_sigmoid == 2        % Plot sigmoid fitting
                     xx = linspace(min(unique_heading),max(unique_heading),100);
@@ -2609,25 +2636,34 @@ function_handles = {
                         plot(xx,para(4)+para(3)*xx,'-','color',colors(k,:),'linew',3,'linestyle',line_type{2-(para(2)<0.05)});
                     end
                 end
-                
             end
+            
+            axis tight; xlim(xlim*1.1);
+            SetFigure(15);
+
         end
         
         % Linear fitting parameters
-        set(figure(2099+figN),'pos',[9 206 1210 754],'name',['Linear fittings, j = ' num2str(j)]); clf; figN = figN+1; hold on
+        set(figure(145525),'name',['Linear fittings, j = ' num2str(j)]); clf;  hold on
+        set(gcf,'uni','norm','pos',[0.002       0.532       0.411        0.38]);
+        
         for k = 1:3
-            for hh = LEFT:RIGHT
+            % for hh = LEFT:RIGHT
+                hh = 2;
                 plot(CP_ts{j}, tuning_linear_fit_correctonly(3,:,k,hh),'linew',3,'linestyle',line_type{3-hh},'color',colors(k,:));
                 sig = tuning_linear_fit_correctonly(2,:,k,hh) < 0.05;
-                plot(CP_ts{j}(sig), tuning_linear_fit_correctonly(3,sig,k,hh),[line_type{3-hh} '*'],...
-                    'linew',3,'markersize',15,'color',colors(k,:));
-                plot(CP_ts{j}, tuning_linear_fit_correctonly(2,:,k,hh),[line_type{3-hh}],...
+                plot(CP_ts{j}(sig), mean(tuning_linear_fit_correctonly(3,sig,k,hh),3),'o','linew',2,...
+                    'markersize',7,'color',colors(k,:));
+                plot(CP_ts{j}, mean(tuning_linear_fit_correctonly(2,:,k,hh),3),[line_type{3-hh}],...
                     'linew',1,'color',colors(k,:));
-            end
+            % end
         end
-        ylabel('R of linear fitting');
+        ylabel('Slope of linear fitting');
+        ylim([-0.03 0.05])
+        
+        % Gaussian vel
+        plot(Gauss_vel(:,1) + time_markers{j}(1), 0  + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
         SetFigure(15);
-        ylim([-0.05 0.25])
 
     end
 
@@ -3366,37 +3402,26 @@ function_handles = {
         % select_bottom_line = ([group_result.repN]' >= 8) & (xls_num{1}(:,header.Chan1) > 0) & (xls_num{1}(:,header.HD_TargFirst)~=0);% ...
         % & (~isnan(ChoiceDiv_All(:,1,k))) ;% & MemSac_DDI(:,4)<0.55 ;
         
-        set(figure(2099+figN),'name','Multisensory Enhancement of CDiv','pos',[12 276 1272 684]); clf; figN = figN+1;
+        set(figure(2099+figN),'name','Multisensory Enhancement of CDiv'); clf; figN = figN+1;
+        set(gcf,'uni','norm','pos',[0.044        0.49       0.604       0.289]);
         
-        for j = 1:2
-            for k = 1:3
-                subplot(2,3,k + (j-1)*3);
-                
-                select_this_k = select_for_div & (~isnan(ChoiceDiv_ModDiffer{j}(:,1,k)));
-                
-                ys = mean(ChoiceDiv_ModDiffer{j}(select_this_k,:,k));
-                errors = std(ChoiceDiv_ModDiffer{j}(select_this_k,:,k))/sqrt(sum(select_this_k));
-                [~,ps] = ttest(ChoiceDiv_ModDiffer{j}(select_this_k,:,k));  % p_value
-                
-                h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',modality_diff_colors(k,:),'Linestyle','-'},'transparent',transparent);
-                set(h.mainLine,'LineWidth',2); xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.08 0.2]);
-                hold on;
-                
-                plot(rate_ts{j},ps,'k');
-                
-                if sum(ps < p_critical) > 0
-                    plot(rate_ts{j}(ps<p_critical),max(ylim)*.9,'.','color',modality_diff_colors(k,:),'linew',5);
-                end
-                
-                plot(xlim,[0 0],'k--');
-                for tt = 1:3
-                    plot([1 1] * time_markers{j}(1,tt),ylim,'k','linestyle',marker_for_time_markers{j}{tt},'linew',1.5);
-                end
-                
-                % Gaussian vel
-                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/5 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
-                
-            end
+        for k = 1:3
+            h = subplot(1,3,k);
+            
+            select_this_k = select_for_div & (~isnan(ChoiceDiv_ModDiffer{j}(:,1,k)));
+            
+            SeriesComparison({ChoiceDiv_ModDiffer{1}(select_this_k,:,k) ChoiceDiv_ModDiffer{2}(select_this_k,:,k)},...
+                {rate_ts{1} rate_ts{2} time_markers},...
+                'ErrorBar',6,...
+                'CompareIndex',[1;1],'CompareColor',{colors(k,:)},'PlotPs',1,...
+                'Colors',{colors(k,:)},'YLim',[-0.1 0.3],...
+                'Transparent',transparent,'LineStyles',{'-'},'axes',h);
+            
+            legend off; xlim([-400 2100]);
+            plot(xlim,[0 0],'k--');
+            
+            % Gaussian vel
+            plot(Gauss_vel(:,1) ,Gauss_vel(:,2)*range(ylim)/5 ,'--','linew',2,'color',[0.6 0.6 0.6]);
             
         end
         
@@ -3437,7 +3462,8 @@ function_handles = {
                 h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)*0.4 + [0.6 0.6 0.6]},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2);  hold on;
                 
-                xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.1 0.25]); ylim([-0.05 0.25]);
+                xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.2 0.7]); 
+                
                 
                 plot(xlim,[0 0],'k--');
                 for tt = 1:3
@@ -3458,8 +3484,9 @@ function_handles = {
         % select_bottom_line = ([group_result.repN]' >= 8) & (xls_num{1}(:,header.Chan1) > 0) & (xls_num{1}(:,header.HD_TargFirst)~=0);% ...
         % & (~isnan(ChoiceDiv_All(:,1,k))) ;% & MemSac_DDI(:,4)<0.55;
         
-        set(figure(2099+figN),'pos',[12 276 1272 684],'name','Easy-difficult of CDiv'); clf; figN = figN+1;
-        
+        set(figure(2099+figN),'name','Easy-difficult of CDiv'); clf; figN = figN+1;
+        set(gcf,'uni','norm','pos',[0.006       0.582       0.757        0.33]);
+        %{
         for j = 1:2
             for k = 1:3
                 subplot(2,3,k + (j-1)*3);
@@ -3472,7 +3499,9 @@ function_handles = {
                 
                 h = shadedErrorBar(rate_ts{j},ys,errors,'lineprops',{'Color',colors(k,:)},'transparent',transparent);
                 set(h.mainLine,'LineWidth',2); ; hold on;
-                xlim([time_markers{j}(1,1)-200 time_markers{j}(1,3)+200]); ylim([-0.1 0.25]); ylim([-0.05 0.09]);
+                
+                % xlim([time_markers{j}(1,1)-100 time_markers{j}(1,3)+200]); ylim([-0.2 0.5]); ylim([-0.1 0.2]);
+                xlim([  -405        2095]); ylim([-0.05 0.2]);
                 
                 plot(rate_ts{j},ps,'k');
                 
@@ -3488,13 +3517,57 @@ function_handles = {
                 end
                 
                 % Gaussian vel
-                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/5 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
+                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/5 + 0,'--','linew',2,'color',[0.6 0.6 0.6]);
                 
             end
+        end
+        %}
+        
+        for k = 1:3
+            h = subplot(1,3,k);
+            
+            select_this_k = select_for_div & (~isnan(ChoiceDiv_All{j}(:,1,k)));
+            
+            for j = 1:2
+                ys_this{j,k} = mean(ChoiceDiv_EasyMinusDifficult{j}(select_this_k,:,k),1);
+                errors_this{j} = std(ChoiceDiv_EasyMinusDifficult{j}(select_this_k,:,k),[],1)/sqrt(sum(select_this_k));
+                [~,ps{j}] = ttest(ChoiceDiv_EasyMinusDifficult{j}(select_this_k,:,k));  % p_value
+            end
+            
+            SeriesComparison({shiftdim(ys_this{1,k}',-1) shiftdim(ys_this{2,k}',-1)},...
+                {rate_ts{1} rate_ts{2} time_markers},...
+                'OverrideError',{errors_this{1}', errors_this{2}'},...
+                'OverridePs',{ps{1}', ps{2}'},'ErrorBar',6,...
+                'CompareIndex',[1;1],'CompareColor',{colors(k,:)},...
+                'Colors',{colors(k,:)},'YLim',[-0.1 0.2],...
+                'Transparent',transparent,'LineStyles',{'-'},'axes',h);
+            
+            % xlim([time_markers{j}(1,1)-100 time_markers{j}(1,3)+200]); ylim([-0.2 0.5]); ylim([-0.1 0.2]);
+            
+            hold on;
+            % Gaussian vel
+            plot(Gauss_vel(:,1), Gauss_vel(:,2)*range(ylim)/5 + 0,'--','linew',2,'color',[0.6 0.6 0.6]);
+
+            plot(rate_ts{1},ps{1},'k');
+            plot(rate_ts{2},ps{2},'c');
+            
+            plot(xlim,[0 0],'k--');
+            
+            text(0.1,0,sprintf('min Pvalue = %g',min(ps{1})));
+            
+            if k == 3 
+                plot(rate_ts{1}, ys_this{1,1} + ys_this{1,2},'m--');
+            end
+            
+            xlim([-405 2095]); ylim([-0.1 0.2]);
+            legend off;
         end
         
         title(sprintf('Easy - Difficult (N = %g)',sum(select_this_k)));
         SetFigure(15);
+        
+        %{
+        % Use f1p2p7 Dora tuning instead. HH20180612
         
         %% Tuning: At 3 different phases. HH20150414
         % Now this part is dirty and quick.
@@ -3712,14 +3785,15 @@ function_handles = {
                 subplot(2,length(tuning_time_phase),pp); hold on; ylabel('All');
                 plot(unique_heading,tuning_mean_all(:,tuning_time_phase(pp),k),'o','markersize',9,'color',colors(k,:),'LineWid',2);
                 h = errorbar(unique_heading,tuning_mean_all(:,tuning_time_phase(pp),k),tuning_sem_all(:,tuning_time_phase(pp),k),'color',colors(k,:),'LineWid',2);
-                errorbar_tick(h,10000);
+                % errorbar_tick(h,10000); % Obsolete
                 title([tuning_time_phase_title{pp} ', n = ' num2str(size(this_tuning_all,2))]);
                 axis tight; xlim(xlim*1.1);
                 
                 subplot(2,length(tuning_time_phase),pp + length(tuning_time_phase));  hold on; ylabel('Correct only');
                 plot(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),'o','markersize',9,'color',colors(k,:),'LineWid',2);
                 h = errorbar(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),tuning_sem_correctonly(:,tuning_time_phase(pp),k),'color',colors(k,:),'LineWid',2);
-                try errorbar_tick(h,10000); catch end;
+                % try errorbar_tick(h,10000); catch end;   % Obsolete
+                
                 title([tuning_time_phase_title{pp} ', t = ' num2str(CP_ts{j}(tuning_time_phase(pp))),...
                     ' n = ' num2str(size(this_tuning_correctonly,2))]);
                 axis tight; xlim(xlim*1.1);
@@ -3732,7 +3806,9 @@ function_handles = {
                 
             end
         end
+        %}
         
+        %{
         %% Tuning: Animation
         
                 % Plotting tuning curves at three time points
@@ -3811,12 +3887,13 @@ function_handles = {
             
             SetFigure();
         end
+        %}
     end
 
     marker_size = 11;
     tcell_cross_size = 15;
 
-    function f3p1(debug)      % Correlations 1. Mem-sac v.s. CD / CP
+    function f3p1(debug)      % Correlations 1. Mem-sac v.s. CDiv
         if debug
             dbstack;
             keyboard;
@@ -4000,56 +4077,59 @@ function_handles = {
         %             'FaceColors',{'none',colors(1,:),'none',colors(2,:),'none',colors(3,:)},'Markers',{'o','o','o','o','o','o','^','^','^','^','^','^',},...
         %             'LineStyles',{'b:','b:','r:','r:','g:','g:','b:','b:','r:','r:','g:','g:','b-','r-','g-'},'MarkerSize',marker_size,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','grouped','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','grouped','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         
+    end
+
+    function f3p1p2(debug)      % Mem-sac v.s. CPref
+        if debug
+            dbstack;
+            keyboard;
+        end
         % ------------ Memsac DDI and Choice Preference (single modality)
         
         monkeys = xls_num{1}(:,header.Monkey);  % HH20160613
         monkey1 = monkeys == 5; monkey1 = monkey1(select_bottom_line)';
         monkey2 = monkeys == 10; monkey2 = monkey2(select_bottom_line)';
         
+        memsac_sig = MemSac_indicator_p' < 0.05;
+        
         for k = 1:3
-            tt = 3;
+            
+            tt = 3; % From stim on to stim off
+            
             cpref_sig = Choice_pref_p_value_all(k,:,tt) < 0.05;
             
             MemSac_DDI_selected = MemSac_indicator(select_bottom_line);
             
             h = LinearCorrelation({
-                MemSac_DDI_selected(monkey1 & (~cpref_sig));
-                MemSac_DDI_selected(monkey1 &(cpref_sig));
-                MemSac_DDI_selected(monkey2 &(~cpref_sig));
-                MemSac_DDI_selected(monkey2 &(cpref_sig));
+                MemSac_DDI_selected(monkey1 & ~or(cpref_sig, memsac_sig));
+                MemSac_DDI_selected(monkey1 & xor(cpref_sig, memsac_sig));
+                MemSac_DDI_selected(monkey1 & and(cpref_sig, memsac_sig));
+                
+                MemSac_DDI_selected(monkey2 & ~or(cpref_sig, memsac_sig));
+                MemSac_DDI_selected(monkey2 & xor(cpref_sig, memsac_sig));
+                MemSac_DDI_selected(monkey2 & and(cpref_sig, memsac_sig));
                 },...
                 {
-                abs(Choice_pref_all(k,monkey1 & ~cpref_sig,tt)) ;
-                abs(Choice_pref_all(k,monkey1 & cpref_sig,tt)) ;
-                abs(Choice_pref_all(k,monkey2 & ~cpref_sig,tt)) ;
-                abs(Choice_pref_all(k,monkey2 & cpref_sig,tt)) ;
+                abs(Choice_pref_all(k,monkey1 & ~or(cpref_sig, memsac_sig),tt)) ;
+                abs(Choice_pref_all(k,monkey1 & xor(cpref_sig, memsac_sig),tt));
+                abs(Choice_pref_all(k,monkey1 & and(cpref_sig, memsac_sig),tt));
+                
+                abs(Choice_pref_all(k,monkey2 & ~or(cpref_sig, memsac_sig),tt)) ;
+                abs(Choice_pref_all(k,monkey2 & xor(cpref_sig, memsac_sig),tt)) ;
+                abs(Choice_pref_all(k,monkey2 & and(cpref_sig, memsac_sig),tt));
+                
                 },...
-                'CombinedIndex',[15],...
+                'CombinedIndex',[48 63],...
                 'Xlabel',MemSac_indicator_txt,'Ylabel','abs(Choice preference)',...
-                'FaceColors',{'none',colors(k,:)},'Markers',{'o','o','^','^'},...
-                'LineStyles',{'k:','k:','k:','k:','k-'},'MarkerSize',15,...
+                'FaceColors',{'none',colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:)},'Markers',{'o','o','o','^','^','^'},...
+                'LineStyles',{'k:','k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',15,...
                 'figN',figN,'XHist',20,'YHist',20,...
-                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
-            
-            % h = LinearCorrelation({
-            %             MemSac_DDI_selected;
-            %             MemSac_DDI_selected
-            %             MemSac_DDI_selected;
-            %             },...
-            %             {
-            %             abs(Choice_pref_all(1,:,tt)) ;
-            %             abs(Choice_pref_all(2,:,tt)) ;
-            %             abs(Choice_pref_all(3,:,tt)) ;
-            %             },...
-            %             'CombinedIndex',[],...
-            %             'Xlabel',MemSac_indicator_txt,'Ylabel','abs(Choice preference)',...
-            %             'FaceColors',{colors(1,:),colors(2,:),colors(3,:)},'Markers',{'o'},...
-            %             'LineStyles',{'b-','r-','g-'},'MarkerSize',marker_size,...
-            %             'figN',figN,'XHist',20,'YHist',20,...
-            %             'XHistStyle','stacked','YHistStyle','grouped','SameScale',0,'Method','Spearman'); figN = figN + 1;
-            
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,...
+                'Method','Pearson','FittingMethod',1); figN = figN + 1;
+                        
+
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
             delete([h.group(1:4).line]);
             % Annotate tcells
@@ -4059,6 +4139,19 @@ function_handles = {
             % Show individual cell selected from the figure. HH20150424
             h_line = plot(MemSac_DDI_selected(:),abs(Choice_pref_all(k,:,tt)),'visible','off'); hold on;
             set([gca [h.group.dots] h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, select_bottom_line});
+            
+            % Override histogram
+            cla(h.ax_xhist);
+            HistComparison( {MemSac_DDI_selected(memsac_sig), MemSac_DDI_selected(~memsac_sig)},...
+                'EdgeColors',{'k','k'}, 'FaceColors',{'k', 'none'},...
+                'MeanType','Median','Axes',h.ax_xhist,'TTest',0);
+            h.ax_xhist.XLim = xlim(h.ax_raw);
+            
+            cla(h.ax_yhist);
+            HistComparison( {abs(Choice_pref_all(k,cpref_sig,tt))',abs(Choice_pref_all(k, ~cpref_sig,tt))'},...
+                           'EdgeColors',{'k','k'}, 'FaceColors',{colors(k,:), 'none'},...
+                           'MeanType','Median','Axes',h.ax_yhist,'TTest',0);
+            h.ax_yhist.XLim = ylim(h.ax_raw);
             
         end
     end
@@ -4094,12 +4187,14 @@ function_handles = {
                 (Choice_pref_all(k,monkey2 & xor(cpref_sig , mpref_sig),tt)) ;
                 (Choice_pref_all(k,monkey1 & cpref_sig & mpref_sig,tt)) ;...
                 (Choice_pref_all(k,monkey2 & cpref_sig & mpref_sig,tt)) },...
-                'CombinedIndex',[63],...
+                'CombinedIndex',[48 63],...
                 'Ylabel','Choice preference (pre)','Xlabel','Modality preference (pre)',...
-                'FaceColors',{'none','none',colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:),colors(k,:)},'Markers',{'o','^'},...
+                'FaceColors',{'w','w',colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:),colors(k,:)},'Markers',{'o','^'},...
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
                 'figN',figN,'XHist',20,'YHist',20,...
-                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,'Method','Spearman'); figN = figN + 1;
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,...
+                'Method','Pearson','FittingMethod',2); figN = figN + 1;
+            
             delete([h.group(1:6).line h.diag]); 
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       SetFigure(15);
             axis([-1 1 -1 1])
@@ -4114,13 +4209,32 @@ function_handles = {
             h_line = plot(Modality_pref_all(1,:,tt),Choice_pref_all(k,:,tt),'visible','off'); hold on;
             set([gca [h.group.dots] h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, select_cpref_mpref});
             
+            % Override histogram
+            cla(h.ax_xhist);
+            HistComparison( {Modality_pref_all(1,mpref_sig,tt)', Modality_pref_all(1,~mpref_sig,tt)'},...
+                'EdgeColors',{'k','k'}, 'FaceColors',{'k', 'none'},...
+                'MeanType','Median','Axes',h.ax_xhist,'TTest',0);
+            h.ax_xhist.XLim = xlim(h.ax_raw);
+            
             %     for i = 1:3
             %         set(h.group(i).dots,'color',colors(k,:));
             %     end
         end
+    end
         
-        %% ---------------- 2 Choice pref (vest and visual) -------------------
+    function f3p2p2(debug)      % Correlations 2. Choice preference between modalities
+        if debug
+            dbstack;
+            keyboard;
+        end
+       %% ---------------- 2 Choice pref (vest and visual) -------------------
         
+        tt = 3;
+        
+        monkeys = xls_num{1}(:,header.Monkey);  % HH20160613
+        monkey1 = monkeys == 5; monkey1 = monkey1(select_bottom_line)';
+        monkey2 = monkeys == 10; monkey2 = monkey2(select_bottom_line)';
+
         
         set(figure(figN),'name','CDiv (visual) vs. CDiv (vest)','pos',[17 514 1151 449]);
         
@@ -4131,23 +4245,28 @@ function_handles = {
         Choice_pref_all_temp = (Choice_pref_all);
         
         h = LinearCorrelation({
-            (Choice_pref_all_temp(2,~cpref_sig_1 & ~cpref_sig_2,tt)) ;
-            (Choice_pref_all_temp(2, xor(cpref_sig_1,cpref_sig_2),tt)) ;
-            (Choice_pref_all_temp(2,cpref_sig_1 & cpref_sig_2,tt))
-            },...
-            {
-            (Choice_pref_all_temp(1,~cpref_sig_1 & ~cpref_sig_2,tt)) ;
-            (Choice_pref_all_temp(1,xor(cpref_sig_1,cpref_sig_2),tt)) ;
-            (Choice_pref_all_temp(1,cpref_sig_1 & cpref_sig_2,tt))
-            },...
-            'CombinedIndex',[7],...
-            'Ylabel','Vestibular choice preference','Xlabel','Visual choice preference',...
-            'FaceColors',{'none',[0.8 0.8 0.8],'k'},'Markers',{'o'},...
-            'LineStyles',{'k:','k:','k:','k-'},'MarkerSize',marker_size,...
-            'figN',figN,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,'Method','Spearman'); figN = figN + 1;
-        delete([h.group(1:3).line]);
-        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+                (Choice_pref_all_temp(2, monkey1 & ~cpref_sig_1 & ~cpref_sig_2,tt)) ;
+                (Choice_pref_all_temp(2, monkey2 & ~cpref_sig_1 & ~cpref_sig_2,tt)) ;
+                (Choice_pref_all_temp(2, monkey1 & xor(cpref_sig_1 , cpref_sig_2),tt));
+                (Choice_pref_all_temp(2, monkey2 & xor(cpref_sig_1 , cpref_sig_2),tt));
+                (Choice_pref_all_temp(2, monkey1 & cpref_sig_1 & cpref_sig_2,tt));...
+                (Choice_pref_all_temp(2, monkey2 & cpref_sig_1 & cpref_sig_2,tt))},...
+                {
+                (Choice_pref_all_temp(1,monkey1 & ~cpref_sig_1 & ~cpref_sig_2,tt)) ;
+                (Choice_pref_all_temp(1,monkey2 & ~cpref_sig_1 & ~cpref_sig_2,tt)) ;
+                (Choice_pref_all_temp(1,monkey1 & xor(cpref_sig_1 , cpref_sig_2),tt)) ;
+                (Choice_pref_all_temp(1,monkey2 & xor(cpref_sig_1 , cpref_sig_2),tt)) ;
+                (Choice_pref_all_temp(1,monkey1 & cpref_sig_1 & cpref_sig_2,tt)) ;...
+                (Choice_pref_all_temp(1,monkey2 & cpref_sig_1 & cpref_sig_2,tt)) },...
+                'CombinedIndex',[63],'NoCombinedNoPlot', 1, ...
+                'Ylabel','Vestibular choice preference','Xlabel','Visual choice preference',...
+                'FaceColors',{'none','none',[0.8 0.8 0.8],[0.8 0.8 0.8],'k','k'},'Markers',{'o','^'},...
+                'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
+                'figN',figN,'XHist',20,'YHist',20,'Method','Pearson','FittingMethod',2, ...
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1); figN = figN + 1;
+        
+        delete([h.group(1:6).line]);
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       %  SetFigure(20);
         
         % Annotate tcells
         plot(Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt),Choice_pref_all_temp(1,select_tcells(select_bottom_line),tt),...
@@ -4162,65 +4281,10 @@ function_handles = {
         
         clear Choice_pref_all_temp;
         
-        %     for i = 1:3
-        %         set(h.group(i).dots,'color',colors(k,:));
-        %     end
         
-        %% ---------------- 3 Choice pref (single vs comb) -------------------
-        
-        %         tt = 1;
-        %
-        %         set(figure(figN),'name','CDiv (single) vs. CDiv (comb)','pos',[17 514 1151 449]);
-        %
-        %         cpref_sig_1 = Choice_pref_p_value_all(1,:,tt) < 0.05;
-        %         cpref_sig_2 = Choice_pref_p_value_all(2,:,tt) < 0.05;
-        %         cpref_sig_3 = Choice_pref_p_value_all(3,:,tt) < 0.05;
-        %
-        %         % Abs() or not?
-        %         Choice_pref_all_temp = (Choice_pref_all);
-        %
-        %         h = LinearCorrelation({
-        %             (Choice_pref_all_temp(1,~cpref_sig_1 & ~cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(1,xor(cpref_sig_1 ,cpref_sig_3),tt)) ;
-        %             (Choice_pref_all_temp(1,cpref_sig_1 & cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(2,~cpref_sig_2 & ~cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(2,xor(cpref_sig_2 ,cpref_sig_3),tt)) ;
-        %             (Choice_pref_all_temp(2,cpref_sig_2 & cpref_sig_3,tt))
-        %
-        %             },...
-        %             {
-        %             (Choice_pref_all_temp(3,~cpref_sig_1 & ~cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(3, xor(cpref_sig_1 , cpref_sig_3),tt)) ;
-        %             (Choice_pref_all_temp(3,cpref_sig_1 & cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(3,~cpref_sig_2 & ~cpref_sig_3,tt)) ;
-        %             (Choice_pref_all_temp(3, xor(cpref_sig_2 , cpref_sig_3),tt)) ;
-        %             (Choice_pref_all_temp(3,cpref_sig_2 & cpref_sig_3,tt))
-        %
-        %             },...
-        %             'CombinedIndex',[7 56],...
-        %             'Xlabel','Single modality choice preference','Ylabel','Combined choice preference',...
-        %             'FaceColors',{'none',[0.8 0.8 1],[0.2 0.2 1],'none',[1 0.8 0.8],colors(2,:)},'Markers',{'o'},...
-        %             'LineStyles',{'k:','k:','k:','k:','k:','k:','b-','r-'},'MarkerSize',marker_size,...
-        %             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
-        %             'SameScale',1,'Method','Spearman'); figN = figN + 1;
-        %
-        %         delete([h.group(1:6).line]);
-        %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
-        %         axis([-1 1 -1 1]); set(gca,'xtick',-1:0.5:1,'ytick',-1:0.5:1); axis square;
-        %
-        %         % Annotate tcells
-        %         plot((Choice_pref_all_temp(1,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
-        %             '+','markersize',tcell_cross_size,'color','k','linew',2);
-        %         plot((Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
-        %             '+','markersize',tcell_cross_size,'color','k','linew',2);
-        %
-        %         % Show individual cell selected from the figure. HH20150424
-        %         h_line = plot([Choice_pref_all_temp(1,:,tt) Choice_pref_all_temp(2,:,tt)],[Choice_pref_all_temp(3,:,tt) Choice_pref_all_temp(3,:,tt)],'visible','off'); hold on;
-        %         set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_cpref_mpref; select_cpref_mpref],2});
-        %
-        %         clear Choice_pref_all_temp;
-        
-        two_face_colors = {'none',[0.8 0.8 1],[0.2 0.2 1];'none',[1 0.8 0.8],colors(2,:)};
+       %% ---------------- 3 Choice pref (single vs comb) -------------------
+        two_face_colors = fliplr({'none','none',[0.8 0.8 1],[0.8 0.8 1],colors(1,:),colors(1,:);
+                                  'none','none',[1 0.8 0.8],[1 0.8 0.8],colors(2,:),colors(2,:)});
         
         for k = 1:2  % Plot it separately
             
@@ -4234,33 +4298,33 @@ function_handles = {
             % Abs() or not?
             Choice_pref_all_temp = (Choice_pref_all);
             
+           
             h = LinearCorrelation({
-                (Choice_pref_all_temp(k,monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
-                (Choice_pref_all_temp(k,monkey1 & xor(cpref_sig_k ,cpref_sig_3),tt)) ;
-                (Choice_pref_all_temp(k,monkey1 & cpref_sig_k & cpref_sig_3,tt)) ;
-                (Choice_pref_all_temp(k,monkey2 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
-                (Choice_pref_all_temp(k,monkey2 & xor(cpref_sig_k ,cpref_sig_3),tt)) ;
-                (Choice_pref_all_temp(k,monkey2 & cpref_sig_k & cpref_sig_3,tt))
-                
+                (Choice_pref_all_temp(k, monkey1 & cpref_sig_k & cpref_sig_3,tt));
+                (Choice_pref_all_temp(k, monkey2 & cpref_sig_k & cpref_sig_3,tt));
+                (Choice_pref_all_temp(k, monkey1 & xor(cpref_sig_k , cpref_sig_3),tt));
+                (Choice_pref_all_temp(k, monkey2 & xor(cpref_sig_k , cpref_sig_3),tt));
+                (Choice_pref_all_temp(k, monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
+                (Choice_pref_all_temp(k, monkey2 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
                 },...
                 {
-                (Choice_pref_all_temp(3,monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
-                (Choice_pref_all_temp(3,monkey1 &  xor(cpref_sig_k , cpref_sig_3),tt)) ;
                 (Choice_pref_all_temp(3,monkey1 & cpref_sig_k & cpref_sig_3,tt)) ;
+                (Choice_pref_all_temp(3,monkey2 & cpref_sig_k & cpref_sig_3,tt));
+                (Choice_pref_all_temp(3,monkey1 & xor(cpref_sig_k, cpref_sig_3),tt)) ;
+                (Choice_pref_all_temp(3,monkey2 & xor(cpref_sig_k, cpref_sig_3),tt));
+                (Choice_pref_all_temp(3,monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
                 (Choice_pref_all_temp(3,monkey2 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
-                (Choice_pref_all_temp(3,monkey2 &  xor(cpref_sig_k , cpref_sig_3),tt)) ;
-                (Choice_pref_all_temp(3,monkey2 & cpref_sig_k & cpref_sig_3,tt))
-                
                 },...
-                'CombinedIndex',[63],...
-                'Xlabel','Single modality choice preference','Ylabel','Combined choice preference',...
-                'FaceColors',two_face_colors(k,:),'Markers',{'o','o','o','^','^','^'},...
+                'CombinedIndex',[63],'NoCombinedNoPlot', 1, ...
+                'Ylabel','Single choice preference','Xlabel','Combined choice preference',...
+                'FaceColors',two_face_colors(k,:),'Markers',{'o','^'},...
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
-                'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
-                'SameScale',1,'Method','Spearman'); figN = figN + 1;
+                'figN',figN,'XHist',20,'YHist',20,...
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,...
+                'Method','Pearson','FittingMethod',2); figN = figN + 1;
             
-            delete([h.group(1:6).line]);
-            plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+            % delete([h.group(1:6).line]);
+            plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       %   SetFigure(20);
             axis([-1 1 -1 1]); set(gca,'xtick',-1:0.5:1,'ytick',-1:0.5:1); axis square;
             
             % Annotate tcells
@@ -4273,6 +4337,18 @@ function_handles = {
             h_line = plot([Choice_pref_all_temp(k,:,tt)],[Choice_pref_all_temp(3,:,tt)],'visible','off'); hold on;
             set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_cpref_mpref],1});
             
+            % Plotting histograms manually because we have to deal with different significant standards here. HH20180613
+            cla(h.ax_xhist);
+            HistComparison( {Choice_pref_all_temp(k,cpref_sig_k,tt)', Choice_pref_all_temp(k,~cpref_sig_k,tt)'},...
+                'EdgeColors',{'k','k'}, 'FaceColors',{colors(k,:), 'none'},...
+                'MeanType','Median','Axes',h.ax_xhist,'TTest',0);
+            xlim([-1 1])
+            cla(h.ax_yhist);
+            HistComparison( {Choice_pref_all_temp(3,cpref_sig_3,tt)', Choice_pref_all_temp(3,~cpref_sig_3,tt)'},...
+                'EdgeColors',{'k','k'}, 'FaceColors',{colors(3,:), 'none'},...
+                'MeanType','Median','Axes',h.ax_yhist,'TTest',0);
+            xlim([-1 1])
+                       
             clear Choice_pref_all_temp;
             axis tight;
         end
@@ -4295,12 +4371,12 @@ function_handles = {
             (Choice_pref_all_temp_comb_minus_vis(1,monkey1,tt)) ;
             (Choice_pref_all_temp_comb_minus_vis(1,monkey2,tt)) ;
             },...
-            'CombinedIndex',[3],...
+            'CombinedIndex',[3],'NoCombinedNoPlot', 1, ...
             'Xlabel','Combined - Vest (Choice preference)','Ylabel','Combined - Visual',...
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
-            'SameScale',1,'Method','Spearman'); figN = figN + 1;
+            'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         
         delete([h.group(1:2).line]);
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
@@ -4336,12 +4412,12 @@ function_handles = {
             (mean_raw_delta_firing_comb_minus_vis(monkey1)) ;
             (mean_raw_delta_firing_comb_minus_vis(monkey2)) ;
             },...
-            'CombinedIndex',[3],...
+            'CombinedIndex',[3],'NoCombinedNoPlot', 1, ...
             'Xlabel','Combined - Vest (raw PSTH)','Ylabel','Combined - Visual',...
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
-            'SameScale',1,'Method','Spearman'); figN = figN + 1;
+            'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         
         delete([h.group(1:2).line]);
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
@@ -4361,8 +4437,15 @@ function_handles = {
         clear Choice_pref_all_temp;
         axis tight;
         
+    end
+
+    function f3p2p3(debug)      %  Choice pref (pre vs post)
+        if debug
+            dbstack;
+            keyboard;
+        end
         
-        %% ---------------- 4 Choice pref (pre vs post) -------------------
+        %% ---------------- Choice pref (pre vs post) -------------------
         
         set(figure(figN),'name','CDiv (pre-sac) vs. CDiv (post-sac)','pos',[17 514 1151 449]);
         
@@ -4387,7 +4470,7 @@ function_handles = {
             'FaceColors',{'none',colors(k,:)*0.2 + [0.8 0.8 0.8],colors(k,:)},'Markers',{'o'},...
             'LineStyles',{'k:','k:','k:','k-'},'MarkerSize',marker_size,...
             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
-            'SameScale',1,'Method','Spearman'); figN = figN + 1;         SetFigure(20);
+            'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;         SetFigure(20);
         
         
         delete([h.group(1:3).line]);
@@ -4407,6 +4490,7 @@ function_handles = {
         %     end
         
     end
+
     function f3p3(debug)      % Correlations 3. Psychophysics v.s. CD
         if debug
             dbstack;
@@ -4439,7 +4523,7 @@ function_handles = {
             'Ylabel',sprintf('\\Delta CDiv (%g - %g ms, 3-1, 3-2, 1-2)',t_begin,t_end),'Xlabel','Psycho prediction ratio',...
             'MarkerSize',12,...
             'figN',figN,'XHist',15,'YHist',15,'logx',1,...
-            'XHistStyle','stacked','YHistStyle','stacked','Method','Pearson'); figN = figN + 1;
+            'XHistStyle','stacked','YHistStyle','stacked','Method','Pearson','FittingMethod',2); figN = figN + 1;
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
         
     end
@@ -4515,7 +4599,7 @@ function_handles = {
             'FaceColors',{'none','k'},'Markers',{'o'},...
             'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
             'figN',7162036,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
         
         
         %% 
@@ -4530,7 +4614,7 @@ function_handles = {
             'FaceColors',{'none','k'},'Markers',{'o'},...
             'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
             'figN',1948,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
         
         %% 
         LinearCorrelation({
@@ -4699,7 +4783,7 @@ function_handles = {
         
         % If data not packed
         if isempty(PCA_A)
-            f4p0;
+            f4p0(debug);
         end
         
         % Use the original A instead of A_forplot
@@ -4858,7 +4942,7 @@ function_handles = {
         %             'FaceColors',{'k'},'Markers',{'o'},...
         %             'LineStyles',{'k-'},'MarkerSize',12,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
         %         % Annotate tcells
@@ -4890,7 +4974,7 @@ function_handles = {
         %             'FaceColors',{'none','k'},'Markers',{'o'},...
         %             'LineStyles',{'k-'},'MarkerSize',12,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         %         delete([h.group(1:2).line]);
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
@@ -4916,7 +5000,7 @@ function_handles = {
         %             'FaceColors',{'k'},'Markers',{'o'},'Markers',{'o'},...
         %             'LineStyles',{'k-'},'MarkerSize',12,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         %
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
@@ -4949,7 +5033,7 @@ function_handles = {
         %             'FaceColors',{'none','k'},'Markers',{'o'},...
         %             'LineStyles',{'k-'},'MarkerSize',12,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         %
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %         delete([h.group(1:2).line]);
@@ -4982,7 +5066,7 @@ function_handles = {
         %             'FaceColors',{'none','k'},'Markers',{'o'},...
         %             'LineStyles',{'k-'},'MarkerSize',12,...
         %             'figN',figN,'XHist',20,'YHist',20,...
-        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+        %             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         %         delete([h.group(1:2).line]);
         %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         %
@@ -5600,7 +5684,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k-'},'MarkerSize',6,...
             'axes',ax,'XHist',0,'YHist',0,...
-            'SameScale',1,'Method','Spearman');
+            'SameScale',1,'Method','Pearson','FittingMethod',2);
         delete([h.diag h.group(1:2).line]); legend off;
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');
         text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(3).r_square,h.group(3).p),'fonts',11);
@@ -5640,7 +5724,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'FaceColors',{'k'},'Markers',{'o'},'Markers',{'o'},...
             'LineStyles',{'k-'},'MarkerSize',12,...
             'figN',612,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2);
         
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         
@@ -5671,7 +5755,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'FaceColors',{'k'},'Markers',{'o'},'Markers',{'o'},...
             'LineStyles',{'k-'},'MarkerSize',12,...
             'figN',613,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2);
         
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         
@@ -5940,7 +6024,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                 'FaceColors',{[0.9 0.9 0.9]},'Markers',{'.'},...
                 'LineStyles',{'k-'},'MarkerSize',10,...
                 'XHist',0,'YHist',0,...
-                'XHistStyle','grouped','YHistStyle','grouped','SameScale',1,'Method','Spearman','axes',ax0);
+                'XHistStyle','grouped','YHistStyle','grouped','SameScale',1,'Method','Pearson','FittingMethod',2,'axes',ax0);
             text(min(xlim)+2,min(ylim)+2,sprintf('r^2 = %g, p = %g',h.group(1).r_square,h.group(1).p),'FontSize',13);
             legend off;
             
@@ -5968,7 +6052,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                 'FaceColors',{[0.9 0.9 0.9],[.3 .3 .3 ]},'Markers',{'o'},...
                 'LineStyles',{'k--','k-'},'MarkerSize',9,...
                 'XHist',20,'YHist',10,...
-                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,'Method','Spearman','axes',ax2);
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,'Method','Pearson','FittingMethod',2,'axes',ax2);
             
             if toii == 1 ; xlabel(''); end
             delete([h.group(1).line h.diag]);
@@ -6905,7 +6989,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 'FaceColors',{'k'},'Markers',{'o'},...
                 'LineStyles',{'k-'},'MarkerSize',12,...
                 'figN',figN,'XHist',20,'YHist',20,...
-                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
             
             % Annotate tcells
@@ -6938,7 +7022,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             'FaceColors',{'none','k'},'Markers',{'o'},...
             'LineStyles',{'k-'},'MarkerSize',12,...
             'figN',figN,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         delete([h.group(1:2).line]);
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         
@@ -6965,7 +7049,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
 %             'FaceColors',{'k'},'Markers',{'o'},'Markers',{'o'},...
 %             'LineStyles',{'k-'},'MarkerSize',12,...
 %             'figN',figN,'XHist',20,'YHist',20,...
-%             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+%             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
 %         
 %         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
 %         
@@ -6990,7 +7074,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k-'},'MarkerSize',12,...
             'figN',figN,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         delete([h.group(1:2).line]);
         
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
@@ -7031,7 +7115,8 @@ weights_TDR_PCA_SVM_allbootstrap = [];
                 'FaceColors',{'none','none','k','k'},'Markers',{'o','^'},...
                 'LineStyles',{'k-'},'MarkerSize',12,...
                 'figN',figN,'XHist',20,'YHist',20,...
-                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman'); figN = figN + 1;
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2); figN = figN + 1;
+            
             delete([h.group(1:4).line]);
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
             

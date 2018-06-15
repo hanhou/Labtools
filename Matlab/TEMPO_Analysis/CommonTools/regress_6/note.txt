@@ -7,3 +7,20 @@ You can run regress_perp.m
 coded by li nuo
 
 Yong Gu 02/21/2006
+
+========================================
+
+There is no need to do all the stuffs in the original codes (btw, the codes suck).
+
+Minimizing vertical distance between the fitting line and the raw data
+is EQUIVALENT to finding the direction of the first principal component!
+
+Therefore, we only need three lines:
+
+coeff = pca([xx yy]);
+k = coeff(2) / coeff(1);
+b = mean(yy)- k * mean(xx);
+
+When we do bootstrapping, the running time decreases from 15s to 0.3s!
+
+Han Hou 20180613

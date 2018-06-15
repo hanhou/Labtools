@@ -906,28 +906,28 @@ function_handles = {
         
         sig = [p_lose_shift_abs_heading_last{~staircase}]'<0.05; nsig = [p_lose_shift_abs_heading_last{~staircase}]'>=0.05;
         CRs = [CR_abs_heading{~staircase}]'; props = [lose_shift_abs_heading_last{~staircase}]';
-        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Spearman',...
+        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Pearson','FittingMethod',2,...
             'FigN',179,'XLabel','Correct rate','YLabel','P ( Shift | Last-lose)','YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','CombinedIndex',[3]);
         plot(xlim,[0.5 0.5],'k--'); ylim([0 1]); set(h.ax_yhist,'xlim',ylim); %delete([h.group(1:2).line]);
         
         sig = [p_win_shift_abs_heading_last{~staircase}]'<0.05; nsig = [p_win_shift_abs_heading_last{~staircase}]'>=0.05;
         CRs = [CR_abs_heading{~staircase}]'; props = [win_shift_abs_heading_last{~staircase}]';
-        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Spearman',...
+        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Pearson','FittingMethod',2,...
             'FigN',180,'XLabel','Correct rate','YLabel','P ( Shift | Last-win)','YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','CombinedIndex',[3]);
         plot(xlim,[0.5 0.5],'k--'); ylim([0 1]); set(h.ax_yhist,'xlim',ylim); %delete([h.group(1:2).line]);
         
         sig = [p_lose_shift_abs_heading_this{~staircase}]'<0.05; nsig = [p_lose_shift_abs_heading_this{~staircase}]'>=0.05;
         CRs = [CR_abs_heading{~staircase}]'; props = [lose_shift_abs_heading_this{~staircase}]';
-        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Spearman',...
+        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Pearson','FittingMethod',2,...
             'FigN',181,'XLabel','Correct rate','YLabel','P ( Shift | This-lose)','YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','CombinedIndex',[3]);
         plot(xlim,[0.5 0.5],'k--'); ylim([0 1]); set(h.ax_yhist,'xlim',ylim);  %delete([h.group(1:2).line]);
         
         sig = [p_win_shift_abs_heading_this{~staircase}]'<0.05; nsig = [p_win_shift_abs_heading_this{~staircase}]'>=0.05;
         CRs = [CR_abs_heading{~staircase}]'; props = [win_shift_abs_heading_this{~staircase}]';
-        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Spearman',...
+        h=LinearCorrelation({CRs(sig),CRs(nsig)},{props(sig),props(nsig)},'Method','Pearson','FittingMethod',2,...
             'FigN',182,'XLabel','Correct rate','YLabel','P ( Shift | This-win)','YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','CombinedIndex',[3]);
         plot(xlim,[0.5 0.5],'k--'); ylim([0 1]); set(h.ax_yhist,'xlim',ylim); %delete([h.group(1:2).line]);
@@ -966,11 +966,11 @@ function_handles = {
 % Thresh_psy_t = Thresh_session(Thresh_session<100);
 %
 % h=LinearCorrelation(correct_rate_t(1:end-1),Thresh_psy_t(1:end-1)./Thresh_psy_t(2:end),...
-%     'XHist',20,'YHist',20,'MarkerSize',10,'XLabel','Correct rate','YLabel','Next improvement','logy',1,'Method','Spearman','FigN',2499);
+%     'XHist',20,'YHist',20,'MarkerSize',10,'XLabel','Correct rate','YLabel','Next improvement','logy',1,'Method','Pearson','FittingMethod',2,'FigN',2499);
 % axes(h.ax_raw); plot(xlim,[0 0],'k--');
 %
 % h=LinearCorrelation(Thresh_psy_t(1:end-1),Thresh_psy_t(1:end-1)./Thresh_psy_t(2:end),...
-%     'XHist',20,'YHist',20,'MarkerSize',10,'XLabel','Threshold','YLabel','Next improvement','logy',1,'FigN',2500,'Method','Spearman');
+%     'XHist',20,'YHist',20,'MarkerSize',10,'XLabel','Threshold','YLabel','Next improvement','logy',1,'FigN',2500,'Method','Pearson','FittingMethod',2);
 % axes(h.ax_raw); plot(xlim,[0 0],'k--');
 
 

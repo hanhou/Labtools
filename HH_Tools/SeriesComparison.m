@@ -27,6 +27,17 @@ function result = SeriesComparison(ys,ts,varargin)
 % % addOptional(paras,'FaceColors',{'k','none',[0.8 0.8 0.8]});
 % addOptional(paras,'Xlabel',[]);
 % addOptional(paras,'Ylabel',[]);
+% 
+%
+%   Example: 
+%         SeriesComparison({shiftdim(ys_this{1},-1) shiftdim(ys_this{2},-1)},...
+%             {rate_ts{1} rate_ts{2} time_markers},...
+%             'OverrideError',{sem_this{1}, sem_this{2}},...
+%             'OverridePs',{ps_this{1}, ps_this{2}},'ErrorBar',6,...
+%             'CompareIndex',[1 3 5;2 4 6],'CompareColor',{colors(1,:),colors(2,:),colors(3,:)},...
+%             'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},...
+%             'Transparent',transparent,'LineStyles',{'-','--'},'axes',h_1463_PSTH);
+%
 
 
 % ------ Parse input parameters -------
@@ -42,7 +53,8 @@ addOptional(paras,'hold',0); % Don't hold on
 addOptional(paras,'ErrorBar',2);  % Sum of (1: Normal Errorbar; 2: Shaded Errorbar; 4: Significance marker)
 addOptional(paras,'CompareIndex',[]);  % Pair of statistic test for drawing significance marker: {[1 3 5; 2 4 6]}. HH20160427
 addOptional(paras,'CompareColor',{});  % Colors for significance marker.
-addOptional(paras,'PCritical',0.05);  % Colors for significance marker.
+addOptional(paras,'PCritical',0.05);  
+addOptional(paras,'PlotPs',0);  
 
 addOptional(paras,'Colors',{'b','r','g'}); % (originally for comparing PSTH of LIP neurons)
 addOptional(paras,'LineStyles',{'-'});
@@ -71,6 +83,7 @@ border = paras.Results.Border;
 gap = paras.Results.Gap;
 override_error = paras.Results.OverrideError;
 override_ps = paras.Results.OverridePs;
+PlotPs = paras.Results.PlotPs;
 
 y_lims_requested = paras.Results.YLim;
 
@@ -229,13 +242,32 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
                 dy = mean(y1,1)-mean(y2,1);
                 
                 % Plotting
-                indicator_pos = zeros(size(dy)) + (cc-1)* range(ylims)/50;
-                indicator_pos (dy > 0) = indicator_pos (dy > 0) + ylims(2)*1.05;
+                %                 indicator_pos = zeros(size(dy)) + (cc-1)* range(ylims)/50;
+                %                 indicator_pos (dy > 0) = indicator_pos (dy > 0) + ylims(2)*1.05;
+                
+                % If YLim requested, make them always visible by going towards the figure center
+                % Otherwise, going outside the figure
+                
+                step = range(ylims)/50;
+                if isempty(y_lims_requested)
+                    indicator_pos (dy <= 0) = ylims(1) + (cc - size(compare_index,2)) * step;
+                    indicator_pos (dy > 0) = ylims(2) + (cc - 1) * step;
+                else
+                    indicator_pos (dy <= 0) = ylims(1) + (cc - 1) * step;
+                    indicator_pos (dy > 0) = ylims(2) + (cc - size(compare_index,2)) * step;
+                end
                 
                 lineColor = compare_color{cc};
-                plot(ts{j}(plot_range{j} & ps<p_critical)+offset{j},indicator_pos(plot_range{j} & ps<p_critical),...
+                plot(ts{j}(plot_range{j} & ps<p_critical) + offset{j},indicator_pos(plot_range{j} & ps<p_critical),...
                     's','Color',lineColor,'MarkerFaceColor',lineColor,'MarkerSize',5);
                 
+                if PlotPs
+                    ylimTmp = ylim;
+                    plot(ts{j}(plot_range{j}) + offset{j}, ps((plot_range{j})) , 'color', lineColor);
+                    ylim(ylimTmp);
+                end
+                
+                result.ps{j}(cc,:) = ps;
             end
         end
     end
@@ -243,6 +275,8 @@ else % Deal with combined plot for two temporal alignments.  @HH20150523
     % Time markers
     if isempty(y_lims_requested)
         axis tight; 
+    else
+        ylim(y_lims_requested)
     end
     
     marker_for_time_markers{1} = {'-','-','--'};

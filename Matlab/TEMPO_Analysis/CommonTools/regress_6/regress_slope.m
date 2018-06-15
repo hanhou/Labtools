@@ -3,8 +3,7 @@ function slope=regress_slope(input)
 %regress_slope.m
 %
 % slope=regress_slope([x,y])
-% x and y are two columns of data set. they have
-% to match in size
+% x and y are two columns of data set. they have to match in size
 % 
 % The script estimates the slope of the regression line
 % by minimizing the perpendicular offset.

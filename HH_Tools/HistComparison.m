@@ -19,7 +19,7 @@ function h = HistComparison(raw,varargin) % (figN,logx,logy,seperate)
 % ------ Parse input parameters -------
 paras = inputParser;
 addOptional(paras,'XCenters',[]);
-addOptional(paras,'XNumbers',15);
+addOptional(paras,'XNumbers',20);
 addOptional(paras,'FigN',2699);
 
 addOptional(paras,'MeanCombinedIndex',[]);
@@ -39,7 +39,7 @@ parse(paras,varargin{:});
 % --------- End input parser ----------
 
 %%
-% Reoranize
+% Reoranize if raw is matrix (column are observations)
 if ~iscell(raw)
     raw = mat2cell(raw,size(raw,1),ones(1,size(raw,2)));
 end
@@ -55,7 +55,7 @@ end
 TTest = paras.Results.TTest;
 
 % Minor adjustment of xcenters
-if ~isempty(TTest)
+if ~isempty(TTest) && (all_min - (h.x_centers(2)-h.x_centers(1))/2 <= TTest && TTest <= all_max + (h.x_centers(2)-h.x_centers(1))/2)
     [~,ii] = min(abs(TTest - (h.x_centers(1:end-1)+h.x_centers(2:end))/2));
     h.x_centers = h.x_centers + TTest - (h.x_centers(ii)+h.x_centers(ii+1))/2;
 end
@@ -99,13 +99,13 @@ elseif strcmpi(paras.Results.Style,'stacked')
 %         try
 %             h.means =  mean([raw{:}]);
 %         catch
-            h.means =  mean(cell2mat(raw(:)));
+            h.means =  nanmean(cell2mat(raw(:)));
 %         end
     else strcmpi(paras.Results.MeanType,'Median')
 %         try
 %             h.means =  median([raw{:}]);
 %         catch
-            h.means =  median(cell2mat(raw(:)));
+            h.means =  nanmedian(cell2mat(raw(:)));
 %         end
     end
     
