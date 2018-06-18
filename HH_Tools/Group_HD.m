@@ -480,24 +480,36 @@ for i = 1:length(group_result)
     waveform = str2num(cell2mat(xls_txt{1}(i,header.meanWav)));
     % waveform = smooth(waveform,5)'; waveform = waveform - min(waveform); waveform = waveform./max(waveform);
     dt = 1/25; % 1k ms / 25 kHz
+    interp_dt = 1/1000; % Spline interp to 1us. (Keven Johnston 2009 JNS)
     
     if ~isempty(waveform)
+        
+        waveform = spline(0:dt:dt*(length(waveform)-1),waveform,0:interp_dt:dt*(length(waveform)-1));
+        
         waveform_t1 = find(waveform == 1); % Spike peak
         waveform_t_left = find(waveform == min(waveform(1:waveform_t1)),1); % Left trough
         waveform_t_right = find(waveform == min(waveform(waveform_t1:end)),1); % Right trough
-        group_result(i).Waveform_wid = (waveform_t_right - waveform_t1)*dt;
+        
+        group_result(i).Waveform_peakToTrough = (waveform_t_right - waveform_t1)*interp_dt;
+        group_result(i).Waveform_peak = waveform_t1;
+        group_result(i).Waveform_trough1 = waveform_t_left;
+        group_result(i).Waveform_trough2 = waveform_t_right;
         
         % Abnormal waveform (need to be flipped)
-        if group_result(i).Waveform_wid > 0.8  % 0.8 ms was set manually by plotting the distribution
+        if group_result(i).Waveform_peakToTrough > 0.8  % 0.8 ms was set manually by plotting the distribution
             waveform = 1-waveform;
             waveform_t1 = find(waveform == 1); % Spike peak
             waveform_t_left = find(waveform == min(waveform(1:waveform_t1)),1); % Left trough
             waveform_t_right = find(waveform == min(waveform(waveform_t1:end)),1); % Right trough
-            group_result(i).Waveform_wid = (waveform_t_right - waveform_t1)*dt;
+            
+            group_result(i).Waveform_peakToTrough = (waveform_t_right - waveform_t1)*interp_dt;
+            group_result(i).Waveform_peak = waveform_t1;
+            group_result(i).Waveform_trough1 = waveform_t_left;
+            group_result(i).Waveform_trough2 = waveform_t_right;
             fprintf('Waveform flipped: %s\n',group_result(i).cellID{1}{1});
         end
         
-        group_result(i).Waveform_broad = group_result(i).Waveform_wid > 0.35; % Set manually by plotting the distribution
+        group_result(i).Waveform_broad = group_result(i).Waveform_peakToTrough > 0.35; % Set manually by plotting the distribution
         
         % Align to waveform_1
         %{
@@ -509,7 +521,7 @@ for i = 1:length(group_result)
         %}
     else
         fprintf('No waveform: %s\n', group_result(i).cellID{1}{1});
-        group_result(i).Waveform_wid = nan;
+        group_result(i).Waveform_peakToTrough = nan;
         group_result(i).Waveform_broad = nan;
     end
     
@@ -521,7 +533,7 @@ end
 
 % --- Waveform width distribution ---
 % This is to determine the threshold of narrow/wide spikes. HH20160920
-% figure(); hist([group_result.Waveform_wid],10);
+% figure(); hist([group_result.Waveform_peakToTrough],10);
 
 % ------ Load Gaussian velocity -----
 % Measured by accelerometer at 109. Should retest it on 103. HH20150422
@@ -1343,6 +1355,7 @@ enlarge_factor = 30; % Enlarge memsac DDIs
 j_PCA_B = 1;
 select_for_PCA_B = select_bottom_line;
 PCA_B_time_range = min(rate_ts{j_PCA_B})+100 <= rate_ts{j_PCA_B} & rate_ts{j_PCA_B} <= time_markers{j_PCA_B}(1,3);  % Before saccade
+% PCA_B_time_range = min(rate_ts{j_PCA_B})+100 <= rate_ts{j_PCA_B} & rate_ts{j_PCA_B} <= time_markers{j_PCA_B}(1,2);  % Before stim 
 PCA_B_times = rate_ts{j_PCA_B}(PCA_B_time_range);
 denoised_dim = 9;
 PCA_B = []; weights_PCA_B_PC = []; PCA_B_projPC = []; PCA_B_explained = [];
@@ -1382,6 +1395,7 @@ function_handles = {
     'Correct only, all choices (conventional)', @f1p1;
     '   All single cell traces',@f1p1p6;
     '      Example cells (SuppFig.2)', @f1p1p4;
+    '      Divergence time', @f1p1p6p1;
     '   All single cell fittings',@f1p1p7;
     '   Different weighting methods',@f1p1p5;
     'Different headings' , @f1p2;
@@ -1420,7 +1434,7 @@ function_handles = {
     'PCA_choice & modality (Eigen-neuron)',{
     'Weights and correlations', @f5p1;
     '1-D Trajectory',@f5p2;
-    '2-D Trajectory',@f5p3;
+    '3-D Trajectory',@f5p3;
     };
 
     'PCA_heading & choice (Eigen-neuron)',{
@@ -1730,7 +1744,12 @@ function_handles = {
             
         end
         %} 
-        
+    end       
+
+    firstDivergenceTime = [];
+    function f1p1p6p1(debug)  % Divergence time
+        if debug  ; dbstack;   keyboard;      end
+
         %% === Divergence time ===
         %%%%%%%%%%%%%%%%%%%%%%%
         min_bins_for_1st_sign_time = 25; % 250 ms
@@ -1738,25 +1757,30 @@ function_handles = {
         t_valid_ind = rate_ts{1}>= 200 & rate_ts{1}<=1500; % Only sensory phase
         %%%%%%%%%%%%%%%%%%%%%%%
         
-        first_sign_time = nan(length(single_cell_plot_order),3);
+        firstDivergenceTime = nan(length(select_bottom_line),3);
         t_valid = rate_ts{1}(t_valid_ind);
         
-        for nn = 1:length(single_cell_plot_order)
-            ps_valid = double((ps(:,t_valid_ind,nn) < p_critical_for_1st_sign_time) & in_larger_than_out(:,t_valid_ind,nn));
+        for nn = 1:length(select_bottom_line)
+            ys_this = group_result(nn).mat_raw_PSTH.PSTH{1,1,1}.ys'; % j = 1
+            ps_this = group_result(nn).mat_raw_PSTH.PSTH{1,1,1}.ps;  % j = 1
+            in_larger_than_out = (ys_this(:,1:2:end) > ys_this(:,2:2:end))';
+
+            ps_valid = double((ps_this(:,t_valid_ind) < p_critical_for_1st_sign_time) & in_larger_than_out(:,t_valid_ind));
+            
             conv_tmp = conv2(ps_valid,ones(1,min_bins_for_1st_sign_time));
             for k = 1:3
                 % This is really brilliant :)
                 first_tmp = find(conv_tmp(k,:) == min_bins_for_1st_sign_time,1) - min_bins_for_1st_sign_time + 1;  
 
                 if ~isempty(first_tmp)
-                    first_sign_time(nn,k) = t_valid(first_tmp);
+                    firstDivergenceTime(nn,k) = t_valid(first_tmp);
                 end
             end
         end
         
-        first_sign_result = BarComparison(first_sign_time,'figN',556,'Colors',mat2cell(colors,ones(stim_type_num,1)));
+        first_sign_result = BarComparison(firstDivergenceTime,'figN',556,'Colors',mat2cell(colors,ones(stim_type_num,1)));
         first_sign_ps =  [first_sign_result.ps_ttest(2,3),first_sign_result.ps_ttest(2,4),first_sign_result.ps_ttest(3,4)];
-        title(sprintf('%g, ',sum(~isnan(first_sign_time)),first_sign_ps));
+        title(sprintf('%g, ',sum(~isnan(firstDivergenceTime)),first_sign_ps));
         ylim([0 1500]); SetFigure(15);
         view([90 90]);
         
@@ -4538,26 +4562,183 @@ function_handles = {
         all_APs = Position_all(:,3);
         all_VDs = Position_all(:,4);
         all_depths = Position_all(:,5);
-        all_spikewid = [group_result(select_bottom_line).Waveform_wid]';
+        all_spikewid = [group_result(select_bottom_line).Waveform_peakToTrough]';
+        all_celltype = [group_result(select_bottom_line).Waveform_broad]';
         
         % === Do some analyses ===
-        %% Draw depths
-
+        %% 1. Draw depths
+        
+        figure(7161901);  clf
+        set(gcf,'uni','norm','pos',[0.429       0.061       0.177       0.486]);
         [counts,centers] = hist(all_depths,29);
         
-        fitOptions = fitoptions('gauss3','StartPoint',[1 700 50 1 1300 50 1 1700 50]);
+        layerKmeans = kmeans(all_depths,3,'Replicates',10,'Display','final');
+        layerColors = repmat([0.9;0.5;0],1,3);
+        
+        for ll = 1:3
+            countsThis = hist(all_depths(layerKmeans == ll), centers);
+            set(bar(centers, countsThis,1),'facecolor',layerColors(ll,:),'linew',0.1); hold on;
+        end
+        
+        
+        fitOptions = fitoptions('gauss3','StartPoint',[5 700 100 5 1100 50 5 1700 50]);
         fit_model = fit(centers',counts','gauss3',fitOptions);
         gauss_f = @(x,a,b,c)a*exp(-((x-b)/c).^2);
         
-        figure(7161901);  clf
-        bar(centers,counts,1); 
+       %  bar(centers,counts,1); 
         xx = linspace(min(xlim),max(xlim),500);
         hold on; plot(xx,fit_model(xx)','r'); xlabel('depth');
         plot(xx,gauss_f(xx,fit_model.a1,fit_model.b1,fit_model.c1)','b');
         plot(xx,gauss_f(xx,fit_model.a2,fit_model.b2,fit_model.c2)','b');
         plot(xx,gauss_f(xx,fit_model.a3,fit_model.b3,fit_model.c3)','b');
+        view(90,90)
         
+       %% 2. Draw waveform width 
+        
+       % Align all spikes
+       figure(616); clf; hold on
+       set(gcf,'uni','norm','pos',[0.426        0.62        0.25       0.304]);
+       
+       waveformPlotBefore = 0.6; %ms
+       waveformPlotAfter = 1; %ms
+       waveformPlotTs = - waveformPlotBefore : interp_dt: waveformPlotAfter;
+       
+       allAlignedWaveform = nan(N, (waveformPlotBefore + waveformPlotAfter)/interp_dt + 1);
+       
+       for cc = 1:length(group_result)
+           waveform_this = group_result(cc).Waveform;           
+           waveform_this = [nan(1,1000) waveform_this nan(1,1000)]; % Padding of nans
+           
+           alignTime = group_result(cc).Waveform_peak + 1000;
+           
+           waveformAligned = waveform_this(alignTime - waveformPlotBefore/interp_dt : ...
+               alignTime + waveformPlotAfter/interp_dt);
+           
+           if group_result(cc).Waveform_broad
+               plot( waveformPlotTs , waveformAligned,'color', [0.8 0.8 0.8]);
+           else
+               plot( waveformPlotTs , waveformAligned,'color',hsv2rgb(rgb2hsv([1 0 0])-[0 0.7 0]));
+           end
+           %             plot((waveform_t1-waveform_t_left)*dt,waveform_this(waveform_t1),'or');
+           %             plot((waveform_t_right-waveform_t_left)*dt,waveform_this(waveform_t_right),'og');
+           
+           allAlignedWaveform(cc,:) = waveformAligned;
+
+       end
+       
+       meanBroadWaveform = nanmean(allAlignedWaveform ([group_result.Waveform_broad],:),1);
+       seBroadWaveform = nanstd(allAlignedWaveform ([group_result.Waveform_broad],:),[],1) ./ 1;%...
+                         %sqrt(sum(~isnan(allAlignedWaveform([group_result.Waveform_broad],:)),1));
+
+       meanNarrowWaveform = nanmean(allAlignedWaveform (~ [group_result.Waveform_broad],:),1);
+       seNarrowWaveform = nanstd(allAlignedWaveform (~ [group_result.Waveform_broad],:),[],1) ./1; % ...
+                       %  sqrt(sum(~isnan(allAlignedWaveform(~ [group_result.Waveform_broad],:)),1));
+
+       shadedErrorBar(waveformPlotTs, meanBroadWaveform, seBroadWaveform,'lineprops',{'color','k'});
+       shadedErrorBar(waveformPlotTs, meanNarrowWaveform, seNarrowWaveform,'lineprops',{'color','r'});
+                     
+       xlabel('ms');
+       xlim([-0.6 1.1])
+              
+        
+       %% 3. Waveform width distribution
+        figure(18616);  clf; hold on;
+        set(gcf,'uni','norm','pos',[0.033       0.631       0.389       0.289]);
+
+        [counts,centers] = hist(all_spikewid,30);
+        
+        cellKmeans = kmeans(all_spikewid,2,'Replicates',10,'Display','final');
+        cellColors = repmat([0.8;0.2],1,3);
+        
+        for ll = 1:2
+            countsThis = hist(all_spikewid(cellKmeans == ll), centers);
+            set(bar(centers, countsThis,1),'facecolor',cellColors(ll,:),'linew',0.01); hold on;
+        end
+        
+        fitOptions = fitoptions('gauss2','StartPoint',[5 0.2 0.1 5 0.4 0.1]);
+        fit_model = fit(centers',counts','gauss2',fitOptions);
+        gauss_f = @(x,a,b,c)a*exp(-((x-b)/c).^2);
+        
+       %  bar(centers,counts,1); 
+        xx = linspace(min(xlim),max(xlim),500);
+        hold on; plot(xx,fit_model(xx)','r'); xlabel('depth');
+        plot(xx,gauss_f(xx,fit_model.a1,fit_model.b1,fit_model.c1)','b');
+        plot(xx,gauss_f(xx,fit_model.a2,fit_model.b2,fit_model.c2)','b');
+        xlim([0.2 0.6])
+        
+        % TTest of two cell types
+        meanNarrow = mean(all_spikewid(~all_celltype));
+        stdNarrow = std(all_spikewid(~all_celltype));
+        meanBroad = mean(all_spikewid(all_celltype));
+        stdBroad = std(all_spikewid(all_celltype));
+        [~,p] = ttest2(all_spikewid(~all_celltype),all_spikewid(all_celltype));
+        
+        plot([meanNarrow meanBroad],max(ylim)*0.9*[1 1],'o');
+        
+        herrorbar(meanNarrow,max(ylim)*0.9,stdNarrow); text(meanNarrow,max(ylim),sprintf('n = %g',sum(~all_celltype)));
+        herrorbar(meanBroad,max(ylim)*0.9,stdBroad); text(meanBroad,max(ylim),sprintf('n = %g, p = %.2g',sum(all_celltype),p));
+        
+       
+       %% 4. Width and depth: 2-D
+
+        allmonkey = xls_num{1}(:,header.Monkey); 
+        
+        colorsMaxMod = [1 1 1; colors];   
+        monkeys = [5 10];
+        monkeyMarkers = {'o','^'};
+        
+        anySig = any(Choice_pref_p_value_all(:,:,3) < 0.05);
+        allMaxMod = zeros(N,1); % None sig = 0
+        [~,MaxMod] = max(abs(Choice_pref_all(:,:,3)),[],1); % Find the max modality
+        allMaxMod(anySig) = MaxMod(anySig);
+        
+        % 
+        figure(1903); clf; hold on;
+        set(gcf,'uni','norm','pos',[0.035       0.059       0.392        0.49]);
+        
+        for mm = 1:2
+            for kk = 0:3
+                thisToPlot = (allmonkey == monkeys(mm)) & (allMaxMod == kk);
+                plot(all_spikewid(thisToPlot), all_depths(thisToPlot),...
+                     monkeyMarkers{mm},'markerfacecol',colorsMaxMod(kk+1,:),'markeredgecol','k','markersize',10);
+            end
+        end
+        axis ij
+        
+        %{
+        h = LinearCorrelation({
+            all_spikewid
+            },...
+            {
+            all_depths
+            },...
+            'CombinedIndex',[],...
+            'Xlabel','Spike width','Ylabel','Depth',...
+            'FaceColors',{'none','k'},'Markers',{'o'},...
+            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
+            'figN',1948,'XHist',30,'YHist',34,...
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
+        axis ij
+        view(h.ax_yhist,90,90)
+        %}
+        
+        %% AP and depth
+        %{
+            LinearCorrelation({
+            all_APs
+            },...
+            {
+            all_depths
+            },...
+            'CombinedIndex',[],...
+            'Xlabel','AP','Ylabel','Depth',...
+            'FaceColors',{'none','k'},'Markers',{'o'},...
+            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
+            'figN',194852,'XHist',20,'YHist',20,...
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
+        %}
         %% Draw AP,DV
+        %{
         figure(7162221); 
         subplot(2,2,1);
         plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),'o');
@@ -4575,9 +4756,26 @@ function_handles = {
         plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[10 2]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[10 2]),2)),'o');
         axis equal;axis([10 18 -7 6]);
         title('Messi R');
+        %}
+       
+       %% 5. Multi-linear regression
+        if isempty( firstDivergenceTime )
+            f1p1p6p1(0)
+        end
         
+        Xs = [ all_monkey_hemis(:,2), all_celltype, all_depths, all_celltype .* all_depths, all_APs, all_VDs ];
+        norm_Xs = Xs ./ range(Xs);
+        Ys = [MemSac_indicator, group_MemSac_AI(:,3), group_TwoPtMemSac_AI(:,3), ...
+            Modality_pref_all(:,:,3)', abs(Choice_pref_all(:,:,3))', firstDivergenceTime];
         
-        %%  Correlations 
+        ps = [];
+        for yy = 1:size(Ys,2)
+            [B,~,STATS] = glmfit( norm_Xs, Ys(:,yy));
+            % [B,BINT,R,RINT,STATS] = regress(Ys(:,1),Xs)
+            ps(yy,:) =  STATS.p;
+        end
+       
+       %% 6. Pair-wise Correlations 
         
         % 1. Depth and Choice_pref
         figure(7162036); clf;
@@ -4600,36 +4798,7 @@ function_handles = {
             'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
             'figN',7162036,'XHist',20,'YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
-        
-        
-        %% 
-        LinearCorrelation({
-            all_depths 
-            },...
-            {
-            all_spikewid 
-            },...
-            'CombinedIndex',[],...
-            'Xlabel','Depth','Ylabel','Spike width',...
-            'FaceColors',{'none','k'},'Markers',{'o'},...
-            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
-            'figN',1948,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
-        
-        %% 
-        LinearCorrelation({
-            all_APs
-            },...
-            {
-            all_depths 
-            },...
-            'CombinedIndex',[],...
-            'Xlabel','AP','Ylabel','Depth',...
-            'FaceColors',{'none','k'},'Markers',{'o'},...
-            'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
-            'figN',194852,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
-        
+  
     end
 
     function f4p0(debug)      % Pack PCA_A
@@ -4659,15 +4828,17 @@ function_handles = {
         % --- Sort A according to different methods for visualizing ---
         
         A_CP = reshape(CP{j_PCA_A}(select_bottom_line,:,:),sum(select_bottom_line),[])-0.5;
+        
         A_choicediv= reshape(ChoiceDiv_All{j_PCA_A}(select_bottom_line,:,:),sum(select_bottom_line),[]);
         
         % A_memSac = xls_num{1}(selectCells,header.DDI_LS:header.DDI_post) - 0.4; % All memSac data
         % LS, M, Pre, Co, Post
-        A_memSac = group_MemSac_DDI(select_bottom_line,2:end) - 0.4;  % Read memsac from .mat file. HH20150413
-        
+        A_memSac = group_MemSac_DDI(select_bottom_line,2:end);  % Read memsac from .mat file. HH20150413
+        A_memSac = (A_memSac-0.5)*2; % Map to -1 ~ 1 for better visualization
         
         % Now I add mod_div. HH20150415
-        A_moddiv = reshape(ModDiv_All{j_PCA_A}(select_bottom_line,:,:),sum(select_bottom_line),[]);
+        % A_moddiv = reshape(ModDiv_All{j_PCA_A}(select_bottom_line,:,:),sum(select_bottom_line),[]);
+        A_moddiv = reshape(ModDiv_All{j_PCA_A}(select_bottom_line,:,1),sum(select_bottom_line),[]); % Only vis-vest
         
         PCA_A = [A_memSac A_choicediv A_moddiv]; % A_CP];
         
@@ -4713,7 +4884,7 @@ function_handles = {
             mean_for_sort = mean(PCA_A(:,sort_begin:sort_end),2);
             mean_for_sort(isnan(mean_for_sort)) = -inf;  % Nan goes last
             
-            [~,sort_order] = sort(mean_for_sort);
+            [~,sort_order] = sort(mean_for_sort,'descend');
             
             % Enlarge mem-sac part for clarity
             A_forplot = [reshape(repmat(A_memSac,enlarge_factor,1),size(A_memSac,1),[]) A_choicediv A_moddiv A_moddiv(:,end)];% A_CP A_CP(:,end)]; % To ensure the last value to be shown
@@ -4730,25 +4901,23 @@ function_handles = {
             clf; figN = figN+1;
             
             % h1 = surf(tt,nn,A_forplot','Edgecolor','none');
-            h1 = imagesc(A_forplot);
-            axis xy;
+            h1 = imagesc(A_forplot); colormap jet
+            % axis xy;
             
             % Annotate time separations
             hold on;
             CD_begin_at = enlarge_factor * 5 + 1;
             
-            
             % Stim on / stim off / sac on
             for ttt = 1:3
-                for tt = 0:5
+                for tt = 0: 3% 5
                     plot(CD_begin_at + tt*length(rate_ts{j_PCA_A}) + find(rate_ts{j_PCA_A} >= time_markers{j_PCA_A}(1,ttt),1) * [1 1],...
                         [1 size(A_forplot,1)],'k','linesty',marker_for_time_markers{j_PCA_A}{ttt},'linewid',1.5);
                 end
             end
             
-            % End
             plot3([CD_begin_at CD_begin_at],[1 size(A_forplot,1)],[1 1],'k','linewid',3);
-            for tt = 1:6
+            for tt = 1: 4 % 6
                 plot(CD_begin_at + tt*[length(rate_ts{j_PCA_A})  length(rate_ts{j_PCA_A})],[1 size(A_forplot,1)],'k','linewid',3);
             end
             
@@ -5142,27 +5311,108 @@ function_handles = {
             f5p0(0);
         end
         
-        % ======== 2D ========= %
+        % ======== 2D ========= %  % Increase to 3d
         set(figure(2099+figN),'pos',[18 170 898 786],'name',['Population Dynamics, j_PCA_B = ' num2str(j_PCA_B)]); clf; figN = figN+1; hold on;
         
-        which_two_dimension = [1,2];
+        which_two_dimension = [1,2,3];
         
+        % -- For plotting time markers
+        plotInt = 200; % ms
+        plotPerTimeBin = fix(plotInt/(PCA_B_times(2)-PCA_B_times(1))); % Should be 100/10 = 10
+        plotMinInd = fix(-min(PCA_B_times)/plotInt)*plotPerTimeBin;
+        plotInd = plotMinInd : plotPerTimeBin : length(PCA_B_times);
+        %%
+        cla
         for k = 1:3
             
             % Time markers
             start_time = 1; % Start point
-            % Pref
-            h_pref(k) = plot(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,start_time),PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,start_time),'o','color',colors(k,:),'markersize',20,'markerfacecol',colors(k,:));
-            % Null
-            h_null(k) = plot(PCA_B_projPC{which_two_dimension(1)}(k*2,start_time),PCA_B_projPC{which_two_dimension(2)}(k*2,start_time),'o','color',colors(k,:),'markersize',20,'linew',3);
             
+            % -- Big ball
             % Pref
-            plot(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,:),PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,:),'-','color',colors(k,:),'linew',3);
+            
+            % 3-d. Not good for plotting
+            %{
+            h_pref( k) = plot3(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,start_time),...
+                              PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,start_time),...
+                              PCA_B_projPC{which_two_dimension(3)}((k-1)*2+1,start_time),...
+                             'o','color',colors(k,:),'markersize',20,'markerfacecol',colors(k,:));
             % Null
-            plot(PCA_B_projPC{which_two_dimension(1)}(k*2,:),PCA_B_projPC{which_two_dimension(2)}(k*2,:),'--','color',colors(k,:),'linew',3);
+            h_null(k) = plot3(PCA_B_projPC{which_two_dimension(1)}(k*2,start_time),...
+                             PCA_B_projPC{which_two_dimension(2)}(k*2,start_time),...
+                             PCA_B_projPC{which_two_dimension(3)}(k*2,start_time),...
+                             'o','color',colors(k,:),'markersize',20,'linew',3);
+            
+            % -- Tranjectory
+            % Pref
+            plot3(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,:),...
+                 PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,:),...
+                 PCA_B_projPC{which_two_dimension(3)}((k-1)*2+1,:),...
+                 '-','color',colors(k,:),'linew',3);
+            % Null
+            plot3(PCA_B_projPC{which_two_dimension(1)}(k*2,:),...
+                PCA_B_projPC{which_two_dimension(2)}(k*2,:),...
+                PCA_B_projPC{which_two_dimension(3)}(k*2,:),...
+                '--','color',colors(k,:),'linew',3);
+            
+            % -- Time markers
+            colorsHsv = repmat(rgb2hsv(colors(k,:)),length(plotInd),1);
+            colorsHsv(:,2) = linspace(0.3,1,length(plotInd));
+            colorsHsv(:,3) = 1;
+            colorsRGB = hsv2rgb(colorsHsv);
+            for pp = 1:length(plotInd)
+                plot3(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(3)}((k-1)*2+1,plotInd(pp)),...
+                      'o','color',colorsRGB(pp,:),'markerfacecol',colorsRGB(pp,:),'linew',2,'markersize',13);
+                  
+                plot3(PCA_B_projPC{which_two_dimension(1)}(k*2,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(2)}(k*2,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(3)}(k*2,plotInd(pp)),...
+                      'o','color',colorsRGB(pp,:),'markerfacecol','none','linew',2,'markersize',13);
+            end
+            %}
+            
+            h_pref( k) = plot(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,start_time),...
+                              PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,start_time),...
+                             'o','color',colors(k,:),'markersize',20,'markerfacecol',colors(k,:));
+            % Null
+            h_null(k) = plot(PCA_B_projPC{which_two_dimension(1)}(k*2,start_time),...
+                             PCA_B_projPC{which_two_dimension(2)}(k*2,start_time),...
+                             'o','color',colors(k,:),'markersize',20,'linew',3);
+            
+            % -- Tranjectory
+            % Pref
+            plot(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,:),...
+                 PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,:),...
+                 '-','color',colors(k,:),'linew',3);
+            % Null
+            plot(PCA_B_projPC{which_two_dimension(1)}(k*2,:),...
+                PCA_B_projPC{which_two_dimension(2)}(k*2,:),...
+                '--','color',colors(k,:),'linew',3);
+            
+            % -- Time markers
+            colorsHsv = repmat(rgb2hsv(colors(k,:)),length(plotInd),1);
+            colorsHsv(:,2) = linspace(0.2,1,length(plotInd));
+            
+            if k == 3
+                colorsHsv(:,3) = linspace(.9,colorsHsv(1,3),length(plotInd));
+            end
+            
+            colorsRGB = hsv2rgb(colorsHsv);
+            
+            for pp = 1:length(plotInd)
+                plot(PCA_B_projPC{which_two_dimension(1)}((k-1)*2+1,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(2)}((k-1)*2+1,plotInd(pp)),...
+                      'o','color',colorsRGB(pp,:),'markerfacecol',colorsRGB(pp,:),'linew',0.1,'markersize',15);
+                  
+                plot(PCA_B_projPC{which_two_dimension(1)}(k*2,plotInd(pp)),...
+                      PCA_B_projPC{which_two_dimension(2)}(k*2,plotInd(pp)),...
+                      'o','color',colorsRGB(pp,:),'markerfacecol','none','linew',2,'markersize',15);
+            end            
             
         end
-        
+        %%
         axis tight;  grid off;
         axis off
         % xlabel('PC1'); ylabel('PC2');
@@ -5237,7 +5487,7 @@ function_handles = {
         figure(532);  clf;
         
         plot(repmat(PCA_B_times(1:end-1)',1,3), diff(distance),'linew',3); hold on;
-        axis([-50 1800 -100 250]);
+        axis([-50 1800 -100 950]);
         
         % Gaussian vel
         plot(Gauss_vel(:,1) + time_markers{j_PCA_B}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',2,'color',[0.6 0.6 0.6]);
@@ -5258,8 +5508,12 @@ function_handles = {
                     for t_ind = 1 : size(PCA_B_projPC{1},2)
                         for kk = 1:3
                             % Update
-                            set(h_pref(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}((kk-1)*2+1,t_ind),'ydata',PCA_B_projPC{which_two_dimension(2)}((kk-1)*2+1,t_ind));
-                            set(h_null(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}(kk*2,t_ind),'ydata',PCA_B_projPC{which_two_dimension(2)}(kk*2,t_ind));
+                            set(h_pref(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}((kk-1)*2+1,t_ind),...
+                                           'ydata',PCA_B_projPC{which_two_dimension(2)}((kk-1)*2+1,t_ind),...
+                                           'zdata',PCA_B_projPC{which_two_dimension(3)}((kk-1)*2+1,t_ind));
+                            set(h_null(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}(kk*2,t_ind),...
+                                           'ydata',PCA_B_projPC{which_two_dimension(2)}(kk*2,t_ind),...
+                                           'zdata',PCA_B_projPC{which_two_dimension(3)}(kk*2,t_ind));
                         end
                         
                         %     set(h_text,'string',num2str(fix(rate_ts{j_PCA_B}(tt)/10)*10));
@@ -5281,8 +5535,12 @@ function_handles = {
                     
                     for kk = 1:3
                         % Update
-                        set(h_pref(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}((kk-1)*2+1,t_ind),'ydata',PCA_B_projPC{which_two_dimension(2)}((kk-1)*2+1,t_ind));
-                        set(h_null(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}(kk*2,t_ind),'ydata',PCA_B_projPC{which_two_dimension(2)}(kk*2,t_ind));
+                        set(h_pref(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}((kk-1)*2+1,t_ind),...
+                                       'ydata',PCA_B_projPC{which_two_dimension(2)}((kk-1)*2+1,t_ind),...
+                                       'zdata',PCA_B_projPC{which_two_dimension(3)}((kk-1)*2+1,t_ind));
+                        set(h_null(kk),'xdata',PCA_B_projPC{which_two_dimension(1)}(kk*2,t_ind),...
+                                       'ydata',PCA_B_projPC{which_two_dimension(2)}(kk*2,t_ind),...
+                                       'zdata',PCA_B_projPC{which_two_dimension(3)}(kk*2,t_ind));
                     end
                     
                     %     set(h_text,'string',num2str(fix(rate_ts{j_PCA_B}(tt)/10)*10));
@@ -5465,8 +5723,9 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         %         training_reps = 25; % I artificially added some trials by bootstrapping if reps < training_reps.
         %                             % This can include all cells (as Gu suggested) while not change the performance too much. @HH20150521
         
-        SVM_training_epoch = [0 1700];    % This make it comparable with PCA results
-        
+        %  SVM_training_epoch = [0 1700];    % This make it comparable with PCA results
+        SVM_training_epoch = [1500 1700];    % This make it comparable with PCA results
+
         find_for_SVM = find(select_for_SVM);
         SVM_training_epoch_ind = min(SVM_training_epoch) <= rate_ts{j_for_SVM} & rate_ts{j_for_SVM} <= max(SVM_training_epoch);
         
@@ -5687,7 +5946,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'SameScale',1,'Method','Pearson','FittingMethod',2);
         delete([h.diag h.group(1:2).line]); legend off;
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');
-        text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(3).r_square,h.group(3).p),'fonts',11);
+        text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(3).r_square,h.group(3).p),'fontsize',11);
         
         % Annotate tcells
         h_line = plot(weights_svm_modality_mean(who_are_tcells),...
@@ -5745,17 +6004,19 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         set(figure(613),'pos',[89 26 761 606]); clf
                 
         h = LinearCorrelation({
-            weights_PCA_B_PC(:,1);
+            Modality_pref_all(1,:,3);
+            % weights_PCA_B_PC(:,1);
             },...
             {
-            (weights_svm_choice_mean);
+            % (weights_svm_choice_mean);
+            (weights_svm_modality_mean);
             },...
-            'CombinedIndex',[],...
-            'Xlabel','Weight for eigen-neuron 1','Ylabel','Weight in choice decoder',...
+            'CombinedIndex',[],... % 'Xlabel','Weight for eigen-neuron 1','Ylabel','Weight in choice decoder',...
+             'Xlabel','Modality_pref_all (vis - vest)','Ylabel','Weight in modality decoder',...
             'FaceColors',{'k'},'Markers',{'o'},'Markers',{'o'},...
             'LineStyles',{'k-'},'MarkerSize',12,...
             'figN',613,'XHist',20,'YHist',20,...
-            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Pearson','FittingMethod',2);
+            'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
         
         plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
         
@@ -5784,13 +6045,14 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
    
         for xxxx = 1:length(xxs)
             xx = xxs{xxxx,1};
-            yy = abs(weights_svm_choice_mean);
-            hl = LinearCorrelation(xx,yy,'Axes',hs(xxxx));
+            yy = (weights_svm_choice_mean);
+            hl = LinearCorrelation(xx,yy,'Axes',hs(xxxx),'MethodOfCorr','Spearman','FittingMethod',2);
             hold on;
             delete([hl.leg]);
             
             xlabel(xxs{xxxx,2}); ylabel('abs(svm weight)');
-            text(min(xlim),min(ylim)+range(ylim)*0.9,sprintf('r^2=%g\n p=%g',hl.group.r_square,hl.group.p))
+            text(min(xlim),min(ylim)+range(ylim)*0.9,...
+                sprintf('r^2=%g\n p=%g\n k = %g\\pm%g',hl.group.r_square,hl.group.p,hl.group.para(1),hl.group.paraSE(1)))
             
             % Annotate tcells
             plot(xx(select_tcells),yy(select_tcells(select_for_SVM),1),...
@@ -5854,13 +6116,14 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
         set(figure(621),'pos',[114 223 930 353]); clf
         subplot(1,2,1);
-        errorbar(SVM_testing_tcenters,nanmean(corr_rate_choice_by_choice),...
-            nanstd(corr_rate_choice_by_choice),'color','m','linew',2); hold on;
-        errorbar(SVM_testing_tcenters,nanmean(corr_rate_modality_by_choice),...
-            nanstd(corr_rate_modality_by_choice),'color',[.87 .49 0],'linew',2);
+        shadedErrorBar(SVM_testing_tcenters,nanmean(corr_rate_choice_by_choice),...
+            nanstd(corr_rate_choice_by_choice),'lineprops',{'color','m','linew',2}); hold on;
+        shadedErrorBar(SVM_testing_tcenters,nanmean(corr_rate_modality_by_choice),...
+            nanstd(corr_rate_modality_by_choice),'lineprops',{'color',[.87 .49 0],'linew',2});
         legend('Decodes choice','Decodes modality','location','best');
         
-        axis tight; ylim([0 1]); plot(xlim,[0.5 0.5],'k--'); title('Choice decoder');
+        axis tight;  ylim([0.35 1.05]); 
+        plot(xlim,[0.5 0.5],'k--'); title('Choice decoder');
         
         % Time markers
         for tt = 1:3
@@ -5868,22 +6131,23 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         end
         
         % Gaussian vel
-        plot(Gauss_vel(:,1) + time_markers{j_for_SVM}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        plot(Gauss_vel(:,1) + time_markers{j_for_SVM}(1), .5+ Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
         
         subplot(1,2,2);
-        errorbar(SVM_testing_tcenters,nanmean(corr_rate_modality_by_modality),...
-            nanstd(corr_rate_modality_by_modality),'color',[.87 .49 0],'linew',2); hold on;
-        errorbar(SVM_testing_tcenters,nanmean(corr_rate_choice_by_modality),...
-            nanstd(corr_rate_choice_by_modality),'color','m','linew',2);
+        shadedErrorBar(SVM_testing_tcenters,nanmean(corr_rate_modality_by_modality),...
+            nanstd(corr_rate_modality_by_modality),'lineprops',{'color',[.87 .49 0],'linew',2}); hold on;
+        shadedErrorBar(SVM_testing_tcenters,nanmean(corr_rate_choice_by_modality),...
+            nanstd(corr_rate_choice_by_modality),'lineprops',{'color','m','linew',2});
         
-        axis tight; ylim([0 1]); plot(xlim,[0.5 0.5],'k--'); title('Modality decoder');
+        axis tight; ylim([0.35 1.05]); 
+        plot(xlim,[0.5 0.5],'k--'); title('Modality decoder');
         
         % Time markers
         for tt = 1:3
             plot([1 1] * time_markers{j_for_SVM}(1,tt),ylim,'k','linestyle',marker_for_time_markers{j_for_SVM}{tt},'linew',1);
         end
         % Gaussian vel
-        plot(Gauss_vel(:,1) + time_markers{j_for_SVM}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+        plot(Gauss_vel(:,1) + time_markers{j_for_SVM}(1),.5+ Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
         
         SetFigure(15);
         
@@ -5903,9 +6167,10 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         select_for_SVM_actual_of_all = false(N,1);
         select_for_SVM_actual_of_all(find_for_SVM_actual_of_all) = true;
         
-        projs = {weights_svm_choice_mean,weights_svm_modality_mean};
+        % projs = {weights_svm_choice_mean,weights_svm_modality_mean};
+        projs = {weights_svm_choice_allbootstrap,weights_svm_modality_allbootstrap}; % With bootstrap
         selects = {select_for_SVM_actual_of_all,select_for_SVM_actual_of_all};
-        
+
         h = Weighted_sum_PSTH(projs,{'Weighted by svm\_choice\_mean','Weighted by svm\_modality\_mean'},selects);
         set(h.fig,'name','Projected on SVM decoders (Correct only, all choices)');
         
@@ -6744,6 +7009,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         % Plot prediction ratio
         set(figure(9998),'name','Prediction ratio','position',[686 539 900 412]); clf;
         h_line = plot(Psy_pred_ratio,'ko','markerfacecol','k','markersize',10); hold on;
+        
         plot(find(select_tcells),Psy_pred_ratio(select_tcells),'+r','linew',2,'markersize',10);
         plot(xlim,[1 1],'k--'); ylabel('Prediction ratio'); set(gca,'yscale','log','ytick',[0.6 1 2]);
         SetFigure(15);

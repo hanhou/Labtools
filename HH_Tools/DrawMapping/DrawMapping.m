@@ -21,8 +21,8 @@ global overlapTransparent;
 
 linWid = 1.3;
 % overlapping = [-10 10; -10 10]; start_end_markers = false; % First row for area annotation; second for unit annotation
-% overlapping = [-2 0; -2 0]; start_end_markers = false; % First row for area annotation; second for unit annotation
-overlapping = [0 0; 0 0]; start_end_markers =0; % First row for area annotation; second for unit annotation
+overlapping = [-3 0; -4 0]; start_end_markers = false; % First row for area annotation; second for unit annotation
+% overlapping = [0 0; 0 0]; start_end_markers =0; % First row for area annotation; second for unit annotation
 overlapTransparent = 0.5;
 
 maxX = 30; % Grid size
@@ -1049,7 +1049,7 @@ for i =  1:size(to_plot,1)
     % Plot according to the max choice divergence (if all non-significant, black circles)
     max_color = {'b','r','g'};
     choice_pref_this = to_plot(i,xls.HD_vest_ChoicePref : xls.HD_comb_ChoicePref_p);
-    [~, max_ind] = max(choice_pref_this([1 3 5]));
+    [~, max_ind] = max(abs(choice_pref_this([1 3 5])));
     any_sig = any(choice_pref_this([2 4 6]) < 0.05);
     
     if any_sig

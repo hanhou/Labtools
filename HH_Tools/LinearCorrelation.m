@@ -227,7 +227,7 @@ for i = 1:length(corr_inds)
             end
             
             % -- Saving
-            h.group(i).line = plot(xxx,Y,paras.Results.LineStyles{1+mod(i-1,length(paras.Results.LineStyles))},'linewidth',2);
+            h.group(i).line = plot(h.ax_raw, xxx,Y,paras.Results.LineStyles{1+mod(i-1,length(paras.Results.LineStyles))},'linewidth',2);
             non_empty_line = [non_empty_line i];
             
             %     h.group(i).text = text(xxx(end),Y(end),sprintf('\\itr\\rm = %3.3f, \\itp\\rm = %3.3f',r,p),'color',paras.Results.LineStyles{i}(1));

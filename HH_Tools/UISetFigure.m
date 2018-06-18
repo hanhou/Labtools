@@ -67,21 +67,24 @@ guidata(hObject, handles);
 
 function handles = UpdateAxes(~,~, handles)
 % Show all axes of current figure
-allAxes = findobj(gcf,'type','axes');
-
-for aa = 1:length(allAxes)
-    thisAxis = allAxes(aa);
-    handles.Axes.String{aa} = sprintf('Axes %g', aa);
-    if handles.showLabel
-        handles.AxesLabel(aa) = text(thisAxis, min(xlim(thisAxis)),max(ylim(thisAxis)),num2str(aa),'FontSize',30,'Color','m');
+if ~isempty(gcf)
+    allAxes = findobj(gcf,'type','axes');
+    handles.Axes.String = {};
+    
+    for aa = 1:length(allAxes)
+        thisAxis = allAxes(aa);
+        handles.Axes.String{aa} = sprintf('Axes %g', aa);
+        if handles.showLabel
+            handles.AxesLabel(aa) = text(thisAxis, min(xlim(thisAxis)),max(ylim(thisAxis)),num2str(aa),'FontSize',30,'Color','m');
+        end
     end
+    
+    if ~handles.showLabel && isfield(handles,'AxesLabel')
+        delete(handles.AxesLabel);
+    end
+    
+    handles.allAxes = allAxes;
 end
-
-if ~handles.showLabel && isfield(handles,'AxesLabel')
-    delete(handles.AxesLabel);
-end
-
-handles.allAxes = allAxes;
 
 % --- Outputs from this function are returned to the command line.
 function varargout = UISetFigure_OutputFcn(hObject, eventdata, handles) 
@@ -246,6 +249,7 @@ function BatchCommand_CreateFcn(hObject, eventdata, handles)
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
+    
 end
 
 
