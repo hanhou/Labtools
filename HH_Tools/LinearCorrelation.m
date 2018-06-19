@@ -31,7 +31,7 @@ addOptional(paras,'MethodOfCorr','Pearson');
 addOptional(paras,'FittingMethod',1); % Type 1: Normal squared error (LSM); Type 2: Perpendicular error (solved by PCA)
 
 addOptional(paras,'CombinedIndex',[]);
-addOptional(paras,'NoCombinedNoPlotCorr',-1);   %  If true, then only plot those in CombinedIndex, no single ones.
+addOptional(paras,'PlotCombinedOnly',-1);   %  If true, then only plot those in CombinedIndex, no single ones.
 addOptional(paras,'Style','ko--');
 addOptional(paras,'LineStyles',{'k-','k:','r-','b-','g-','c-','m-'});
 addOptional(paras,'Markers',{'o','o','s','^','v','<','>'});
@@ -128,12 +128,12 @@ else % Use the requested axis
     
 end
 
-NoCombinedNoPlotCorr = paras.Results.NoCombinedNoPlotCorr;
-if NoCombinedNoPlotCorr == -1  % Not specified, automatically define. Backward compatibility
+PlotCombinedOnly = paras.Results.PlotCombinedOnly;
+if PlotCombinedOnly == -1  % Not specified, automatically define. Backward compatibility
     if isempty(paras.Results.CombinedIndex) % Clearly, the user wanted to plot fittings for each raw data
-        NoCombinedNoPlotCorr = 0;
+        PlotCombinedOnly = 0;
     else
-        NoCombinedNoPlotCorr = 1;
+        PlotCombinedOnly = 1;
     end        
 end
 
@@ -178,7 +178,7 @@ for i = 1:length(corr_inds)
     
     if ~isempty(xx)
        
-        if ~ NoCombinedNoPlotCorr || i > length(x) 
+        if ~ PlotCombinedOnly || i > length(x) 
         
             [r,p] = corr(xx,yy,'type',paras.Results.MethodOfCorr);
             
@@ -231,7 +231,7 @@ for i = 1:length(corr_inds)
             non_empty_line = [non_empty_line i];
             
             %     h.group(i).text = text(xxx(end),Y(end),sprintf('\\itr\\rm = %3.3f, \\itp\\rm = %3.3f',r,p),'color',paras.Results.LineStyles{i}(1));
-            line_leg{i} = ['[' num2str(combs) '] ' sprintf('\n\\itr^2\\rm = %3.3g,\\itp\\rm = %2.2e, \\itk\\rm = %3.3g\\pm%.1g',r^2,p,linPara(1),linParaSE(1))];
+            line_leg{i} = ['[' num2str(combs) '] ' sprintf('\n\\itr^2\\rm = %3.3g,\\itp\\rm = %2.2g, \\itk\\rm = %3.3g\\pm%.1g',r^2,p,linPara(1),linParaSE(1))];
 
             h.group(i).r_square = r^2;
             h.group(i).p = p;

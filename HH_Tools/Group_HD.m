@@ -1424,6 +1424,7 @@ function_handles = {
     'Choice Preference: pre and post', @f3p2p3;
     'Psychophysics vs. CD', @f3p3;
     'Cell position and type',@f3p4;
+    '   Regression',@f3p4p1;
     };
     
     'PCA_choice & modality (Eigen-feature)',{
@@ -4282,7 +4283,7 @@ function_handles = {
                 (Choice_pref_all_temp(1,monkey2 & xor(cpref_sig_1 , cpref_sig_2),tt)) ;
                 (Choice_pref_all_temp(1,monkey1 & cpref_sig_1 & cpref_sig_2,tt)) ;...
                 (Choice_pref_all_temp(1,monkey2 & cpref_sig_1 & cpref_sig_2,tt)) },...
-                'CombinedIndex',[63],'NoCombinedNoPlot', 1, ...
+                'CombinedIndex',[63],'PlotCombinedOnly', 1, ...
                 'Ylabel','Vestibular choice preference','Xlabel','Visual choice preference',...
                 'FaceColors',{'none','none',[0.8 0.8 0.8],[0.8 0.8 0.8],'k','k'},'Markers',{'o','^'},...
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
@@ -4339,7 +4340,7 @@ function_handles = {
                 (Choice_pref_all_temp(3,monkey1 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
                 (Choice_pref_all_temp(3,monkey2 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
                 },...
-                'CombinedIndex',[63],'NoCombinedNoPlot', 1, ...
+                'CombinedIndex',[63],'PlotCombinedOnly', 1, ...
                 'Ylabel','Single choice preference','Xlabel','Combined choice preference',...
                 'FaceColors',two_face_colors(k,:),'Markers',{'o','^'},...
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
@@ -4387,18 +4388,24 @@ function_handles = {
         Choice_pref_all_temp_comb_minus_vest = abs(Choice_pref_all(3,:,:))-abs(Choice_pref_all(1,:,:));
         Choice_pref_all_temp_comb_minus_vis = abs(Choice_pref_all(3,:,:))-abs(Choice_pref_all(2,:,:));
         
+        cellTypes = [group_result.Waveform_broad];
+        
         h = LinearCorrelation({
-            (Choice_pref_all_temp_comb_minus_vest(1,monkey1,tt)) ;
-            (Choice_pref_all_temp_comb_minus_vest(1,monkey2,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vest(1,monkey1 & ~cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vest(1,monkey2 & ~cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vest(1,monkey1 & cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vest(1,monkey2 & cellTypes,tt)) ;
             },...
             {
-            (Choice_pref_all_temp_comb_minus_vis(1,monkey1,tt)) ;
-            (Choice_pref_all_temp_comb_minus_vis(1,monkey2,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vis(1,monkey1 & ~cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vis(1,monkey2 & ~cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vis(1,monkey1 & cellTypes,tt)) ;
+            (Choice_pref_all_temp_comb_minus_vis(1,monkey2 & cellTypes,tt)) ;
             },...
-            'CombinedIndex',[3],'NoCombinedNoPlot', 1, ...
+            'CombinedIndex',15,'PlotCombinedOnly', 1, ...
             'Xlabel','Combined - Vest (Choice preference)','Ylabel','Combined - Visual',...
-            'FaceColors',{'k'},'Markers',{'o','^'},...
-            'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
+            'FaceColors',{'none','none','k','k'},'Markers',{'o','^'},...
+            'LineStyles',{'k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
             'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
             'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;
         
@@ -4436,7 +4443,7 @@ function_handles = {
             (mean_raw_delta_firing_comb_minus_vis(monkey1)) ;
             (mean_raw_delta_firing_comb_minus_vis(monkey2)) ;
             },...
-            'CombinedIndex',[3],'NoCombinedNoPlot', 1, ...
+            'CombinedIndex',[3],'PlotCombinedOnly', 1, ...
             'Xlabel','Combined - Vest (raw PSTH)','Ylabel','Combined - Visual',...
             'FaceColors',{'k'},'Markers',{'o','^'},...
             'LineStyles',{'k:','k:','k-'},'MarkerSize',marker_size,...
@@ -4564,6 +4571,7 @@ function_handles = {
         all_depths = Position_all(:,5);
         all_spikewid = [group_result(select_bottom_line).Waveform_peakToTrough]';
         all_celltype = [group_result(select_bottom_line).Waveform_broad]';
+        allmonkey = xls_num{1}(select_bottom_line,header.Monkey); 
         
         % === Do some analyses ===
         %% 1. Draw depths
@@ -4681,14 +4689,12 @@ function_handles = {
        
        %% 4. Width and depth: 2-D
 
-        allmonkey = xls_num{1}(:,header.Monkey); 
-        
         colorsMaxMod = [1 1 1; colors];   
         monkeys = [5 10];
         monkeyMarkers = {'o','^'};
         
         anySig = any(Choice_pref_p_value_all(:,:,3) < 0.05);
-        allMaxMod = zeros(N,1); % None sig = 0
+        allMaxMod = zeros(sum(select_bottom_line),1); % None sig = 0
         [~,MaxMod] = max(abs(Choice_pref_all(:,:,3)),[],1); % Find the max modality
         allMaxMod(anySig) = MaxMod(anySig);
         
@@ -4698,9 +4704,11 @@ function_handles = {
         
         for mm = 1:2
             for kk = 0:3
-                thisToPlot = (allmonkey == monkeys(mm)) & (allMaxMod == kk);
-                plot(all_spikewid(thisToPlot), all_depths(thisToPlot),...
-                     monkeyMarkers{mm},'markerfacecol',colorsMaxMod(kk+1,:),'markeredgecol','k','markersize',10);
+                if ~isempty(allmonkey == monkeys(mm))
+                    thisToPlot = (allmonkey == monkeys(mm)) & (allMaxMod == kk);
+                    plot(all_spikewid(thisToPlot), all_depths(thisToPlot),...
+                        monkeyMarkers{mm},'markerfacecol',colorsMaxMod(kk+1,:),'markeredgecol','k','markersize',10);
+                end
             end
         end
         axis ij
@@ -4757,31 +4765,111 @@ function_handles = {
         axis equal;axis([10 18 -7 6]);
         title('Messi R');
         %}
-       
+
+    end
+
+    function f3p4p1(debug)      % Cell type and position
+        if debug
+            dbstack;
+            keyboard;
+        end
+        
+        all_monkey_hemis = Position_all(:,1:2);
+        all_APs = Position_all(:,3);
+        all_VDs = Position_all(:,4);
+        all_depths = Position_all(:,5);
+        all_spikewid = [group_result(select_bottom_line).Waveform_peakToTrough]';
+        all_celltype = [group_result(select_bottom_line).Waveform_broad]';
+        allmonkey = xls_num{1}(select_bottom_line,header.Monkey);
+
        %% 5. Multi-linear regression
         if isempty( firstDivergenceTime )
             f1p1p6p1(0)
         end
         
-        Xs = [ all_monkey_hemis(:,2), all_celltype, all_depths, all_celltype .* all_depths, all_APs, all_VDs ];
-        norm_Xs = Xs ./ range(Xs);
-        Ys = [MemSac_indicator, group_MemSac_AI(:,3), group_TwoPtMemSac_AI(:,3), ...
-            Modality_pref_all(:,:,3)', abs(Choice_pref_all(:,:,3))', firstDivergenceTime];
+        XsName = {'monkey','celltype','depth','AP','MidLateral','typeXdepth'};        
+        Xs = [ allmonkey, all_celltype , all_depths, all_APs, all_VDs ,  all_celltype.* all_depths];
+        norm_Xs = (Xs - nanmean(Xs)) ./ nanstd(Xs);
         
-        ps = [];
+        % XsInUse = [ 1 2 3 4 5];
+        XsInUse = [ 2 3 4 5];
+        
+        Ys = [MemSac_indicator(select_bottom_line,:), ...  % 1
+              group_MemSac_AI(select_bottom_line,3), ...   % 2
+              (Modality_pref_all(:,:,3))', ...               % 3-5 
+              abs(Choice_pref_all(:,:,3))', ...            % 6-8 
+              firstDivergenceTime(select_bottom_line,:)];  % 9-11
+        YsName = {'1.MemsacDDI','2.MemsacAI','3.ModPref1','4.ModPref2','5.ModPref3',...
+                  '6.CPref1','7.CPref2','8.CPref3','9.divTime1','10.divTime2','11.divTime3'};  
+        
+        ps = []; ps2 = []; 
+        fitlmModel = {}; fitlmModelSimplified = {};
+        
         for yy = 1:size(Ys,2)
-            [B,~,STATS] = glmfit( norm_Xs, Ys(:,yy));
-            % [B,BINT,R,RINT,STATS] = regress(Ys(:,1),Xs)
-            ps(yy,:) =  STATS.p;
+            % --- Linear regression ---
+            
+            % Use glmfit
+            [~,~,STATS] = glmfit( norm_Xs(:,XsInUse) , Ys(:,yy));
+            ps(yy,:) = STATS.p;
+            
+            % Use fitlm for comparison
+            mdl = fitlm(norm_Xs(:,XsInUse), Ys(:,yy));
+            fitlmModel{yy} = mdl;
+            ps2(yy,:) = mdl.anova{1:end-1,end}';
+            
+            % Try simplification
+            mdlSimple = step(mdl,'Nsteps',10,'Criterion','BIC');
+            fitlmModelSimplified{yy} = mdlSimple;
+            
+            %             [B,~,STATS] = glmfit( [XsANOVA(:,1:3)] , Ys(:,yy));
+            %             ps(yy,:) =  STATS.p;
+            
+            % --- ANOVA ---
+            %anovan            
         end
-       
-       %% 6. Pair-wise Correlations 
+        ps(:,1) = []; % Remove baseline
+        tmp = array2table(ps,'VariableNames',XsName(XsInUse),'RowNames',YsName)
+
+        % -- show simplified --
+        for yy = 1:size(Ys,2)
+            nametmp = fitlmModelSimplified{yy}.CoefficientNames(2:end);
+            fprintf('%g: ', yy);
+            fprintf('%s, ', nametmp{:});  fprintf(':');
+            fprintf('%g\t',fitlmModelSimplified{yy}.Coefficients.pValue(2:end)');
+            fprintf('\n');
+        end
+        
+        % Plot significants
+        significants = find(ps<0.05);
+        nSig = length(significants);
+        figure(4603); clf ; set(gcf,'uni','norm','pos',[0.009       0.045       0.552       0.861]);
+        hs = tight_subplot(ceil(nSig/ceil(nSig/sqrt(nSig))),ceil(nSig/sqrt(nSig)),[.1 .07],[.03 .07],[.07 .03]);
+        
+        for ss = 1:nSig
+            [thisY, thisX] = ind2sub(size(ps),significants(ss));
+            h = LinearCorrelation({ Xs(allmonkey == 5,XsInUse(thisX)), ...
+                                    Xs(allmonkey == 10,XsInUse(thisX))},...
+                                  { Ys(allmonkey == 5,thisY),...
+                                    Ys(allmonkey == 10, thisY)},...
+                            'Combined',3, 'FittingMethod',1,'LineStyles',{'k--','r--','k-'},'Markers',{'o','^'},...
+                            'PlotCombinedOnly', thisX == 1 ,... % If monkey is X axis, no fitting for each monkey
+                            'xlabel',XsName{XsInUse(thisX)},'ylabel',YsName{thisY},'Axes',hs(ss));
+            title(sprintf('(%.2g): %s',ps(significants(ss)),num2str([h.group(:).p],'%.2g, ')));
+            legend off;
+        end
+        
+       %% 6. ANOVA
+        
+        
+        
+        
+       %% 7. Pair-wise Correlations 
         
         % 1. Depth and Choice_pref
         figure(7162036); clf;
         
         % Position = [monkey hemi AP VD depth whichlayer]
-        which_mod = 3; which_pos = 5;
+        which_mod = 1; which_pos = 5;
         cpref_sig = Choice_pref_p_value_all(which_mod,:,3) < 0.05;
 
         LinearCorrelation({
@@ -4792,7 +4880,7 @@ function_handles = {
             (abs(Choice_pref_all(which_mod,~cpref_sig,3)));
             (abs(Choice_pref_all(which_mod,cpref_sig,3)));
             },...
-            'CombinedIndex',3,...
+            'CombinedIndex',3,'PlotCombinedOnly',0,...
             'Xlabel','','Ylabel','',...
             'FaceColors',{'none','k'},'Markers',{'o'},...
             'LineStyles',{'k:','k-.','k-'},'MarkerSize',12,...
