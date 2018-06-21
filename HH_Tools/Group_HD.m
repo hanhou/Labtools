@@ -24,8 +24,9 @@ stim_type_num = 3;
 mat_address = {
     % Major protocol goes here (Address, Suffix)
     
-    %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git
-    'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
+    %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git cfb3e647e93
+    % 'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
+    'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git 
     
     %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
     %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
@@ -1003,7 +1004,7 @@ cell_selection();
         
         % -------- Update cell counter ---------
         h_all = findall(gcbf,'tag','num_all_units');
-        set(h_all,'string',sprintf('%7d%7d%7d\n',cell_nums'),'fontsize',16);
+        set(h_all,'string',sprintf('%7d%7d%7d\n',cell_nums'),'fontsize',13);
         h_t_criterion = findall(gcbf,'tag','t_criterion');
         set(h_t_criterion,'string',{t_cell_selection_criteria{:,1}});
         set(h_t_criterion,'value',t_cell_selection_num);
@@ -1449,9 +1450,10 @@ function_handles = {
     'SVM weighted sum',@f6p3;
     }
     
-    'Linear SVM decoder (heading)',{
-    'Training SVM', @f6p5;
-    }
+    'Fisher information of heading',{
+    'Simple Fisher like Gu 2010: Sum(slope/mean)', @f6p5p1
+    'Training SVM decoders', @f6p5p2;
+    } 
         
     'Linear regression',{
     'Comb = w1 Vest + w2 Vis (Fig.5 in Gu 2008)',@f7p1;
@@ -2430,7 +2432,7 @@ function_handles = {
                             this_tuning_dora = fliplr(this_tuning_dora);
                         end
                         
-                        % Undate dynamic range
+                        % Update dynamic range
                         if sum(pp == time_for_dynamic_range) > 0
                             dynamic_min = min(dynamic_min, min(this_tuning_correctonly(:)));
                             dynamic_max = max(dynamic_max, max(this_tuning_correctonly(:)));
@@ -4791,7 +4793,7 @@ function_handles = {
         Xs = [ allmonkey, all_celltype , all_depths, all_APs, all_VDs ,  all_celltype.* all_depths];
         norm_Xs = (Xs - nanmean(Xs)) ./ nanstd(Xs);
         
-        % XsInUse = [ 1 2 3 4 5];
+%         XsInUse = [ 1 2 3 4 5];
         XsInUse = [ 2 3 4 5];
         
         Ys = [MemSac_indicator(select_bottom_line,:), ...  % 1
@@ -4852,7 +4854,7 @@ function_handles = {
                                   { Ys(allmonkey == 5,thisY),...
                                     Ys(allmonkey == 10, thisY)},...
                             'Combined',3, 'FittingMethod',1,'LineStyles',{'k--','r--','k-'},'Markers',{'o','^'},...
-                            'PlotCombinedOnly', thisX == 1 ,... % If monkey is X axis, no fitting for each monkey
+                            'PlotCombinedOnly', XsInUse(thisX) == 1 ,... % If monkey is X axis, no fitting for each monkey
                             'xlabel',XsName{XsInUse(thisX)},'ylabel',YsName{thisY},'Axes',hs(ss));
             title(sprintf('(%.2g): %s',ps(significants(ss)),num2str([h.group(:).p],'%.2g, ')));
             legend off;
@@ -5811,8 +5813,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         %         training_reps = 25; % I artificially added some trials by bootstrapping if reps < training_reps.
         %                             % This can include all cells (as Gu suggested) while not change the performance too much. @HH20150521
         
-        %  SVM_training_epoch = [0 1700];    % This make it comparable with PCA results
-        SVM_training_epoch = [1500 1700];    % This make it comparable with PCA results
+        SVM_training_epoch = [0 1700];    % This make it comparable with PCA results
+%         SVM_training_epoch = [1500 1700];    % This make it comparable with PCA results
 
         find_for_SVM = find(select_for_SVM);
         SVM_training_epoch_ind = min(SVM_training_epoch) <= rate_ts{j_for_SVM} & rate_ts{j_for_SVM} <= max(SVM_training_epoch);
@@ -6659,8 +6661,88 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         cost = mean((proj_PSTH(:) - model_y(:)).^2)+alpha*norm(weight); % Mean Squared error
     end
 
-    %% ==== Decoder of heading (not choice/modality) ====  HH20170810
-    function f6p5(debug)
+    %% ====== Calculate Fisher information of heading ======== HH20180619
+    % 1. Simplest method like Gu 2010: Sum over cells (slope / mean)
+    function f6p5p1(debug)  
+        if debug;  dbstack;  keyboard;  end
+        %%
+        
+        j = 1;
+        findForFisher = find(select_tcells);
+        
+        fisherSimpleGu = nan(length(findForFisher),length(CP_ts{j}),3,2);  % Last one: varPoisson/varReal
+        
+        for ii = 1:length(findForFisher)
+            
+            thisCell = findForFisher(ii);
+            fisherSimpleGu (ii,:,:,:) = group_result(thisCell).mat_raw_PSTH.fisherSimpleGu;
+
+            % Moved to batch file
+            %{ 
+            for k = 1:3
+               
+                tmpForPar = group_result(thisCell).mat_raw_PSTH.CP{j,k}.raw_CP_result;
+              
+                % parfor tt = 1:length(CP_ts{j})   % Parfor is even slower...
+                for tt = 1:length(CP_ts{j})
+                   
+                    % Get data
+                    thisTuning = tmpForPar{tt}.Neu_tuning;
+                    if thisPref == LEFT % To keep PREF = RIGHT (Actually no effect because we have slope^2 afterwards in Fisher information)
+                        thisTuning(:,2:3) = flipud(thisTuning(:,2:3));
+                    end
+                    linearFit = polyfit(thisTuning(:,1),thisTuning(:,2),1);
+                    slopeInRad = linearFit(1)*(180/pi);
+                    varPoisson = mean(thisTuning(:,2)); % Assuming Poisson with fano = 1
+                    varReal = mean((thisTuning(:,3) * sqrt(thisN)).^2); % Using real variance (usually much large)
+                    
+                    % Compute simple Fisher
+                    thisFisherVarPoisson = slopeInRad^2/varPoisson;
+                    thisFisherVarReal = slopeInRad^2/varReal;
+                    
+                    % Save
+                    tmpOut(tt,1,:) = [thisFisherVarPoisson, thisFisherVarReal];
+                end
+                
+                fisherSimpleGu (ii,:,k,:) = tmpOut;
+            end
+            %}
+            
+        end
+        
+        % -- Plotting
+        figure(4232); clf
+        set(gcf,'uni','norm','pos',[0.443       0.557       0.557       0.349]);
+        plotRange = 1:find(CP_ts{1}>=1600,1);
+        bootN = 2000;
+        
+        for varMethod = 1:2  %  1: Gu's Poisson assumption   2: Real variance (10x larger than Poisson because of varCE)
+            h = subplot(1,2,varMethod);
+            
+            % Get sum of Fisher and std by bootstrap (Gu 2010)
+            sumBoots = bootstrp(bootN,@(x)sum(x,1),fisherSimpleGu(:,plotRange,:,varMethod));
+            sumBoots = reshape(sumBoots,bootN,[],3);
+            
+            SeriesComparison(sumBoots, CP_ts{1}(plotRange),...
+                            'SEM',0,'Errorbar',2,'Axes',h,'Transparent',transparent);
+            
+            sumFisherMean = squeeze(mean(sumBoots,1));
+            sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+            plot(CP_ts{1}(plotRange),sumFisherVestPlusVIs,'m','linew',2);
+                        
+            % Gaussian vel
+            axis tight; plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+            xlim([-100 1600])
+            plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+            legend off;
+        end
+        
+        SetFigure(15)
+        
+    end
+    
+    % 2. Decoder of heading (not choice/modality) ====  HH20170810   
+    function f6p5p2(debug)
         if debug;  dbstack;  keyboard;  end
  
         % Override
@@ -6692,14 +6774,11 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             stim_type_per_trial = group_result(this_cell_id).mat_raw_PSTH.stim_type_per_trial';
             heading_per_trial = group_result(this_cell_id).mat_raw_PSTH.heading_per_trial';
             unique_heading = unique(heading_per_trial);
-            choice_per_trial = group_result(this_cell_id).mat_raw_PSTH.choice_per_trial;
-            correct_or_zero_per_trial = (choice_per_trial == ((heading_per_trial>0) + 1))  |(heading_per_trial == 0); % Correct or 0 heading;
-            pref_null = [group_result(this_cell_id).PREF_PSTH LEFT+RIGHT-group_result(this_cell_id).PREF_PSTH]; % Pref goes first
+            % choice_per_trial = group_result(this_cell_id).mat_raw_PSTH.choice_per_trial; % Not important
+            % correct_or_zero_per_trial = (choice_per_trial == ((heading_per_trial>0) + 1))  |(heading_per_trial == 0); % Correct or 0 heading; % Not important
+            % pref_null = [group_result(this_cell_id).PREF_PSTH LEFT+RIGHT-group_result(this_cell_id).PREF_PSTH]; % Pref goes first % Not important
             
-            
-            % By default, SVM for choice is related to pref and null
-            % This make it comparable with PCA results and reasonable for TDR
-            
+                        
             % Training pool (one certain time window)
             means_this = cellfun(@(x)mean(x(:,SVM_training_epoch_ind),2),raw_this,'uniformOutput',false);
             [pseudo_trial_pool_training{ii,:}] = means_this{:};

@@ -5,23 +5,27 @@ function result = SeriesComparison(ys,ts,varargin)
 %
 % ------ Input parameters -------
 % paras = inputParser;
-% 
+% % 
 % addOptional(paras,'OverrideError',[]); % Error overrided by inputs. HH20160908
 % addOptional(paras,'OverridePs',[]); % P values overrided by inputs. HH20160908
 % 
 % addOptional(paras,'figN',999);
 % addOptional(paras,'axes',[]);
+% addOptional(paras,'hold',0); % Don't hold on
 % 
 % addOptional(paras,'ErrorBar',2);  % Sum of (1: Normal Errorbar; 2: Shaded Errorbar; 4: Significance marker)
 % addOptional(paras,'CompareIndex',[]);  % Pair of statistic test for drawing significance marker: {[1 3 5; 2 4 6]}. HH20160427
 % addOptional(paras,'CompareColor',{});  % Colors for significance marker.
-% addOptional(paras,'PCritical',0.01);  % Colors for significance marker.
+% addOptional(paras,'PCritical',0.05);  
+% addOptional(paras,'PlotPs',0);  
 % 
 % addOptional(paras,'Colors',{'b','r','g'}); % (originally for comparing PSTH of LIP neurons)
 % addOptional(paras,'LineStyles',{'-'});
-% addOptional(paras,'Transparent',1);
+% addOptional(paras,'Transparent',0);
 % addOptional(paras,'SEM',1);  % SEM (for conventional mean) or STD (for bootstrap)
 % addOptional(paras,'Border',[1600, -350]);
+% addOptional(paras,'Gap',100);
+% addOptional(paras,'YLim',[]);
 % 
 % % addOptional(paras,'Markers',{'o','o','s','^','v','<','>'}); addOptional(paras,'MarkerSize',15);
 % % addOptional(paras,'FaceColors',{'k','none',[0.8 0.8 0.8]});
