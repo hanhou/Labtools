@@ -16,11 +16,34 @@
 
 # Instead, by generating independent jobs, I can use ' -l h="xxx" ' to constrain them.
 # Call this by  ./submit_job node1 node2 node3...
-i=0
-for node # Equivalent to "for node in "$@"" which loops over input variables
+
+#i=0
+#for node # Equivalent to "for node in "$@"" which loops over input variables
+#do
+#	((i++))
+#	qsub -l h="clc00$node" -v ThisNode=$i,TotalNodes=$# job_ind.sh # Independent jobs
+#	echo "Submitted ($i/$#)th part to clc00$node"
+#done
+
+# 20180621 Update: allow manually assignment of different CPUs for different nodes
+# Syntax: ./submit_job_ind.sh 1 10 2 10 3 10 4 5 5 5  --> 10 CPUs for 1-3 nodes, and 5 CPUs for 4-5 nodes
+
+config=("$@")   # Convert input to array, length should be an even number
+nNode=$[${#config[@]}/2] # Get node number
+totalNode=0
+
+for ii in `seq 1 $nNode`
 do
-	((i++))
-	qsub -l h="clc00$node" -v ThisNode=$i,TotalNodes=$# job_ind.sh # Independent jobs
-	echo "Submitted ($i/$#)th part to clc00$node"
+	thisNode=${config[(ii-1)*2]}   # Get this node name
+	thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
+    
+	echo " "  
+	echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+	# Pass all parameters including config to job_ind.sh
+        qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+
+	totalNode=$[totalNode+thisCPU]
 done
+echo "Total number of nodes: "$totalNode
+echo ""
 qstat

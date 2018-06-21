@@ -1,9 +1,25 @@
-function BATCH_GUI_Tempo_Analysis(batchfiledir, batch_filename, close_flag, print_flag, protocol_filter, analysis_filter, fileToRun)
-
+function BATCH_GUI_Tempo_Analysis(batchfiledir, batch_filename, close_flag, ...
+                                  print_flag, protocol_filter, analysis_filter, config)
 % To slice Batch file in Linux more easily
 if nargin < 7
-    fileToRun = nan;
+    config = nan;
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Decide number of workers on the cluster based on "fileToRun" HH20180621
+% fileToRun Syntax: -[thisNode, node1, nCPU1, node2, nCPU2, node3, nCPU3, ...]
+
+if any(config < 0) % SGE control (submitted by qsub)
+    SGE = 1;
+    thisNode = - config(1); % Which node is this node?
+    nodeCPUPairs = - config(2:end);
+    numWorkers = nodeCPUPairs(thisNode*2); % Number of CPU of this node
+else
+    SGE = 0; % config is nan or is all positive
+    numWorkers = 20; % Default
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                              
 
 cd /home/hh
 
@@ -13,7 +29,7 @@ cd /home/hh
 % %{
 if ~verLessThan('matlab','R2014a')
     if isempty(gcp('nocreate'))
-        parpool('local',17,'IdleTimeout',inf);
+        parpool('local',numWorkers,'IdleTimeout',inf);
     end
 else
     if matlabpool('size') == 0
@@ -284,23 +300,33 @@ end
 
 N = nn; % Total number of files
 fprintf('Total number of files in the Batch file: %g\n', N);
-SGE = 0;
 
-if isnan(fileToRun)
-    fileToRun = 1:N; 
-elseif any(fileToRun < 0) % SGE control
-    SGE = 1;
-    thisNode = - fileToRun(1);
-    totalNodeN = - fileToRun(2);
-    averN = ceil(N/totalNodeN);
-    fileToRun = (thisNode - 1) * averN + 1 : thisNode * averN; % Could be larger than N but we have intersect below.
+% --- Decide which part of batch file should be run by this node
+if isnan(config)
+    config = 1:N; 
+elseif SGE % SGE control
+    nCPUs = nodeCPUPairs(2:2:end);
+    nNode = length(nCPUs);
+    
+    nEnd = 0;
+    
+    for nn = 1 : thisNode  % Make sure all the nodes get the correct range
+        nBegin = nEnd + 1;
+        nEnd = nBegin + ceil(nCPUs(nn) / sum(nCPUs) * N) - 1; % Use ceil to ensure all the files will be run
+    end
+    
+    toRunIndex = nBegin : nEnd;  % Could be larger than N because we have intersect below.
+    
+    % averN = ceil(N/totalNodeN);
+    % config = (thisNode - 1) * averN + 1 : thisNode * averN; % Could be larger than N because we have intersect below.
 else     % Regular manual control
     ;    % Do nothing
 end
 
-para_batch_to_run = para_batch_all(intersect(1:N, fileToRun));
+para_batch_to_run = para_batch_all(intersect(1:N, toRunIndex));
+
 N = length(para_batch_to_run); % New N
-fprintf('To run: %g\n', N);
+fprintf('To run: [%g ~ %g], %g in total\n', nBegin, nEnd, N);
 
 errorFiles(N).fileName = [];
 

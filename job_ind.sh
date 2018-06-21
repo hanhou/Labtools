@@ -8,7 +8,7 @@
 # I am not responsible for any errors in this script, so be forewarned!
 
 #$ -cwd
-#$ -pe openmpi 17
+###################$ -pe openmpi 17 # Moved to submit_job_ind
 #$ -S /bin/sh
 #$ -V
 
@@ -18,18 +18,18 @@
 
 BatchPath="/home/hh/Z/Data/TEMPO/Batch/"
 
-BatchFile="Memsac_all_IONCluster.m"
-#BatchFile="HD_all_IONCluster.m"
+#BatchFile="Memsac_all_IONCluster.m"
+BatchFile="HD_all_IONCluster.m"
 
 #echo "Starting job: $SGE_TASK_ID / $TotalNodes"
-echo "Starting job: $ThisNode / $TotalNodes"
+#echo "Starting job: $ThisNode / $TotalNodes"
+echo "Starting job: $n / ${config[@]}"
 
 # Call my codes. The last term is negative meaning the jobs are controlled by SGE
-#matlab -nodisplay -nosplash -r\
-# "BATCH_GUI_Tempo_Analysis('$BatchPath','$BatchFile',0,0,-1,-1,-[$SGE_TASK_ID,$TotalNodes])"
-
 matlab -nodisplay -nosplash -r\
-  "BATCH_GUI_Tempo_Analysis('$BatchPath','$BatchFile',0,0,-1,-1,-[$ThisNode,$TotalNodes])"
+ "BATCH_GUI_Tempo_Analysis('$BatchPath','$BatchFile',0,0,-1,-1,-[$n,${config[@]}])"
 
+#matlab -nodisplay -nosplash -r\
+#  "BATCH_GUI_Tempo_Analysis('$BatchPath','$BatchFile',0,0,-1,-1,-[$ThisNode,$TotalNodes])"
 
-echo "Done with job: $ThisNode"
+echo "Done with job: $n"

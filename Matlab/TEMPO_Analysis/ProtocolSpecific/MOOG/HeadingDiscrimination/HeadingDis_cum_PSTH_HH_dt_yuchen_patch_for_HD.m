@@ -1242,6 +1242,12 @@ end
 
 CP = cell(size(align_markers,1),length(unique_stim_type));
 
+for j = 1:2
+    CP_ts{j} = align_markers{j,2} + binSize_CP/2 : stepSize_CP : align_markers{j,3} - binSize_CP/2; % Centers of CP time windows
+end
+fisherSimpleGu = nan(length(CP_ts{1}),3,2);
+
+
 for k = 1: length(unique_stim_type)   % For each stim type
     selected_condition = stim_type_per_trial' == unique_stim_type(k);
     headings = heading_per_trial(selected_condition);
@@ -1267,7 +1273,7 @@ for k = 1: length(unique_stim_type)   % For each stim type
         CP{j,k}.Psy_para = [Psy_bias,Psy_thres];
         CP{j,k}.Psy_para_tol = [Psy_bias_tol,Psy_thres_tol];
         
-        CP_ts{j} = align_markers{j,2} + binSize_CP/2 : stepSize_CP : align_markers{j,3} - binSize_CP/2; % Centers of CP time windows
+        % CP_ts{j} = align_markers{j,2} + binSize_CP/2 : stepSize_CP : align_markers{j,3} - binSize_CP/2; % Centers of CP time windows
         
         % Preallocation
         CP{j,k}.CP_grand = zeros(1,length(CP_ts{j}));
@@ -1308,6 +1314,28 @@ for k = 1: length(unique_stim_type)   % For each stim type
             CP{j,k}.Neu_thres(tt) = CP_result.Neu_para_anti(2);
             CP{j,k}.pref_CP(tt) = CP_result.pref;
             
+            
+            % ============ Calculate Fisher information (Simple method like Gu2010) ========== HH20180619
+            if j == 1 % Only care about j = 1
+                % Get data
+                thisTuning = CP_result.Neu_tuning;
+                
+                if PREF == LEFT % To keep PREF = RIGHT (Actually no effect because we have slope^2 afterwards in Fisher information)
+                    thisTuning(:,2:3) = flipud(thisTuning(:,2:3));
+                end
+                linearFit = polyfit(thisTuning(:,1),thisTuning(:,2),1);
+                slopeInRad = linearFit(1)*(180/pi);
+                varPoisson = mean(thisTuning(:,2)); % Assuming Poisson with fano = 1
+                varReal = mean((thisTuning(:,3) .* sqrt(sum(CP_result.Neu_tuning_Dora_matrix_n)')).^2); % Using real variance (usually much large)
+                
+                % Compute simple Fisher (simple method like Gu)
+                thisFisherVarPoisson = slopeInRad^2/varPoisson;
+                thisFisherVarReal = slopeInRad^2/varReal;
+                
+                % Save
+                fisherSimpleGu(tt,unique_stim_type(k),:) = [thisFisherVarPoisson, thisFisherVarReal];
+            end
+
         end
         
         
@@ -1508,7 +1536,7 @@ if exist('CP','var')  % Full version
         align_markers, align_offsets_others, sort_info, smoothFactor ,...
         PREF, PREF_CP_obsolete, PREF_target_location, outcome_mask_enable, ...
         binSize_rate, stepSize_rate, rate_ts, binSize_CP, stepSize_CP, CP_ts ,...
-        spike_aligned, spike_hist, CP, PSTH,...
+        spike_aligned, spike_hist, CP, PSTH, fisherSimpleGu,......
         ChoiceDivergence_ALL, ChoiceDivergence_ALL_perm, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
         ModalityDivergence, ModalityPreference, ModalityPreference_pvalue);
     % Figures to save
@@ -1524,7 +1552,7 @@ else
         align_markers, align_offsets_others, sort_info, smoothFactor ,...
         PREF, PREF_target_location, outcome_mask_enable, ...
         binSize_rate, stepSize_rate, rate_ts,...
-        spike_aligned, spike_hist, PSTH,...
+        spike_aligned, spike_hist, PSTH, fisherSimpleGu,......
         ChoiceDivergence_ALL, ChoiceDivergence_ALL_perm, ChoiceDivergence_Difficult, ChoiceDivergence_Easy,ChoicePreference,ChoicePreference_pvalue,...
         ModalityDivergence, ModalityPreference, ModalityPreference_pvalue);
     
