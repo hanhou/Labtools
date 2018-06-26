@@ -28,15 +28,28 @@
 # 20180621 Update: allow manually assignment of different CPUs for different nodes
 # Syntax: ./submit_job_ind.sh 1 10 2 10 3 10 4 5 5 5  --> 10 CPUs for 1-3 nodes, and 5 CPUs for 4-5 nodes
 
-config=("$@")   # Convert input to array, length should be an even number
-nNode=$[${#config[@]}/2] # Get node number
+# config=("$@")   # Convert input to array, length should be an even number
+# nNode=$[${#config[@]}/2] # Get node number
+
 totalNode=0
 
-for ii in `seq 1 $nNode`
+qstat -f > nodeInfo.out # get info of every node
+pc=0 # to count availeble nodes
+
+for ii in `seq 1 5`
 do
-	thisNode=${config[(ii-1)*2]}   # Get this node name
-	thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
-    
+  thisNode=$ii   # Get this node name
+  loadThisNode=`grep "clc00$thisNode" nodeInfo.out | awk '{print $4}'` # get load info of this node
+  loadThisNode=$[${loadThisNode%.*}+1]
+  
+  if [ $loadThisNode -lt $[24*2] ] # ????? what is the condition? Available?
+  then
+    pc=`expr $pc + 1`
+    thisCPU=$[24*2-${loadThisNode}]      # ??????80%? Get CPU requested for this node
+    config[$pc*2-1]=$ii     # name of this available node
+    config[$pc*2]=$thisCPU  # number of CPUs requested for this node
+  fi 
+  
 	echo " "  
 	echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
 	# Pass all parameters including config to job_ind.sh
@@ -46,4 +59,5 @@ do
 done
 echo "Total number of nodes: "$totalNode
 echo ""
+
 qstat
