@@ -17,47 +17,73 @@
 # Instead, by generating independent jobs, I can use ' -l h="xxx" ' to constrain them.
 # Call this by  ./submit_job node1 node2 node3...
 
-#i=0
-#for node # Equivalent to "for node in "$@"" which loops over input variables
-#do
-#	((i++))
-#	qsub -l h="clc00$node" -v ThisNode=$i,TotalNodes=$# job_ind.sh # Independent jobs
-#	echo "Submitted ($i/$#)th part to clc00$node"
-#done
-
 # 20180621 Update: allow manually assignment of different CPUs for different nodes
 # Syntax: ./submit_job_ind.sh 1 10 2 10 3 10 4 5 5 5  --> 10 CPUs for 1-3 nodes, and 5 CPUs for 4-5 nodes
 
-# config=("$@")   # Convert input to array, length should be an even number
-# nNode=$[${#config[@]}/2] # Get node number
+# 20180627 Update: Acquire number of CPUs available automatically and allocate tasks
+# if no  CPU available for all nodes now, check status, run submit_job_ind.sh and manually input #nodes and #CPUs as above  
 
-totalNode=0
-
-qstat -f > nodeInfo.out # get info of every node
-pc=0 # to count availeble nodes
+totalNode=0 # to count available nodes
+totalCPU=0 # to count available CPUs
 
 for ii in `seq 1 5`
 do
   thisNode=$ii   # Get this node name
-  loadThisNode=`grep "clc00$thisNode" nodeInfo.out | awk '{print $4}'` # get load info of this node
-  loadThisNode=$[${loadThisNode%.*}+1]
-  
-  if [ $loadThisNode -lt $[24*2] ] # ????? what is the condition? Available?
+  CPURunThisNode=`qstat -q "*@clc00$thisNode" -u "*" -f | grep "  r  " | awk '{print $8}' | awk '{total = total + $1}END{print total}'` # get number of CPU running of this node 
+  CPUThisNode=$[24-$CPURunThisNode] # calculate the number of CPU available of this node  loadThisNode=$[${loadThisNode%.*}+1]
+   
+  if [ $CPUThisNode -gt 0 ] # 
   then
-    pc=`expr $pc + 1`
-    thisCPU=$[24*2-${loadThisNode}]      # ??????80%? Get CPU requested for this node
-    config[$pc*2-1]=$ii     # name of this available node
-    config[$pc*2]=$thisCPU  # number of CPUs requested for this node
-  fi 
-  
+    totalNode=`expr $totalNode + 1`
+    thisCPU=$CPUThisNode  
+    config[$totalNode*2-1]=$thisNode     # name of this available node
+    config[$totalNode*2]=$thisCPU  # number of CPUs requested for this node
+    
 	echo " "  
-	echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
-	# Pass all parameters including config to job_ind.sh
-        qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
-
-	totalNode=$[totalNode+thisCPU]
+	echo ". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+	
+  # Pass all parameters including config to job_ind.sh
+    qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+  fi
+  
+	totalCPU=$[totalCPU+thisCPU]
+  
 done
-echo "Total number of nodes: "$totalNode
-echo ""
 
+if [ $totalNode -eq 0 ]  #  No CPU available for all nodes now, print status
+then
+  echo " "
+  echo "No CPU available now"
+  echo " "
+  echo "check status..."
+  echo " "
+  qstat -u "*" -f
+  echo " "
+  echo "Input nodes and CPUS manually:"
+  echo " "
+  read -a config
+  totalNode=$[${#config[@]}/2] # Get node number
+  totalCPU=0 # to count available CPUs
+  
+  for ii in `seq 1 $totalNode`
+  do
+    thisNode=${config[(ii-1)*2]}   # Get this node name
+    thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
+
+    echo " "
+    echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+
+    # Pass all parameters including config to job_ind.sh
+      qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+    
+    totalCPU=$[totalCPU+thisCPU]
+    
+  done
+    
+fi
+
+echo " "  
+echo "Total number of nodes: "$totalNode  
+echo "Total number of CPUs: "$totalCPU
+echo " "  
 qstat
