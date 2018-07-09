@@ -26,7 +26,7 @@ mat_address = {
     
     %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git cfb3e647e93
     % 'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
-    'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git 
+    'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a
     
     %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
     %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
@@ -1457,7 +1457,10 @@ function_handles = {
         
     'Linear regression',{
     'Comb = w1 Vest + w2 Vis (Fig.5 in Gu 2008)',@f7p1;
-    'Fit model traces with real data (Alex Shanghai)',@f7p2;
+    'Fit model traces with real data (Alex Shanghai)',@cell_selection;
+    '     1). All heading mean',@f7p2;
+    '     2). Each |heading|',@f7p3;
+    
     };
     
     'Targeted Dimensionality Reduction',{
@@ -1602,18 +1605,21 @@ function_handles = {
             legend off;
             
             % --- Difference (Pref - Null) ---
-            PSTH_all_Norm_PrefminusNull{1} = PSTH_all_raw{1}(methods_of_select{ms,1},:,1:2:end)...
+            PSTH_all_raw_PrefminusNull_tmp{1} = PSTH_all_raw{1}(methods_of_select{ms,1},:,1:2:end)...
                 - PSTH_all_raw{1}(methods_of_select{ms,1},:,2:2:end);
-            PSTH_all_Norm_PrefminusNull{2} = PSTH_all_raw{2}(methods_of_select{ms,1},:,1:2:end)...
+            PSTH_all_raw_PrefminusNull_tmp{2} = PSTH_all_raw{2}(methods_of_select{ms,1},:,1:2:end)...
                 - PSTH_all_raw{2}(methods_of_select{ms,1},:,2:2:end);
             
-            SeriesComparison({PSTH_all_Norm_PrefminusNull{1}, PSTH_all_Norm_PrefminusNull{2}},...
+            SeriesComparison({PSTH_all_raw_PrefminusNull_tmp{1}, PSTH_all_raw_PrefminusNull_tmp{2}},...
                 {rate_ts{1} rate_ts{2} time_markers},...
                 'Colors',mat2cell(colors,ones(3,1)),'LineStyles',{'-'},...
                 'ErrorBar',6,'Xlabel',[],'Ylabel','Raw firing','axes',h_subplot((ms-1)*2+2),...
                 'CompareIndex',[1:3,1,2;1:3,3,3],...
                 'CompareColor',[mat2cell(colors,ones(3,1));colors(1,:);colors(2,:);colors(3,:)],...
                 'Transparent',transparent);
+            
+            linearSum = sum(mean(PSTH_all_raw_PrefminusNull_tmp{1}(:,:,1:2),1),3);
+            hold on; plot(rate_ts{1}(rate_ts{1}<=1500),linearSum(rate_ts{1}<=1500),'m-','linew',2)
             
             %             if ms < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
             
@@ -1924,7 +1930,8 @@ function_handles = {
                 
                 % --- Ramping with different angles ---
                 for j = 1:2
-                    yyy{j} = PSTH_correct_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+                     yyy{j} = PSTH_correct_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+                    % yyy{j} = PSTH_correct_angles_raw{j}(methods_of_select{ms,1},:,:,k);
                     ttt{j} = rate_ts{j};
                     
                     yyy_diff{k}{j} =  yyy{j}(:,:,1:2:end) - yyy{j}(:,:,2:2:end);
@@ -6440,7 +6447,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     %% Regression 2. Fitting model traces with real data. (We decided to do this when Alex came to Shanghai) @HH20170808
     %%%%%%%%%%%%%%%%%%% for f7p2: load model traces %%%%%%%%%%%%%%%
     
-    % ==== Load model data (Fit target) ====
+    % ==== Load model data (Fit target) from the trace without heterogeneity ====
     % Generated from calling "result = lip_HH({},{'ts','mean_diff_PSTH_correct_allheading'});"
     model_mean_PSTH_trace_without_heter = load('mean_trace_without_heter.mat'); % Gamma = 0
     % model_mean_PSTH_trace_without_heter = load('mean__trace_without_heter_gamma=1.mat'); % Gamma = 1
@@ -6450,7 +6457,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     model_ts = model_mean_PSTH_trace_without_heter.result.ts*1000;
     model_PSTH = squeeze(model_mean_PSTH_trace_without_heter.result.mean_diff_PSTH_correct_allheading);
     
-    % ==== Single cells ====
+    % ==== Single cells from the model ====
     model_PSTH_trace_with_heter_optimal = load('diff_PSTH_trace_with_heter.mat');
     model_PSTH_trace_with_heter_vest10_vis1 = load('diff_PSTH_trace_with_heter_vest10_vis1.mat');
     model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau.mat');
@@ -6661,6 +6668,224 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         cost = mean((proj_PSTH(:) - model_y(:)).^2)+alpha*norm(weight); % Mean Squared error
     end
 
+
+    %% Regression 3. Fitting model traces with real data (New version): Use traces of each |heading| separately
+    %% HH20180623: D2206 Shanghai -> Chengdu
+    %%%%%%%%%%%%%%%%%%% for f7p3: load model traces %%%%%%%%%%%%%%%
+    
+    % ==== Load model data (Fit target) from the trace without heterogeneity ====
+    model_mean_PSTH_trace_without_heter_EachHeading = load('diff_PSTH_eachHeadingTest.mat');
+    model_PSTH_EachHeading = squeeze(mean(model_mean_PSTH_trace_without_heter_EachHeading.diff_PSTH_correct_mean_headings,1));
+    model_PSTH_EachHeading = permute(model_PSTH_EachHeading,[1 3 2]); % [Time, |Heading|, modality]
+    model_ts_EachHeading = linspace(0, 1500, size(model_PSTH_EachHeading,1)); % Temporally
+    
+    % ==== Single cells from the model ====
+    model_PSTH_trace_with_heter_optimal_EachHeading = [];% load('diff_PSTH_trace_with_heter.mat');
+    model_PSTH_trace_with_heter_vest10_vis1_EachHeading = []; %load('diff_PSTH_trace_with_heter_vest10_vis1.mat');
+    model_PSTH_trace_with_heter_shortTau_EachHeading = []; %load('diff_PSTH_trace_with_heter_shortTau.mat');
+    
+    data_to_fit_PSTH_EachHeading=[];
+    
+    function f7p3(debug)  % Fit each Heading
+        if debug;  dbstack;  keyboard;  end
+        
+        use_data_to_fit = 1; % 
+                
+        data_to_fit = {%Times  %Data   %Name 
+                       % rate_ts{1}, PSTH_all_raw_PrefminusNull{1},'Real LIP data';  
+                       rate_ts{1},  PSTH_correct_angles_raw{1}(:,:,1:2:end,:) - PSTH_correct_angles_raw{1}(:,:,2:2:end,:),'Real LIP data'; 
+                       model_ts_EachHeading, model_PSTH_trace_with_heter_optimal.a,'Optimal model with heterogeneity';
+                       model_ts_EachHeading, model_PSTH_trace_with_heter_vest10_vis1.a,'vest10_vis1 with heterogeneity';
+                       model_ts_EachHeading, model_PSTH_trace_with_heter_shortTau.a, 'ShortTau with heterogeneity';
+                       };
+        data_to_fit_time = data_to_fit{use_data_to_fit,1};
+        data_to_fit_PSTH_EachHeading = data_to_fit{use_data_to_fit,2};
+        
+        % Times
+        find_common_ts_in_rate_ts = find(min(model_ts_EachHeading)<=data_to_fit_time & data_to_fit_time<=max(model_ts_EachHeading));
+        common_ts = data_to_fit_time(find_common_ts_in_rate_ts);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % alpha = 10;
+        % fit_time_range = 500 < common_ts & common_ts <= 1200;
+        % fit_time_range = rand(1,length(common_ts)) < 0.2;
+
+        % Interleaved training and testing
+        fit_time_range = false(1,length(common_ts)); 
+        test_time_range = fit_time_range;
+        valid_time_range = fit_time_range;
+        
+        fit_time_range(1:3:end) = true;
+        test_time_range(2:3:end) = true;
+        valid_time_range(3:3:end) = true; % Use other (time points) to test
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        fit_ts = common_ts(fit_time_range);
+        test_ts = common_ts(test_time_range);
+        valid_ts = common_ts(valid_time_range);
+        
+        % Real data, now: [NumOfCells, Time, |Headings|, Modality]
+
+        fit_deltaPSTHs_per_cell =  data_to_fit_PSTH_EachHeading(:,find_common_ts_in_rate_ts(fit_time_range),:,:); % Should be indices in original rate_ts{1}!
+        test_deltaPSTHs_per_cell =  data_to_fit_PSTH_EachHeading(:,find_common_ts_in_rate_ts(test_time_range),:);
+        valid_deltaPSTHs_per_cell =  data_to_fit_PSTH_EachHeading(:,find_common_ts_in_rate_ts(valid_time_range),:);
+        
+        % Model data,  now: [Time, |Headings|, Modality]
+        fit_model_PSTH_interp = interp1(model_ts_EachHeading,model_PSTH_EachHeading(:,:,:),fit_ts);
+        test_model_PSTH_interp = interp1(model_ts_EachHeading,model_PSTH_EachHeading(:,:,:),test_ts);
+        valid_model_PSTH_interp = interp1(model_ts_EachHeading,model_PSTH_EachHeading(:,:,:),valid_ts);
+        
+       %% Do fitting  
+        alphas = [1];
+        
+        global fitting_dynamics;
+        for aa = 1:length(alphas)% Scan alpha
+            
+            fitting_dynamics = [];
+            alpha = alphas(aa);
+            fprintf('alpha = %g\n',alpha);
+            
+            %         w0 = increase_step_trick + ones(1,sum(select_bottom_line))/sum(select_bottom_line); % Start from straight average
+            w0 = increase_step_trick + (1+randn(1,size(data_to_fit_PSTH_EachHeading,1)))/size(data_to_fit_PSTH_EachHeading,1); % Start from straight average
+            
+            opt = optimset('MaxFunEvals',50000,'MaxIter',300,'PlotFcns',@f7p3_fitting_deltaPSTH_plot_func);
+            set(figure(1458),'name','Optimization PlotFcns'); clf;
+            %         fitted_w = fminsearch(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,opt);
+            
+            fitted_w = fmincon(@(w)f7p3_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,...
+                                                                                                      [],[],[],[],0*w0,[],[],opt);
+        end
+
+    end
+
+    function stop = f7p3_fitting_deltaPSTH_plot_func(weight,optimValue,~)  % Plotting function
+        
+        global fitting_dynamics;
+        weight = weight-increase_step_trick;
+
+        persistent costs;
+        
+        if optimValue.iteration == 0
+            costs = [];
+        end
+        
+        
+        % Update cost
+        test_cost = f7p3_fitting_deltaPSTH_cost_func(test_model_PSTH_interp , test_deltaPSTHs_per_cell, weight);
+        valid_cost = f7p3_fitting_deltaPSTH_cost_func(valid_model_PSTH_interp , valid_deltaPSTHs_per_cell, weight);
+        
+%         proj_test_PSTH = reshape((weight) * reshape(test_deltaPSTHs_per_cell,size(test_deltaPSTHs_per_cell,1),[]),[],3);
+%         test_cost = mean((proj_test_PSTH(:) - test_model_PSTH_interp(:)).^2); % Mean Squared error
+%         
+%         proj_valid_PSTH = reshape((weight) * reshape(valid_deltaPSTHs_per_cell,size(valid_deltaPSTHs_per_cell,1),[]),[],3);
+%         valid_cost = mean((proj_valid_PSTH(:) - valid_model_PSTH_interp(:)).^2); % Mean Squared error
+        
+        costs = [costs; optimValue.fval-alpha*norm(weight) test_cost valid_cost];
+        
+        if mod(optimValue.iteration,1) == 0
+        
+            set(findobj(gcf,'type','axes'),'visible','off');
+            set(gcf,'uni','norm','pos',[0.017       0.208       0.947       0.675]);
+            h = tight_subplot(2,4,[0.1 0.05],0.1,0.1);
+            
+            % ------ Fitted delta PSTH for each heading
+            headings = [0 1 2 4 8];
+            for hh = 1:5
+                plot(h(hh),data_to_fit_time,interp1(model_ts_EachHeading,squeeze(model_PSTH_EachHeading(:,hh,:)),...
+                    data_to_fit_time),'linew',2); hold(h(hh),'on');
+                
+                
+                allY_this = reshape(data_to_fit_PSTH_EachHeading(:,:,hh,:),size(data_to_fit_PSTH_EachHeading,1),[]);
+                proj_PSTH_this = reshape(nansum( weight' .* allY_this),[],3);
+                
+                plot(h(hh),data_to_fit_time, proj_PSTH_this,'--','linew',2);
+                
+                xlim(h(hh),[-400 2400]);
+                ylim(h(hh),[-5 40]);
+                
+                plot(h(hh),[min(model_ts_EachHeading) min(model_ts_EachHeading)],[min(ylim) max(ylim)],'k-');
+                plot(h(hh),[max(model_ts_EachHeading) max(model_ts_EachHeading)],[min(ylim) max(ylim)],'k-');
+                
+                title(h(hh),sprintf('|Heading| = %g',headings(hh)));
+            end
+            
+            %             plot(h(1),common_ts(fit_time_range),indicator_pos(fit_time_range),'ok','markerfacecol','k','markersize',5);
+            %             plot(h(1),common_ts(test_time_range),indicator_pos(test_time_range),'or','markerfacecol',colors(2,:),'markersize',5);
+            %             plot(h(1),common_ts(valid_time_range),indicator_pos(valid_time_range),'ob','markerfacecol',colors(1,:),'markersize',5);
+            %             % plot(h(1),[min(real_ts) max(real_ts)],min(ylims)*ones(1,2),'k-','linew',5);
+            title(h(1),sprintf('Solid: model; Dashed: %s',data_to_fit{use_data_to_fit,3}));
+            ylabel(h(1),'delta firing');
+            
+            % ------- Projected PSTH
+            if use_data_to_fit == 1 % Real LIP data
+                for kk = 1:size(PSTH_all_raw{1},3)
+                    PSTH_projected(1,:,kk) = weight*(PSTH_all_raw{1}(select_bottom_line,:,kk));
+                end
+                
+                % Note here the errorbars should be STD instead of SEM. (Not independent sampling, but bootstrapping)
+                SeriesComparison(PSTH_projected,data_to_fit_time,...
+                    'Colors',{colors(1,:),colors(1,:),colors(2,:),colors(2,:),colors(3,:),colors(3,:)},'LineStyles',{'-','--','-','--','-','--'},...
+                    'SEM',0,'ErrorBar',2,'Xlabel',[],'Ylabel','Weighted sum of firing','axes',h(8));
+                hold on;    legend off;
+                xlim(h(2),[-400 2200]);
+            end
+            
+            % ------- Fitting error
+            plot(h(6), 1:size(costs,1), log(costs(:,1)),'ok-');  % Training error
+            hold(h(6),'on');
+            plot(h(6), 1:size(costs,1), log(costs(:,2)),'or-');  % Testing error
+            plot(h(6), 1:size(costs,1), log(costs(:,3)),'ob-');  % Testing error
+
+            legend(h(6),{'Training','Testing','Validating'});
+            title(h(6),sprintf('\\alpha = %g, step = %g',alpha,optimValue.iteration));
+            ylabel(h(6),'log(mean of squared error)');
+            xlabel(h(6),'# Iteration');
+            
+            % ------- Weight vs choice signal
+            if use_data_to_fit == 1 % Real LIP data
+                xx =  abs(group_ChoicePreference(3,select_bottom_line,3));
+                plot(h(7),xx,weight,'o'); hold(h(7),'on');
+                
+                [r,p] = corr(xx',weight');
+                [linPara,S] = polyfit(xx,weight,1);
+                xxx = linspace(min(xx),max(xx),2);
+                Y = polyval(linPara,xxx);
+                plot(h(7),xxx,Y,'k');
+                title(h(7),sprintf('p = %3.3g, r = %3.3g',p,r));
+                
+                xlabel(h(7),'Choice strength of each cell');
+                ylabel(h(7),'Fitting weight');
+            else % Modeled data
+                plot(h(7),weight,'o'); hold(h(7),'on');
+                xlabel(h(7),'# cell');
+                ylabel(h(7),'Fitting weight');
+                
+            end
+%             keyboard
+        end
+        stop = false;
+        
+        % Save data
+        fitting_dynamics = {costs};
+        
+    end
+    function cost = f7p3_fitting_deltaPSTH_cost_func(model_y,real_ys,weight)
+        weight = weight-increase_step_trick;
+        
+        %      proj_PSTH = reshape((weight) * reshape(real_ys,size(real_ys,1),[]),[],3);
+        
+        % Some cells didn't have 0 headings, so I use nansum but not matrix product.
+        allY = reshape(real_ys,size(real_ys,1),[]);
+        proj_PSTH = reshape( nansum(repmat(weight',1,size(allY,2)) .* allY), ...
+                            size(model_y,1), size(model_y,2), size(model_y,3));
+        
+        cost = mean((proj_PSTH(:) - model_y(:)).^2) + alpha*norm(weight); % Mean Squared error
+        
+    end
+
+
+
+
     %% ====== Calculate Fisher information of heading ======== HH20180619
     % 1. Simplest method like Gu 2010: Sum over cells (slope / mean)
     function f6p5p1(debug)  
@@ -6715,6 +6940,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         set(gcf,'uni','norm','pos',[0.443       0.557       0.557       0.349]);
         plotRange = 1:find(CP_ts{1}>=1600,1);
         bootN = 2000;
+        titles = {'Poisson assump.','Real variance'};
         
         for varMethod = 1:2  %  1: Gu's Poisson assumption   2: Real variance (10x larger than Poisson because of varCE)
             h = subplot(1,2,varMethod);
@@ -6732,9 +6958,10 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                         
             % Gaussian vel
             axis tight; plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
-            xlim([-100 1600])
+            xlim([-100 1600]); ylim([0 max(ylim)*1.1])
             plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
             legend off;
+            title(titles{varMethod})
         end
         
         SetFigure(15)

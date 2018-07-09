@@ -69,6 +69,7 @@ function handles = UpdateAxes(~,~, handles)
 % Show all axes of current figure
 if ~isempty(gcf)
     allAxes = findobj(gcf,'type','axes');
+    handles.Axes.Value = [];
     handles.Axes.String = {};
     
     for aa = 1:length(allAxes)
