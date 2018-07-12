@@ -26,60 +26,95 @@
 totalNode=0 # to count available nodes
 totalCPU=0 # to count available CPUs
 
-for ii in `seq 1 5`
-do
-  thisNode=$ii   # Get this node name
-  CPURunThisNode=`qstat -q "*@clc00$thisNode" -u "*" -f | grep "  r  " | awk '{print $8}' | awk '{total = total + $1}END{print total}'` # get number of CPU running of this node 
-  CPUThisNode=$[24-$CPURunThisNode] # calculate the number of CPU available of this node  loadThisNode=$[${loadThisNode%.*}+1]
-   
-  if [ $CPUThisNode -gt 0 ] # 
-  then
-    totalNode=`expr $totalNode + 1`
-    thisCPU=$CPUThisNode  
-    config[$totalNode*2-1]=$thisNode     # name of this available node
-    config[$totalNode*2]=$thisCPU  # number of CPUs requested for this node
-    
-	echo " "  
-	echo ". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
-	
-  # Pass all parameters including config to job_ind.sh
-    qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
-  fi
-  
-	totalCPU=$[totalCPU+thisCPU]
-  
-done
-
-if [ $totalNode -eq 0 ]  #  No CPU available for all nodes now, print status
+if [ $# -gt 0 ]  # Manually control
 then
-  echo " "
-  echo "No CPU available now"
-  echo " "
-  echo "check status..."
-  echo " "
-  qstat -u "*" -f
-  echo " "
-  echo "Input nodes and CPUS manually:"
-  echo " "
-  read -a config
-  totalNode=$[${#config[@]}/2] # Get node number
-  totalCPU=0 # to count available CPUs
-  
-  for ii in `seq 1 $totalNode`
-  do
-    thisNode=${config[(ii-1)*2]}   # Get this node name
-    thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
 
-    echo " "
-    echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+	config=("$@")   # Convert input to array, length should be an even number
+	nNode=$[${#config[@]}/2] # Get node number
+	totalCPU=0
 
-    # Pass all parameters including config to job_ind.sh
-      qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
-    
-    totalCPU=$[totalCPU+thisCPU]
-    
-  done
-    
+	for ii in `seq 1 $nNode`
+	do
+		thisNode=${config[(ii-1)*2]}   # Get this node name
+		thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
+	    
+		echo " "  
+		echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+		# Pass all parameters including config to job_ind.sh
+		qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+
+		totalCPU=$[totalCPU+thisCPU]
+	done
+
+	totalNode=$nNode
+
+else
+
+	for ii in `seq 1 5`
+	do
+	  thisNode=$ii   # Get this node name
+          
+	  # get number of CPU running of this node 
+	  CPURunThisNode=`qstat -q "*@clc00$thisNode" -u "*" -f | grep "  r  " \
+		| awk '{print $8}' | awk '{total = total + $1}END{print total}'` 
+	  
+	  # calculate the number of CPU available of this node  loadThisNode=$[${loadThisNode%.*}+1]
+	  CPUThisNode=$[24-$CPURunThisNode-4] 
+	   
+	  if [ $CPUThisNode -gt 0 ] # 
+	  then
+	    totalNode=`expr $totalNode + 1`
+	    thisCPU=$CPUThisNode  
+	    config[$totalNode*2-1]=$thisNode     # name of this available node
+	    config[$totalNode*2]=$thisCPU  # number of CPUs requested for this node
+	  fi
+	  
+	  totalCPU=$[totalCPU+thisCPU]
+	  
+	done
+
+	for ii in `seq 1 $totalNode`
+	do
+	    thisNode=${config[$ii*2-1]}
+	    thisCPU=${config[$ii*2]}
+	    echo " "  
+	    echo ". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+	    # Pass all parameters including config to job_ind.sh
+	    qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+	done
+
+	if [ $totalNode -eq 0 ]  #  No CPU available for all nodes now, print status
+	then
+	  echo " "
+	  echo "No CPU available now"
+	  echo " "
+	  echo "check status..."
+	  echo " "
+	  qstat -u "*" -f
+	  echo " "
+	  echo "Input nodes and CPUS manually:"
+	  echo " "
+	  read -a config
+	  totalNode=$[${#config[@]}/2] # Get node number
+	  totalCPU=0 # to count available CPUs
+	  
+	  for ii in `seq 1 $totalNode`
+	  do
+	    thisNode=${config[(ii-1)*2]}   # Get this node name
+	    thisCPU=${config[ii*2-1]}      # Get CPU requested for this node
+
+	    echo " "
+	    echo $ii". Submitting to Node clc00"$thisNode", requesting "$thisCPU" CPUs"
+
+	    # Pass all parameters including config to job_ind.sh
+	      qsub -l h="clc00$thisNode" -pe openmpi $thisCPU -v n=$ii,config="${config[*]}" job_ind.sh
+	    
+	    totalCPU=$[totalCPU+thisCPU]
+	    
+	  done
+	    
+	fi
+
 fi
 
 echo " "  
