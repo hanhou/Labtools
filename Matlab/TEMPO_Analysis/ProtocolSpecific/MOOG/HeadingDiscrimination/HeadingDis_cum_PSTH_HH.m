@@ -472,6 +472,20 @@ sort_info = {
     }
     }
     
+    % Fig.6: Rows: stim types; Sort according to: Different angles but ALL (correct + wrong) trials. @HH20180711 (For GuYong's Hangzhou ppt)
+    {
+    % Rows in subplot (stim types)
+    {   % stim_types (0 = all)   % Notes
+    unique_stim_type, stim_type_names(unique_stim_type+1)
+    };
+    
+    % In each subplot (max nested level: 2)
+    {    %  Variable(s) ,  Logical,  Values  , Colors,  LineStyles,    Notes,   Errorbar? (0:Nothing; 1:95% CI; 2: p<0.05; 3:both)
+    'heading_per_trial''',{'=='}, unique_heading, color_for_headings, style_for_headings, cellstr(num2str(unique_heading)) , 0;
+    }
+    }
+
+    
     % %     % Fig.5: Rows: stim types; Sort according to: Heading angles
     %     {
     %         % Rows in subplot (stim types)
@@ -570,9 +584,9 @@ for sortInd = 1:length(sort_info) % For each figure
                         selected_condition = selected_condition & (stim_type_per_trial' == unique_stim_type(k));
                     end
                     
-                    % If the sorting type is not outcome per se, we only
+                    % If the sorting type is not outcome per se (or "ALL" override @HH20180711), we only
                     % choose the correct trials by default, except 0 heading.
-                    if ~strcmp(sort_info{sortInd}{2}{1},'outcome_per_trial')
+                    if ~ (strcmp(sort_info{sortInd}{2}{1},'outcome_per_trial') || sortInd == 6)
                         selected_condition = selected_condition & (~outcome_mask_enable | outcome_per_trial == outcome_mask | heading_per_trial' == 0); %% HH20140825
                     end
                     
@@ -1188,7 +1202,11 @@ CP = cell(size(align_markers,1),length(unique_stim_type));
 for j = 1:2
     CP_ts{j} = align_markers{j,2} + binSize_CP/2 : stepSize_CP : align_markers{j,3} - binSize_CP/2; % Centers of CP time windows
 end
-fisherSimpleGu = nan(length(CP_ts{1}),3,2);
+
+% Fisher info
+FIAngles = {1:length(unique_heading),3:length(unique_heading)-2};  % {all headings, +/- 2 degrees}
+fisherSimpleGu = nan(length(CP_ts{1}),3,length(FIAngles),5);  % Time, Stim type, FIangles, FIs
+
 
 for k = 1: length(unique_stim_type)   % For each stim type
     selected_condition = stim_type_per_trial' == unique_stim_type(k);
@@ -1266,18 +1284,22 @@ for k = 1: length(unique_stim_type)   % For each stim type
                 if PREF == LEFT % To keep PREF = RIGHT (Actually no effect because we have slope^2 afterwards in Fisher information)
                     thisTuning(:,2:3) = flipud(thisTuning(:,2:3));
                 end
-                linearFit = polyfit(thisTuning(:,1),thisTuning(:,2),1);
-                slopeInRad = linearFit(1)*(180/pi);
-                varPoisson = mean(thisTuning(:,2)); % Assuming Poisson with fano = 1
-                varReal = mean((thisTuning(:,3) .* sqrt(sum(CP_result.Neu_tuning_Dora_matrix_n)')).^2); % Using real variance (usually much large)
                 
-                % Compute simple Fisher (simple method like Gu)
-                thisFisherVarPoisson = slopeInRad^2/varPoisson;
-                thisFisherVarReal = slopeInRad^2/varReal;
-                
-                % Save
-                fisherSimpleGu(tt,unique_stim_type(k),:) = [thisFisherVarPoisson, thisFisherVarReal];
-            end
+                for AA = 1:length(FIAngles)  % Large and small delta_theta
+                    linearFit = polyfit(thisTuning(FIAngles{AA},1),thisTuning(FIAngles{AA},2),1);
+                    slopeInRad = linearFit(1)*(180/pi);
+                    varPoisson = mean(thisTuning(FIAngles{AA},2)); % Assuming Poisson with fano = 1
+                    varReal = mean((thisTuning(FIAngles{AA},3) .* ...
+                        sqrt(sum(CP_result.Neu_tuning_Dora_matrix_n(:,FIAngles{AA}))')).^2); % Using real variance (usually much larger)
+                    
+                    % Compute simple Fisher (simple method like Gu)
+                    thisFisherVarPoisson = slopeInRad^2/varPoisson;
+                    thisFisherVarReal = slopeInRad^2/varReal;
+                    
+                    % Save
+                    fisherSimpleGu(tt,unique_stim_type(k),AA,:) = [thisFisherVarPoisson, thisFisherVarReal, slopeInRad, varPoisson, varReal];
+                end
+           end
             
         end
         

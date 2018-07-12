@@ -26,7 +26,8 @@ mat_address = {
     
     %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git cfb3e647e93
     % 'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
-    'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a
+    % 'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a
+    'Z:\Data\Tempo\Batch\20180711_HD_all_IONCluster_LightWeight+fisherSimple+PSTHAll','PSTH'; % Git
     
     %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
     %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
@@ -230,7 +231,7 @@ end
 % HH20150419: Different temporal alignment have been included
 
 %%%%%%% Order corresponding to "Sort_Id" in TEMPO_GUI processing %%%%
-ALL_CHOICE = 1; CORRECT_ANGLE = 2; CHOICE_DIFFICULT = 3; OUTCOME = 4; WRONG_ANGLE = 5;
+ALL_CHOICE = 1; CORRECT_ANGLE = 2; CHOICE_DIFFICULT = 3; OUTCOME = 4; WRONG_ANGLE = 5; CORRECTNWRONG_ANGLE = 6;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 representative_cell = 146; % Last representative cell (HD, not HD_dt) for Messi. HH20160919
 
@@ -584,12 +585,14 @@ for j = 1:2
     % For normalized PSTH plotting (weighted by dynamic ranges for each neuron)
     PSTH_all_Norm{j} = NaN(N,length(rate_ts{j}),6);
     PSTH_correct_angles_Norm{j} = NaN(N,length(rate_ts{j}),1+length(group_result(representative_cell).unique_heading),3);  % Two zero headings
+    PSTH_correctNwrong_angles_Norm{j} = NaN(N,length(rate_ts{j}),length(group_result(representative_cell).unique_heading),3);  % One zero heading
     PSTH_outcomes_Norm{j} = NaN(N,length(rate_ts{j}),4,3);
     PSTH_wrong_angles_Norm{j} = NaN(N,length(rate_ts{j}),length(group_result(representative_cell).unique_heading)-1,3); % @HH20150523
     
     % Also pack raw data for different ways of weighted sum PSTH plotting (weighted by SVM / targeted dimensionality reduction, etc.)
     PSTH_all_raw{j} = NaN(N,length(rate_ts{j}),6);
     PSTH_correct_angles_raw{j} = NaN(N,length(rate_ts{j}),1+length(group_result(representative_cell).unique_heading),3);
+    PSTH_correctNwrong_angles_raw{j} = NaN(N,length(rate_ts{j}),length(group_result(representative_cell).unique_heading),3);  % One zero heading
     PSTH_outcomes_raw{j} = NaN(N,length(rate_ts{j}),4,3);
     PSTH_wrong_angles_raw{j} = NaN(N,length(rate_ts{j}),length(group_result(representative_cell).unique_heading)-1,3); % @HH20150523
     PSTH_hard_easy_raw_cellBtB4Bk{j} = NaN(N,length(rate_ts{j}),4,3); % HH20160905 For EI calculation. Cell by Time by 4 (diff, easy) by stimtype
@@ -675,14 +678,30 @@ for i = 1:N
                 PSTH_correct_angles_norm_this = PSTH_correct_angles_norm_this - offset;
                 PSTH_correct_angles_norm_this = PSTH_correct_angles_norm_this / gain;
                 
+                PSTH_correctNwrong_angles_raw_this =  group_result(i).mat_raw_PSTH.PSTH{j,CORRECTNWRONG_ANGLE,k}.ys;
+                PSTH_correctNwrong_angles_norm_this =  PSTH_correctNwrong_angles_raw_this - offset;
+                PSTH_correctNwrong_angles_norm_this = PSTH_correctNwrong_angles_norm_this / gain;
+                
                 if size(PSTH_correct_angles_norm_this,1) == size(PSTH_correct_angles_Norm{j},3)
                     PSTH_correct_angles_Norm{j}(i,:,:,k) = PSTH_correct_angles_norm_this';
                     PSTH_correct_angles_raw{j}(i,:,:,k) = PSTH_correct_angles_raw_this';
+                    
+                    PSTH_correctNwrong_angles_Norm{j}(i,:,:,k) = PSTH_correctNwrong_angles_norm_this';
+                    PSTH_correctNwrong_angles_raw{j}(i,:,:,k) = PSTH_correctNwrong_angles_raw_this';
+                    
                 elseif size(PSTH_correct_angles_norm_this,1) == size(PSTH_correct_angles_Norm{j},3) - 2 % Without zero heading
                     PSTH_correct_angles_Norm{j}(i,:,3:end,k) = PSTH_correct_angles_norm_this';
                     PSTH_correct_angles_raw{j}(i,:,3:end,k) = PSTH_correct_angles_raw_this';
+                    
+                    PSTH_correctNwrong_angles_Norm{j}(i,:,[1:fix(end/2) fix(end/2)+2:end],k) = PSTH_correctNwrong_angles_norm_this';
+                    PSTH_correctNwrong_angles_raw{j}(i,:,[1:fix(end/2) fix(end/2)+2:end],k) = PSTH_correctNwrong_angles_raw_this';
                 else
                     disp('No match PSTH_angles_norm...');
+                end
+                
+                if group_result(i).mat_raw_PSTH.PREF == LEFT  % Note that PSTH{6} is grouped by raw heading, not flip to "RIGHT = PREF"
+                    PSTH_correctNwrong_angles_Norm{j}(i,:,:,k) = fliplr(squeeze(PSTH_correctNwrong_angles_Norm{j}(i,:,:,k)));
+                    PSTH_correctNwrong_angles_raw{j}(i,:,:,k) = fliplr(squeeze(PSTH_correctNwrong_angles_raw{j}(i,:,:,k)));
                 end
                 
                 % --------- Normalize and pack PSTH_outcome_Norm ---------
@@ -1452,6 +1471,8 @@ function_handles = {
     
     'Fisher information of heading',{
     'Simple Fisher like Gu 2010: Sum(slope/mean)', @f6p5p1
+    '   + Correlation between modalities',@f6p5p1p1
+    '   + Correlation with CPref',@f6p5p1p2
     'Training SVM decoders', @f6p5p2;
     } 
         
@@ -1919,6 +1940,8 @@ function_handles = {
         for ms = 1:size(methods_of_select,1)
             set(figure(999-ms),'name',['Average PSTH (correct only, all headings), ' methods_of_select{ms,2}],'pos',[27 57 919 898]); clf
             h_subplot = tight_subplot(3,2,[0.05 0.1],[0.05 0.15],[0.12 0.03]);
+            linkaxes(h_subplot(1:3),'xy')
+            linkaxes(h_subplot(4:6),'xy')
             
             for k = 1:3
                 
@@ -1930,8 +1953,8 @@ function_handles = {
                 
                 % --- Ramping with different angles ---
                 for j = 1:2
-                     yyy{j} = PSTH_correct_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
-                    % yyy{j} = PSTH_correct_angles_raw{j}(methods_of_select{ms,1},:,:,k);
+%                      yyy{j} = PSTH_correct_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+                    yyy{j} = PSTH_correct_angles_raw{j}(methods_of_select{ms,1},:,:,k);
                     ttt{j} = rate_ts{j};
                     
                     yyy_diff{k}{j} =  yyy{j}(:,:,1:2:end) - yyy{j}(:,:,2:2:end);
@@ -1950,7 +1973,7 @@ function_handles = {
                     title([methods_of_select{ms,2} ', n = ' num2str(sum(methods_of_select{ms,1}))]);
                 end
                 
-                xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  ylim([0.1 max(ylim)]);
+                xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  % ylim([0.1 max(ylim)]);
                 
                 % Gaussian vel
                 plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
@@ -1970,20 +1993,131 @@ function_handles = {
                 
                 xlim([rate_ts{1}(10) rate_ts{1}(end-10)]); ylim([-.1 max(ylim)]); plot(xlim,[0 0],'k--');
                 
-                
                 % Gaussian vel
                 plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
                 
                 legend off;
                 
             end
+            
+            axis(h_subplot(end),'tight');
             SetFigure(15); drawnow;
+            
+            
+            % --- Correct and Wrong trials of different angles --- HH20180711 for GuYong's Hangzhou ppt
+            
+            set(figure(221816-ms),'name',['Average PSTH (correct + wrong, all headings), ' methods_of_select{ms,2}]); clf
+            h_subplot = tight_subplot(3,3,[0.05 0.1],[0.05 0.15],[0.12 0.03]);
+            set(gcf,'uni','norm','pos',[0.009       0.059       0.732       0.853]);
+            linkaxes(h_subplot,'xy')
+            
+            for k = 1:3
+                
+                colors_angles = colormap(gray); 
+                colors_angles = ones(size(colors_angles,1),3) - colors_angles .* repmat([1 1 1]-colors(k,:),size(colors_angles,1),1);
+                colors_angles = colors_angles(round(linspace(20,length(colors_angles),5)),:);
+                colors_angles = reshape(repmat(colors_angles,1,2)',3,[])';
+                colors_angles = mat2cell(colors_angles,ones(10,1));
+                
+                % --- Ramping with different angles ---
+                for j = 1:2
+                     yyy{j} = PSTH_correct_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+%                     yyy{j} = PSTH_correct_angles_raw{j}(methods_of_select{ms,1},:,:,k);
+                    ttt{j} = rate_ts{j};
+                    
+                    yyy_diff{k}{j} =  yyy{j}(:,:,1:2:end) - yyy{j}(:,:,2:2:end);
+                end
+                
+                h = SeriesComparison(yyy,{ttt{1} ttt{2} time_markers},...
+                    'Colors',colors_angles,'LineStyles',{'-','--'},...
+                    'ErrorBar',0,'Xlabel',[],'Ylabel','Norm firing','axes',h_subplot(k));
+                
+                if k < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
+                
+                legend off;
+                
+                if k == 1
+                    title([methods_of_select{ms,2} ', Correct only, n = ' num2str(sum(methods_of_select{ms,1}))]);
+                end
+                
+                xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  % ylim([0.1 max(ylim)]);
+                
+                % Gaussian vel
+                plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+                
+                legend off;
+                
+                
+                % --- Ramping with different angles, Correct + Wrong ---
+               
+                colors_angles = colormap(gray);
+                colors_angles = ones(size(colors_angles,1),3) - colors_angles .* repmat([1 1 1]-colors(k,:),size(colors_angles,1),1);
+                colors_angles = colors_angles(round(linspace(20,length(colors_angles),5)),:);
+                colors_angles = [flipud(colors_angles); colors_angles(2:end,:)];
+                
+                for j = 1:2
+                    yyy{j} = PSTH_correctNwrong_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+%                     yyy{j} = PSTH_correctNwrong_angles_raw{j}(methods_of_select{ms,1},:,:,k);
+                end
+                
+                h = SeriesComparison(yyy,{rate_ts{1} rate_ts{2} time_markers},...
+                    'Colors',colors_angles,'LineStyles',{'--','--','--','--','-','-','-','-','-'},...
+                    'ErrorBar',0,'Xlabel',[],'Ylabel','Norm firing','axes',h_subplot(k+(2-1)*3));
+                
+                if k < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
+                
+                legend off;
+                
+                if k == 1
+                    title([methods_of_select{ms,2} ', Correct + Wrong, n = ' num2str(sum(methods_of_select{ms,1}))]);
+                end
+                
+                xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  %ylim([0.1 0.8]);
+                
+                % Gaussian vel
+                plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+                
+                
+                % --- Ramping with different angles, Wrong only ---
+                % Has been changed to [small pref, small null, ..., large pref, large null]
+                
+                for j = 1:2
+                    yyy{j} = PSTH_wrong_angles_Norm{j}(methods_of_select{ms,1},:,:,k);
+%                     yyy{j} = PSTH_wrong_angles_raw{j}(methods_of_select{ms,1},:,:,k);
+                end
+                
+                % Note that for wrong only, here I align to the "stimulus" not the "choice"
+                h = SeriesComparison(yyy,{rate_ts{1} rate_ts{2} time_markers},...
+                    'Colors',colors_angles([4 4 3 3 2 2 1 1],:),'LineStyles',{'--','-'},...  
+                    'ErrorBar',0,'Xlabel',[],'Ylabel','Norm firing','axes',h_subplot(k+(3-1)*3));
+                
+                if k < 3 ;set(gca,'xtick',[]); else xlabel('Time (ms)'); end
+                
+                legend off;
+                
+                if k == 1
+                    title([methods_of_select{ms,2} ', Wrong only, n = ' num2str(sum(methods_of_select{ms,1}))]);
+                end
+                
+                xlim([rate_ts{1}(10) rate_ts{1}(end-10)]);  %ylim([0.1 0.8]);
+                
+                % Gaussian vel
+                plot(Gauss_vel(:,1) + time_markers{1}(1),min(ylim) + Gauss_vel(:,2)*range(ylim)/4,'--','linew',1.5,'color',[0.6 0.6 0.6]);
+                
+                
+                legend off;
+            end
+            
+            SetFigure(15); drawnow;
+            axis(h_subplot(3),'tight');
+            
             
             % --- Multisensory enhancement of different angles --- HH20160126
             set(figure(995-ms),'name',['Enhancement for different angles (correct only, all headings), ' methods_of_select{ms,2}],'pos',[218 35 1674 928]); clf
             h_subplot = tight_subplot(2,3,[0.1 0.05],[0.05 0.07],[0.1 0.05]);
             h_subplot =  reshape(reshape(h_subplot,2,3)',[],1); delete(h_subplot(end));
             unique_abs_heading = unique(abs(group_result(representative_cell).mat_raw_PSTH.heading_per_trial));
+            linkaxes(h_subplot,'xy')
             
             for aa = 1:size(yyy_diff{1}{1},3) % Different angles
                 
@@ -2026,6 +2160,7 @@ function_handles = {
                 plot(ts(t_select),ramping1(:,aa)*sqrt(2)/2+ramping2(:,aa)*sqrt(2)/2,'m--','linew',2);
                 text(700,0,num2str(w));
             end
+            axis(h_subplot(end-1),'tight');
             
             % == All angle use the same weight. HH20160926 ==
             w_all = fminsearch(@(w) sum((w(1)*ramping1(:) + w(2)*ramping2(:) - ramping3(:)).^2), [.5 .5])
@@ -2035,7 +2170,7 @@ function_handles = {
                 text(700,0.1,num2str(w_all),'color','c');
             end
 
-            SetFigure(15);
+            SetFigure(15); 
         end
         
     end
@@ -2524,7 +2659,7 @@ function_handles = {
         
         % Plotting tuning curves at three time points
         set(figure(145506),'name',['Dora tuning, j = ' num2str(j)]); clf;
-        set(gcf,'uni','norm','pos',[0.002       0.381       0.725       0.535]);
+        set(gcf,'uni','norm','pos',[0.001       0.078       0.835       0.838]);
         
         for pp = 1:length(CP_ts{j})
             
@@ -2600,7 +2735,7 @@ function_handles = {
             for k = 1:3  % For each stim type
                 
                 % Plotting
-                subplot(2,length(tuning_time_phase),pp); hold on; ylabel('All');
+                subplot(3,length(tuning_time_phase),pp); hold on; ylabel('All');
                 
                 % Traditional all heading
                 %{
@@ -2643,8 +2778,15 @@ function_handles = {
                 title([tuning_time_phase_title{pp} ', n = ' num2str(size(this_tuning_all,2))]);
                 axis tight; xlim(xlim*1.1);
                 
+                % --------- Tuning all ---------
+                subplot(3,length(tuning_time_phase),pp + length(tuning_time_phase));  hold on; ylabel('Correct + wrong');
+                
+                errorbar(unique_heading,tuning_mean_all(:,tuning_time_phase(pp),k),...
+                    tuning_sem_all(:,tuning_time_phase(pp),k),'o-','color',colors(k,:),'LineWid',2,'capsize',0);
+                
+                
                 % --------- Correct only with fitting ----------
-                subplot(2,length(tuning_time_phase),pp + length(tuning_time_phase));  hold on; ylabel('Correct only');
+                subplot(3,length(tuning_time_phase),pp + 2*length(tuning_time_phase));  hold on; ylabel('Correct only');
                 
                 plot(unique_heading_two_zeros,tuning_mean_correctonly(:,tuning_time_phase(pp),k),'o','markersize',9,'color',colors(k,:),'LineWid',2);
                 
@@ -2857,16 +2999,17 @@ function_handles = {
         end
         %%
         methods_of_select = {
-            select_bottom_line, 'All cells';
+            %select_bottom_line, 'All cells';
             select_tcells, 'Typical cells';
-            select_no_tcells, 'Non-typical cells'};
+           % select_no_tcells, 'Non-typical cells'
+           };
         
         unique_heading = group_result(representative_cell).mat_raw_PSTH.CP{j,1}.raw_CP_result{1}.Neu_tuning(:,1);
         unique_heading_for_correct_wrong = unique_heading(unique_heading > 0);
         
-        for ms = 1:3
-            set(figure(999-ms),'name',['Average PSTH (Correct vs Wrong), ' methods_of_select{ms,2}],'pos',[18 67 1645 898]); clf
-            h_subplot = tight_subplot(3,1 + length(unique_heading_for_correct_wrong),[0.05 0.02],[0.15 0.00]);
+        for ms = 1:size(methods_of_select,1)
+            set(figure(2254-ms),'name',['Average PSTH (Correct vs Wrong), ' methods_of_select{ms,2}],'pos',[18 67 1645 898]); clf
+            h_subplot = tight_subplot(3,1 + length(unique_heading_for_correct_wrong),[0.05 0.02],[0.1 0.1]);
             
             j = 1;
             for k = 1:3
@@ -2913,7 +3056,7 @@ function_handles = {
                     end
                     
                     SeriesComparison({PSTH_correct_wrong_this{1} PSTH_correct_wrong_this{2}},...
-                        {rate_ts{1} rate_ts{2} time_markers},...
+                        {rate_ts{1} rate_ts{2} time_markers},...r
                         'Colors',{'k','k','m','m'},'LineStyles',{'-','--'},...
                         'ErrorBar',0,'Xlabel',[],'Ylabel',[],'axes',h_subplot(hh * 3 + k));
                     
@@ -4350,7 +4493,7 @@ function_handles = {
                 (Choice_pref_all_temp(3,monkey2 & ~cpref_sig_k & ~cpref_sig_3,tt)) ;
                 },...
                 'CombinedIndex',[63],'PlotCombinedOnly', 1, ...
-                'Ylabel','Single choice preference','Xlabel','Combined choice preference',...
+                'Ylabel','Combined choice preference','Xlabel','Single choice preference',...
                 'FaceColors',two_face_colors(k,:),'Markers',{'o','^'},...
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
                 'figN',figN,'XHist',20,'YHist',20,...
@@ -6884,7 +7027,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     end
 
 
-
+    fisherSimpleGu = [];
+    findForFisher = find(select_tcells);
 
     %% ====== Calculate Fisher information of heading ======== HH20180619
     % 1. Simplest method like Gu 2010: Sum over cells (slope / mean)
@@ -6893,14 +7037,14 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         %%
         
         j = 1;
-        findForFisher = find(select_tcells);
         
-        fisherSimpleGu = nan(length(findForFisher),length(CP_ts{j}),3,2);  % Last one: varPoisson/varReal
+        fisherSize = size(group_result(1).mat_raw_PSTH.fisherSimpleGu);
+        fisherSimpleGu = nan(length(findForFisher),fisherSize(1),fisherSize(2),fisherSize(3),fisherSize(4));  % Last one: varPoisson/varReal
         
         for ii = 1:length(findForFisher)
             
             thisCell = findForFisher(ii);
-            fisherSimpleGu (ii,:,:,:) = group_result(thisCell).mat_raw_PSTH.fisherSimpleGu;
+            fisherSimpleGu (ii,:,:,:,:) = group_result(thisCell).mat_raw_PSTH.fisherSimpleGu;
 
             % Moved to batch file
             %{ 
@@ -6935,39 +7079,317 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             
         end
         
-        % -- Plotting
+        % -------- Plotting FI(t) ---------
         figure(4232); clf
-        set(gcf,'uni','norm','pos',[0.443       0.557       0.557       0.349]);
+        set(gcf,'uni','norm','pos',[0.442       0.166       0.557       0.739]);
         plotRange = 1:find(CP_ts{1}>=1600,1);
         bootN = 2000;
+        
+        rangeTitles = {'+/-8 degree','+/-2 degrees'};
         titles = {'Poisson assump.','Real variance'};
         
-        for varMethod = 1:2  %  1: Gu's Poisson assumption   2: Real variance (10x larger than Poisson because of varCE)
-            h = subplot(1,2,varMethod);
-            
-            % Get sum of Fisher and std by bootstrap (Gu 2010)
-            sumBoots = bootstrp(bootN,@(x)sum(x,1),fisherSimpleGu(:,plotRange,:,varMethod));
-            sumBoots = reshape(sumBoots,bootN,[],3);
-            
-            SeriesComparison(sumBoots, CP_ts{1}(plotRange),...
-                            'SEM',0,'Errorbar',2,'Axes',h,'Transparent',transparent);
-            
-            sumFisherMean = squeeze(mean(sumBoots,1));
-            sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
-            plot(CP_ts{1}(plotRange),sumFisherVestPlusVIs,'m','linew',2);
-                        
-            % Gaussian vel
-            axis tight; plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
-            xlim([-100 1600]); ylim([0 max(ylim)*1.1])
-            plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
-            legend off;
-            title(titles{varMethod})
+        for ranges = 1:2
+            for varMethod = 1:2  %  1: Gu's Poisson assumption   2: Real variance (10x larger than Poisson because of varCE)
+                h = subplot(2,2,varMethod + (ranges-1)*2);
+                
+                % Get sum of Fisher and std by bootstrap (Gu 2010)
+                sumBoots = bootstrp(bootN,@(x)sum(x,1),squeeze(fisherSimpleGu(:,plotRange,:,ranges,varMethod)));
+                sumBoots = reshape(sumBoots,bootN,[],3);
+                
+                SeriesComparison(sumBoots, CP_ts{1}(plotRange),...
+                    'SEM',0,'Errorbar',2,'Axes',h,'Transparent',transparent);
+                
+                sumFisherMean = squeeze(mean(sumBoots,1));
+                sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+                plot(CP_ts{1}(plotRange),sumFisherVestPlusVIs,'m','linew',2);
+                
+                % Gaussian vel
+                axis tight; plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+                xlim([-100 1600]); ylim([0 max(ylim)*1.1])
+                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+                legend off;
+                title(titles{varMethod})
+                ylabel(rangeTitles{ranges});
+            end
         end
         
         SetFigure(15)
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    FIScatterTimeRange = 500 < CP_ts{1} & CP_ts{1} <= 1500;
+    FIScatterHeadingRange = 1; % +/-8 degrees
+    FIScatterVariance = 2; % Real variance
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    % 1.1 Plot scatter FI of different modalities
+    function f6p5p1p1(debug)  
+        if debug;  dbstack;  keyboard;  end
+        
+        if isempty(fisherSimpleGu), f6p5p1(0); end
+        
+        % -------- Plotting cell-by-cell FI (Yong Gu wants this) ---------
+ 
+        % Which info?
+        FI_all_temp = squeeze(mean(fisherSimpleGu(:,FIScatterTimeRange,:,FIScatterHeadingRange,FIScatterVariance),2))';
+        FI_temp_comb_minus_vest = FI_all_temp(3,:)-FI_all_temp(1,:);
+        FI_temp_comb_minus_vis = FI_all_temp(3,:)-FI_all_temp(2,:);
+        FI_temp_vest_plus_vis = FI_all_temp(1,:) + FI_all_temp(2,:);
+        
+        %%  1. ====== vest and visual  ========
+        tt = 3;
+        
+        monkeys = xls_num{1}(:,header.Monkey);  % HH20160613
+        monkey1 = monkeys == 5; monkey1 = monkey1(findForFisher)';
+        monkey2 = monkeys == 10; monkey2 = monkey2(findForFisher)';
+
+        set(figure(figN),'name','FI (visual) vs. FI (vest)','pos',[17 514 1151 449]);
+        
+        cpref_sig_1 = Choice_pref_p_value_all(1,findForFisher,tt) < 0.05;  % Use Choice pref p value as indicators
+        cpref_sig_2 = Choice_pref_p_value_all(2,findForFisher,tt) < 0.05;
+        
+        
+        h = LinearCorrelation({
+                (FI_all_temp(2, monkey1 & ~cpref_sig_1 & ~cpref_sig_2)) ;
+                (FI_all_temp(2, monkey2 & ~cpref_sig_1 & ~cpref_sig_2)) ;
+                (FI_all_temp(2, monkey1 & xor(cpref_sig_1 , cpref_sig_2)));
+                (FI_all_temp(2, monkey2 & xor(cpref_sig_1 , cpref_sig_2)));
+                (FI_all_temp(2, monkey1 & cpref_sig_1 & cpref_sig_2));...
+                (FI_all_temp(2, monkey2 & cpref_sig_1 & cpref_sig_2))},...
+                {
+                (FI_all_temp(1,monkey1 & ~cpref_sig_1 & ~cpref_sig_2)) ;
+                (FI_all_temp(1,monkey2 & ~cpref_sig_1 & ~cpref_sig_2)) ;
+                (FI_all_temp(1,monkey1 & xor(cpref_sig_1 , cpref_sig_2))) ;
+                (FI_all_temp(1,monkey2 & xor(cpref_sig_1 , cpref_sig_2))) ;
+                (FI_all_temp(1,monkey1 & cpref_sig_1 & cpref_sig_2)) ;...
+                (FI_all_temp(1,monkey2 & cpref_sig_1 & cpref_sig_2)) },...
+                'CombinedIndex',[63],'PlotCombinedOnly', 1,...
+                'Ylabel','Vestibular FI','Xlabel','Visual FI',...
+                'FaceColors',{'none','none',[0.8 0.8 0.8],[0.8 0.8 0.8],'k','k'},'Markers',{'o','^'},...
+                'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
+                'figN',figN,'XHist',20,'YHist',20,'Method','Pearson','FittingMethod',2, ...
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1); figN = figN + 1;
+        
+        delete([h.group(1:6).line]);
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       %  SetFigure(20);
+        
+%         % Annotate tcells
+%         plot(FI_all_temp(2,select_tcells(select_tcells)),FI_all_temp(1,select_tcells(select_tcells)),...
+%             '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
+                
+        % Show individual cell selected from the figure. HH20150424
+        h_line = plot((FI_all_temp(2,:)),(FI_all_temp(1,:)),'visible','off'); hold on;
+        set([gca [h.group.dots] h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, select_tcells});
+        
+        
+       %% 2. ====== Single vs Comb =======
+        two_face_colors = fliplr({'none','none',[0.8 0.8 1],[0.8 0.8 1],colors(1,:),colors(1,:);
+                                  'none','none',[1 0.8 0.8],[1 0.8 0.8],colors(2,:),colors(2,:)});
+        
+        for k = 1:2  % Plot it separately
+            
+            set(figure(figN),'name','FI (single) vs. FI (comb)','pos',[17 514 1151 449]);
+            
+            cpref_sig_k = Choice_pref_p_value_all(k,findForFisher,tt) < 0.05;
+%             cpref_sig_2 = Choice_pref_p_value_all(2,:,tt) < 0.05;
+            cpref_sig_3 = Choice_pref_p_value_all(3,findForFisher,tt) < 0.05;
+           
+           
+            h = LinearCorrelation({
+                (FI_all_temp(k, monkey1 & cpref_sig_k & cpref_sig_3));
+                (FI_all_temp(k, monkey2 & cpref_sig_k & cpref_sig_3));
+                (FI_all_temp(k, monkey1 & xor(cpref_sig_k , cpref_sig_3)));
+                (FI_all_temp(k, monkey2 & xor(cpref_sig_k , cpref_sig_3)));
+                (FI_all_temp(k, monkey1 & ~cpref_sig_k & ~cpref_sig_3)) ;
+                (FI_all_temp(k, monkey2 & ~cpref_sig_k & ~cpref_sig_3)) ;
+                },...
+                {
+                (FI_all_temp(3,monkey1 & cpref_sig_k & cpref_sig_3)) ;
+                (FI_all_temp(3,monkey2 & cpref_sig_k & cpref_sig_3));
+                (FI_all_temp(3,monkey1 & xor(cpref_sig_k, cpref_sig_3))) ;
+                (FI_all_temp(3,monkey2 & xor(cpref_sig_k, cpref_sig_3)));
+                (FI_all_temp(3,monkey1 & ~cpref_sig_k & ~cpref_sig_3)) ;
+                (FI_all_temp(3,monkey2 & ~cpref_sig_k & ~cpref_sig_3)) ;
+                },...
+                'CombinedIndex',[63],'PlotCombinedOnly', 1,...
+                'Ylabel','Combined FI','Xlabel','Single FI',...
+                'FaceColors',two_face_colors(k,:),'Markers',{'o','^'},...
+                'LineStyles',{'k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
+                'figN',figN,'XHist',20,'YHist',20,...
+                'XHistStyle','stacked','YHistStyle','stacked','SameScale',1,...
+                'Method','Pearson','FittingMethod',2); figN = figN + 1;
+            
+            % delete([h.group(1:6).line]);
+            plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       %   SetFigure(20);
+            axis square;
+            
+            % Annotate tcells
+%             plot((FI_all_temp(k,select_tcells(select_tcells))),(FI_all_temp(3,select_tcells(select_tcells))),...
+%                 '+','markersize',tcell_cross_size,'color','k','linew',2);
+            
+            % Show individual cell selected from the figure. HH20150424
+            h_line = plot((FI_all_temp(k,:)),(FI_all_temp(3,:)),'visible','off'); hold on;
+            set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_tcells],1});
+                                   
+            axis tight;
+        end
+        %             for i = 1:3
+        %                 set(h.group(i).dots,'color',colors(k,:));
+        %             end
+        
+        %% ===  3. (Comb - visual) VS (Comb - vest)  ===
+        set(figure(figN),'name','FI(Comb - visual) VS FI(Comb - vest)','pos',[17 514 1151 449]);
+                
+        cellTypes = [group_result.Waveform_broad];
+        cellTypes = cellTypes(findForFisher);
+        cellTypes(:) = 0;
+
+        
+        h = LinearCorrelation({
+            (FI_temp_comb_minus_vest(1,monkey1 & ~cellTypes)) ;
+            (FI_temp_comb_minus_vest(1,monkey2 & ~cellTypes)) ;
+            (FI_temp_comb_minus_vest(1,monkey1 & cellTypes)) ;
+            (FI_temp_comb_minus_vest(1,monkey2 & cellTypes)) ;
+            },...
+            {
+            (FI_temp_comb_minus_vis(1,monkey1 & ~cellTypes)) ;
+            (FI_temp_comb_minus_vis(1,monkey2 & ~cellTypes)) ;
+            (FI_temp_comb_minus_vis(1,monkey1 & cellTypes)) ;
+            (FI_temp_comb_minus_vis(1,monkey2 & cellTypes)) ;
+            },...
+            'CombinedIndex',15,'PlotCombinedOnly', 1, ...
+            'Xlabel','FI (Combined - Vest)','Ylabel','FI (Combined - Visual)',...
+            'FaceColors',{'none','none','k','k'},'Markers',{'o','^'},...
+            'LineStyles',{'k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
+            'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
+            'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;
+        
+        delete([h.group(1:2).line]);
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        axis square;
+        
+        % Annotate tcells
+%         plot((FI_temp_comb_minus_vest(1,select_tcells(select_bottom_line))),...
+%             (FI_temp_comb_minus_vis(1,select_tcells(select_bottom_line))),...
+%             '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
+        %             plot((Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
+        %                 '+','markersize',tcell_cross_size,'color','k','linew',2);
+        
+        % Show individual cell selected from the figure. HH20150424
+        h_line = plot(FI_temp_comb_minus_vest(1,:),FI_temp_comb_minus_vis(1,:),'visible','off'); hold on;
+        set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_tcells],1});
+        
+        axis tight;   
+        
+        
+       %% ===  4. Comb VS (Vest + Vis)  ===
+        set(figure(figN),'name','FI(Comb) VS FI(Vest + Vis)','pos',[17 514 1151 449]);
+                
+        cellTypes = [group_result.Waveform_broad];
+        cellTypes(:) = 0;
+        
+        cellTypes = cellTypes(findForFisher);
+        
+        h = LinearCorrelation({
+            (FI_temp_vest_plus_vis(1,monkey1 & ~cellTypes)) ;
+            (FI_temp_vest_plus_vis(1,monkey2 & ~cellTypes)) ;
+            (FI_temp_vest_plus_vis(1,monkey1 & cellTypes)) ;
+            (FI_temp_vest_plus_vis(1,monkey2 & cellTypes)) ;
+            },...
+            {
+            (FI_all_temp(3,monkey1 & ~cellTypes)) ;
+            (FI_all_temp(3,monkey2 & ~cellTypes)) ;
+            (FI_all_temp(3,monkey1 & cellTypes)) ;
+            (FI_all_temp(3,monkey2 & cellTypes)) ;
+            },...
+            'CombinedIndex',15,'PlotCombinedOnly', 1, ...
+            'Xlabel','FI (Vest + Vis)','Ylabel','FI (Combined)',...
+            'FaceColors',{'none','none','k','k'},'Markers',{'o','^'},...
+            'LineStyles',{'k:','k:','k:','k:','k-'},'MarkerSize',marker_size,'SameScale',1,...
+            'figN',figN,... 'XHist',20,'YHist',20,'XHistStyle','stacked','YHistStyle','stacked',
+            'SameScale',1,'Method','Pearson','FittingMethod',2); figN = figN + 1;
+        
+        delete([h.group(1:2).line]);
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        axis square;
+        
+        % Annotate tcells
+%         plot((FI_temp_comb_minus_vest(1,select_tcells(select_bottom_line))),...
+%             (FI_temp_comb_minus_vis(1,select_tcells(select_bottom_line))),...
+%             '+','markersize',tcell_cross_size,'color',colors(2,:),'linew',2);
+        %             plot((Choice_pref_all_temp(2,select_tcells(select_bottom_line),tt)),(Choice_pref_all_temp(3,select_tcells(select_bottom_line),tt)),...
+        %                 '+','markersize',tcell_cross_size,'color','k','linew',2);
+        
+        % Show individual cell selected from the figure. HH20150424
+        h_line = plot(FI_temp_vest_plus_vis(1,:),FI_all_temp(3,:),'visible','off'); hold on;
+        set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_tcells],1});
+        
+        clear Choice_pref_all_temp;
+        axis tight;     
+        
         
     end
     
+    % 1.2. FI VS CPref ====
+    function f6p5p1p2(debug)
+        if debug;  dbstack;  keyboard;  end
+        if isempty(fisherSimpleGu), f6p5p1(0); end
+        
+        monkeys = xls_num{1}(:,header.Monkey);  
+        monkey1 = monkeys == 5; monkey1 = monkey1(findForFisher)';
+        monkey2 = monkeys == 10; monkey2 = monkey2(findForFisher)';
+
+        % Which info?
+        FI_all_temp = squeeze(mean(fisherSimpleGu(:,FIScatterTimeRange,:,FIScatterHeadingRange,FIScatterVariance),2))';
+        tt = 3;
+        
+        for k = 1:3  % Plot it separately
+            
+            set(figure(figN),'name','FI vs. Cpref','pos',[17 514 1151 449]);
+            
+            cpref_sig_k = Choice_pref_p_value_all(k,findForFisher,tt) < 0.05;
+            
+            Choice_pref_all_temp = abs(Choice_pref_all(:,findForFisher,tt));
+           
+            h = LinearCorrelation({
+                (Choice_pref_all_temp(k, monkey1 & cpref_sig_k ));
+                (Choice_pref_all_temp(k, monkey2 & cpref_sig_k ));
+                (Choice_pref_all_temp(k, monkey1 & ~cpref_sig_k)) ;
+                (Choice_pref_all_temp(k, monkey2 & ~cpref_sig_k )) ;
+                },...
+                {
+                (FI_all_temp(k,monkey1 & cpref_sig_k)) ;
+                (FI_all_temp(k,monkey2 & cpref_sig_k ));
+                (FI_all_temp(k,monkey1 & ~cpref_sig_k)) ;
+                (FI_all_temp(k,monkey2 & ~cpref_sig_k)) ;
+                },...
+                'CombinedIndex',15,'PlotCombinedOnly', 1, ...
+                'Ylabel','FI','Xlabel','ChoicePref',...
+                'FaceColors',{colors(k,:),colors(k,:),'none','none'},'Markers',{'o','^'},...
+                'LineStyles',{'k:','k:','k:','k:','k-'},'MarkerSize',marker_size,...
+                'figN',figN,'XHist',20,'YHist',20,...
+                'XHistStyle','stacked','YHistStyle','stacked',...
+                'Method','Spearman','FittingMethod',2); figN = figN + 1;
+            
+            % delete([h.group(1:6).line]);
+            plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');       %   SetFigure(20);
+            
+            % Annotate tcells
+%             plot((FI_all_temp(k,select_tcells(select_tcells))),(FI_all_temp(3,select_tcells(select_tcells))),...
+%                 '+','markersize',tcell_cross_size,'color','k','linew',2);
+            
+            % Show individual cell selected from the figure. HH20150424
+            h_line = plot(Choice_pref_all_temp(k,:),FI_all_temp(k,:),'visible','off'); hold on;
+            set([gca h_line],'ButtonDownFcn',{@Show_individual_cell, h_line, [select_tcells],1});
+                                   
+            axis tight;
+        end
+        %             for i = 1:3
+        %                 set(h.group(i).dots,'color',colors(k,:));
+        %             end
+        
+    end
+        
     % 2. Decoder of heading (not choice/modality) ====  HH20170810   
     function f6p5p2(debug)
         if debug;  dbstack;  keyboard;  end
@@ -8145,7 +8567,7 @@ weights_TDR_PCA_SVM_allbootstrap = [];
         
         
         % -- PSTH_diff (Hard and Easy) -- HH20160905
-        %{
+%         %{
         figure(1466); clf;
         set(gcf,'uni','norm','pos',[0.013       0.099       0.286       0.352]);
         
