@@ -60,7 +60,8 @@ addOptional(paras,'CompareColor',{});  % Colors for significance marker.
 addOptional(paras,'PCritical',0.05);  
 addOptional(paras,'PlotPs',0);  
 
-addOptional(paras,'Colors',{'b','r','g'}); % (originally for comparing PSTH of LIP neurons)
+% addOptional(paras,'Colors',{'b','r','g'}); % (originally for comparing PSTH of LIP neurons)  colors = [41 89 204; 248 28 83; 14 153 46]/255;
+addOptional(paras,'Colors',[41 89 204; 248 28 83; 14 153 46]/255); % (originally for comparing PSTH of LIP neurons)  
 addOptional(paras,'LineStyles',{'-'});
 addOptional(paras,'Transparent',0);
 addOptional(paras,'SEM',1);  % SEM (for conventional mean) or STD (for bootstrap)

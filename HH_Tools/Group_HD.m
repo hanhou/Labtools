@@ -27,7 +27,7 @@ mat_address = {
     %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git cfb3e647e93
     % 'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
     % 'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a
-    'Z:\Data\Tempo\Batch\20180711_HD_all_IONCluster_LightWeight+fisherSimple+PSTHAll','PSTH'; % Git
+    'Z:\Data\Tempo\Batch\20180711_HD_all_IONCluster_LightWeight+fisherSimple+PSTHAll','PSTH'; % Git e86e4f76
     
     %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
     %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
@@ -1473,7 +1473,8 @@ function_handles = {
     'Simple Fisher like Gu 2010: Sum(slope/mean)', @f6p5p1
     '   + Correlation between modalities',@f6p5p1p1
     '   + Correlation with CPref',@f6p5p1p2
-    'Training SVM decoders', @f6p5p2;
+    'Dora''s partial corr and linear regression k', @f6p5p2
+    'Training SVM decoders', @f6p5p9;
     } 
         
     'Linear regression',{
@@ -2871,8 +2872,10 @@ function_handles = {
         
         find_for_partial = find(select_for_partial);
         unique_heading = group_result(representative_cell).unique_heading;
-        partial_corr_coef_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);  % [cell number, (heading coeff, choice coeff), stim_type]
+        partial_corr_coef_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);  % [cell number, time epoch, (heading coeff, choice coeff), stim_type]
         partial_corr_p_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);
+        partial_corr_coef_all_flipped = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);  % For plotting partial corr over time
+        
         anova2_p_all = nan(sum(select_for_partial),size(partial_corr_timewins,1),2,3);
         dora_tuning_mean_each_cell = nan(sum(select_for_partial),size(partial_corr_timewins,1),3,2,length(unique_heading));
         dora_tuning_sem_each_cell = nan(sum(select_for_partial),size(partial_corr_timewins,1),3,2,length(unique_heading));
@@ -2922,9 +2925,21 @@ function_handles = {
                         end
                     end
                 end
+                
+%                 % Use flipped partial corr (Fig.6 of Zaidel 2017)  
+%                 if partial_corr_coef_all(i,tt,2,3) < 0  % Flip according to combined choice partial corr
+%                     partial_corr_coef_all_flipped(i,tt,:,:) = - partial_corr_coef_all(i,tt,:,:);
+%                 else
+%                     partial_corr_coef_all_flipped(i,tt,:,:) = partial_corr_coef_all(i,tt,:,:);
+%                 end
+                
             end
             progressbar(i/sum(select_for_partial));
         end
+        
+        % Use R^2 (Fig.4 of Zaidel 2017)
+        partial_corr_coef_all_flipped = partial_corr_coef_all.^2;
+        
         
         %% Drawing
         set(figure(3099+figN),'name',sprintf('Partial correlation, j = %g, "any significant" out of N = %g, "%s" cells',...
@@ -2990,6 +3005,32 @@ function_handles = {
                                 
             end
         end
+        
+       %% Plot partial correlation over time (Zaidel 2017, Figure 6)  HH20180821
+        set(figure(194959),'name',sprintf('Partial correlation over time, j = %g, "any significant" out of N = %g, "%s" cells',...
+                    j,sum(select_for_partial),t_criterion_txt)); clf; figN = figN+1;
+        set(gcf,'uni','norm','pos',[0       0.038       0.994       0.877]);
+        
+        time_centers = mean(reshape([partial_corr_timewins{2:end,1}],2,[]),1);
+        
+        for k = 1:3
+            subplot(1,3,k);
+            for pp = 1:2
+                
+               aver_this = mean(partial_corr_coef_all_flipped(:,2:end,pp,k),1); % Note the first time epoch is the whole trial
+               sem_this = std(partial_corr_coef_all_flipped(:,2:end,pp,k),[],1)/sqrt(size(partial_corr_coef_all_flipped,1));
+               
+               if pp == 1
+                   col = colors(k,:);
+               else
+                   col = [0 0 0];
+               end
+               errorbar(time_centers, aver_this, sem_this,'color',col,'linew',2); hold on;
+                
+            end
+        end
+        title('Temporal resolution is too low here for Fisher info. I put the real one in f6p5r2.');
+        
     end
         
     function f1p3(debug)      % Rate 3. Correct / Wrong Trials
@@ -5039,6 +5080,23 @@ function_handles = {
             'figN',7162036,'XHist',20,'YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman','FittingMethod',2);
   
+        %% 8. Vest divergence time comparison
+        figure(162015); clf; hold on;
+        for k = 1:3
+            vestDivBroad = Ys(all_celltype,8 + k);
+            nBroad = sum(~isnan(vestDivBroad));
+            vestDivNarrow = Ys(~all_celltype, 8 + k);
+            nNarrow = sum(~isnan(vestDivNarrow));
+            
+            means = [nanmean(vestDivBroad), nanmean(vestDivNarrow)];
+            sems = [nanstd(vestDivBroad)/sqrt(nBroad), nanstd(vestDivNarrow)/sqrt(nNarrow)];
+            [~,p] = ttest2(vestDivBroad,vestDivNarrow);
+            
+            bar([(k-1)*2+1 k*2], means); 
+            errorbar([(k-1)*2+1 k*2], means, sems);
+            text(k*2-0.5,mean(means)*1.1,sprintf('%g, %g\np = %g',nBroad,nNarrow,p));
+        end
+          
     end
 
     function f4p0(debug)      % Pack PCA_A
@@ -7390,8 +7448,206 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         
     end
         
+    FIDora_partial_corr_all = []; FIDora_partial_corr_all_flipped = []; FIDora_partial_corr_all_Rsquare = []; 
+    FIDora_conditional_slope2overVar = []; FIDora_conditional_choiceslope2overVar = [];
+    
+    function f6p5p2(debug)  % Dora's partial corr / multivariate linear regression slope
+        if debug;  dbstack;  keyboard;  end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        j = 1;
+        select_for_partial = select_tcells;
+        
+        FIDora_binSize = 200; % in ms
+        FIDora_stepSize = 10;
+        FIDora_tCenters = FIDora_binSize/2 : FIDora_stepSize : 1500 - FIDora_binSize/2 ;
+        conditional_variance_min_reps = 10;
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        find_for_partial = find(select_for_partial);
+        
+        % Calculate partial correlation coefficients for each cell
+        
+        if isempty(FIDora_partial_corr_all)
+            
+            FIDora_partial_corr_all = nan(sum(select_for_partial),length(FIDora_tCenters),2,3);  % [cell number, time epoch, (heading coeff, choice coeff), stim_type]
+            FIDora_partial_corr_all_flipped = nan(sum(select_for_partial),length(FIDora_tCenters),2,3);  % For plotting partial corr over time
+            FIDora_conditional_slope2overVar = nan(sum(select_for_partial),length(FIDora_tCenters),1,3);  
+            
+            progressbar('cell num');
+            
+            for i = 1:sum(select_for_partial)  % For cells
+                
+                this_raw_spike_in_bin = group_result(find_for_partial(i)).mat_raw_PSTH.spike_aligned{1,j};
+                this_time = group_result(find_for_partial(i)).mat_raw_PSTH.spike_aligned{2,j};
+                this_stim_type = group_result(find_for_partial(i)).mat_raw_PSTH.stim_type_per_trial;
+                this_heading = group_result(find_for_partial(i)).mat_raw_PSTH.heading_per_trial;
+                this_choice = group_result(find_for_partial(i)).mat_raw_PSTH.choice_per_trial;
+                
+                for tt = 1 : length(FIDora_tCenters)
+                    
+                    count_win = FIDora_tCenters(tt) - FIDora_binSize/2 <= this_time & this_time <= FIDora_tCenters(tt) + FIDora_binSize/2;
+                    
+                    for k = 1:3
+                        if isempty(find(this_stim_type==k, 1)); continue; end
+                        
+                        % --- 1. Partial correlation ---
+                        X=[];
+                        X(:,1) = sum(this_raw_spike_in_bin(this_stim_type==k,count_win),2)...
+                            / FIDora_binSize * 1e3; % Average firing rate in Hz
+                        X(:,2) = this_heading(this_stim_type==k);
+                        X(:,3) = this_choice(this_stim_type==k);
+                        
+                        r = partialcorr(X);
+                        FIDora_partial_corr_all(i,tt,:,k) = r(1,2:3);
+                        
+                        % --- 2. Partial FI ---
+                        % -     2.1 Multivariate linear regression of beta ---
+                        normalizedX3 = X(:,3)./rms(X(:,3)).*rms(X(:,2)); % Normalize choice to headings' RMS (to keep sensory heading comparable with the traditional FI)
+                        coeff = glmfit([X(:,2) normalizedX3],X(:,1));
+                        conditional_sensory_slope = coeff(2) * (180/pi); % Turn to rad
+                        conditional_choice_slope = coeff(3) * (180/pi); % Turn to rad, although it's choice 
+                        
+                        % -     2.2 Compute conditional variance
+                        unique_heading = unique(this_heading);
+                        conditional_variance_matrix = nan(2,length(unique_heading));
+                        
+                        for hh = 1:length(unique(this_heading))
+                            for cc = LEFT:RIGHT
+                                this_rates = X( X(:,2) == unique_heading(hh) & X(:,3) == cc,1);
+                                if length(this_rates) >= conditional_variance_min_reps
+                                    conditional_variance_matrix(cc,hh) = var(this_rates);
+                                end
+                            end
+                        end
+                        
+                        conditional_variance_mean = nanmean(conditional_variance_matrix(:));
+                        
+                        FIDora_conditional_slope2overVar(i,tt,1,k) = conditional_sensory_slope^2/conditional_variance_mean;
+                        FIDora_conditional_choiceslope2overVar(i,tt,1,k) = conditional_choice_slope^2/conditional_variance_mean;
+                    end
+                end
+                
+                % Use flipped partial corr (Fig.6 of Zaidel 2017)
+                if group_result(find_for_partial(i)).PREF_PSTH == LEFT  % Flip according to PREF of this cell
+                    FIDora_partial_corr_all_flipped(i,:,:,:) = - FIDora_partial_corr_all(i,:,:,:);
+                end
+                
+                progressbar(i/sum(select_for_partial));
+            end
+            
+            % Use R^2 (Fig.4 of Zaidel 2017)
+            FIDora_partial_corr_all_Rsquare = FIDora_partial_corr_all.^2;
+        end
+        
+        % ========  Plot partial correlation over time (Zaidel 2017, Figure 6)  HH20180821
+        set(figure(082215),'name',sprintf('Partial correlation over time, j = %g, "any significant" out of N = %g, "%s" cells',...
+                    j,sum(select_for_partial),t_criterion_txt)); clf;                 
+        set(gcf,'uni','norm','pos',[0.016       0.257       0.965       0.528]);
+        
+        hhcc_text = {'Heading','Choice'};
+        
+        for hhcc = 1:2
+            
+            for k = 1:3
+                % Flip
+                SeriesComparison(squeeze(FIDora_partial_corr_all_flipped(:,:,:,k)), FIDora_tCenters,...
+                    'SEM',1,'Errorbar',2,'Axes',subplot(2,5,k),'Transparent',transparent,'colors',[colors(k,:); 0 0 0]);         legend off;
+
+                % Gaussian vel
+                axis tight; plot([0 0],ylim,'k--'); xlim([-100 1600]); plot(xlim,[0 0],'k--'); % ylim([0 max(ylim)*1.1])
+                plot([1500 1500], ylim,'k--')                
+                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+
+                % R^2
+                SeriesComparison(squeeze(FIDora_partial_corr_all_Rsquare(:,:,:,k)), FIDora_tCenters,...
+                    'SEM',1,'Errorbar',2,'Axes',subplot(2,5,5 + k),'Transparent',transparent,'colors',[colors(k,:); 0 0 0]);         legend off;
+
+                % Gaussian vel
+                axis tight; plot([0 0],ylim,'k--'); xlim([-100 1600]); plot(xlim,[0 0],'k--'); % ylim([0 max(ylim)*1.1])
+                plot([1500 1500], ylim,'k--')                
+                plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+            
+            end
+            
+            SeriesComparison(squeeze(FIDora_partial_corr_all_flipped(:,:,hhcc,:)), FIDora_tCenters,...
+                'SEM',1,'Errorbar',2,'Axes',subplot(2,5,3+hhcc),'Transparent',transparent,'colors',colors);     legend off;
+
+            title([hhcc_text{hhcc} ' partial R flip'])
+
+            % Gaussian vel
+            xlim([-100 1600]); plot(xlim,[0 0],'k--'); % ylim([0 max(ylim)*1.1])
+            plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+            plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+
+            
+            SeriesComparison(squeeze(FIDora_partial_corr_all_Rsquare(:,:,hhcc,:)), FIDora_tCenters,...
+                'SEM',1,'Errorbar',2,'Axes',subplot(2,5,5+3+hhcc),'Transparent',transparent,'colors',colors);  legend off;
+            title([hhcc_text{hhcc} ' partial R^2'])
+            
+            %         sumFisherMean = squeeze(mean(sumBoots,1));
+            %         sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+            %         plot(CP_ts{1}(plotRange),sumFisherVestPlusVIs,'m','linew',2);
+            
+            % Gaussian vel
+            axis tight; plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+            xlim([-100 1600]); plot(xlim,[0 0],'k--'); % ylim([0 max(ylim)*1.1])
+            plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+            
+        end
+        SetFigure(15);
+        
+        figure(082217); clf
+        set(gcf,'uni','norm','pos',[0.053       0.422       0.605       0.387]);
+        
+        % -------- Plotting FI(t) ---------
+        bootN = 2000;
+        
+        % Get sum of Fisher and std by bootstrap (Gu 2010)
+        h = subplot(1,2,1);
+        sumBoots = bootstrp(bootN,@(x)sum(x,1),squeeze(FIDora_conditional_slope2overVar));
+        sumBoots = reshape(sumBoots,bootN,[],3);
+          
+        SeriesComparison(sumBoots, FIDora_tCenters,...
+            'SEM',0,'Errorbar',2,'axes',h,  'Transparent',transparent,'colors',colors);     legend off;
+      
+        sumFisherMean = squeeze(nanmean(sumBoots,1));
+        sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        plot(FIDora_tCenters,sumFisherVestPlusVIs,'m','linew',2);
+        
+        % Gaussian vel
+        xlim([-100 1600]); ylim([0 5000]); % ylim([0 max(ylim)*1.1])
+        plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+        plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
+        legend off;
+        title('Conditional FI,Sensory')
+
+        % ----- Partial Choice FI ----
+        
+        h = subplot(1,2,2);
+        sumBoots = bootstrp(bootN,@(x)sum(x,1),squeeze(FIDora_conditional_choiceslope2overVar));
+        sumBoots = reshape(sumBoots,bootN,[],3);
+          
+        SeriesComparison(sumBoots, FIDora_tCenters,...
+            'SEM',0,'Errorbar',2,'axes',h, 'Transparent',transparent,'colors',colors);     legend off;
+      
+        sumFisherMean = squeeze(nanmean(sumBoots,1));
+        sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        plot(FIDora_tCenters,sumFisherVestPlusVIs,'m','linew',2);
+        
+        % Gaussian vel
+        xlim([-100 1600]); ylim([0 max(ylim)*1.1])
+        plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
+        plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
+        legend off;
+        title('Conditional FI, Choice')
+        SetFigure(15)
+    end
+
+
+
     % 2. Decoder of heading (not choice/modality) ====  HH20170810   
-    function f6p5p2(debug)
+    function f6p5p9(debug)
         if debug;  dbstack;  keyboard;  end
  
         % Override
