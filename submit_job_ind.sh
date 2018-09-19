@@ -56,10 +56,12 @@ else
           
 	  # get number of CPU running of this node 
 	  CPURunThisNode=`qstat -q "*@clc00$thisNode" -u "*" -f | grep "  r  " \
-		| awk '{print $8}' | awk '{total = total + $1}END{print total}'` 
-	  
+		| awk '{print $8}' | awk 'BEGIN{total = 0}{total = total + $1}END{print total}'` 
+           
+          echo " Detected: " $CPURunThisNode "on the " $thisNode"th Node" 	  
+
 	  # calculate the number of CPU available of this node  loadThisNode=$[${loadThisNode%.*}+1]
-	  CPUThisNode=$[24-$CPURunThisNode-4] 
+ 	  CPUThisNode=$[20-$CPURunThisNode] 
 	   
 	  if [ $CPUThisNode -gt 0 ] # 
 	  then

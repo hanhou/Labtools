@@ -21,7 +21,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                               
 
-cd /home/hh
+% cd /home/hh
+cd /ion/gu_lab/hh
 
 % hostname = char( getHostName( java.net.InetAddress.getLocalHost)); % Get host name
 

@@ -16,10 +16,12 @@
 ##$ -o ~/job-nobackup.$JOB_ID.$TASK_ID.out
 ##$ -e ~/job-nobackup.$JOB_ID.$TASK_ID.err
 
-BatchPath="/home/hh/Z/Data/TEMPO/Batch/"
+#BatchPath="/home/hh/Z/Data/TEMPO/Batch/"
+BatchPath="/ion/gu_lab/hh/Z/Data/TEMPO/Batch/"
 
 #BatchFile="Memsac_all_IONCluster.m"
-BatchFile="HD_all_IONCluster.m"
+#BatchFile="HD_all_IONCluster.m"
+BatchFile="IONCluster_GuMSTd.m"
 
 #echo "Starting job: $SGE_TASK_ID / $TotalNodes"
 #echo "Starting job: $ThisNode / $TotalNodes"
