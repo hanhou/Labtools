@@ -4345,7 +4345,7 @@ function_handles = {
                 'LineStyles',{'k:','k:','k:','k:','k:','k:','k:','k-'},'MarkerSize',15,...
                 'figN',figN,'XHist',20,'YHist',20,...
                 'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,...
-                'Method','Pearson','FittingMethod',1); figN = figN + 1;
+                'Method','Pearson','FittingMethod',2); figN = figN + 1;
                         
 
             plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');    SetFigure(20);
@@ -4939,7 +4939,7 @@ function_handles = {
             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
         %}
         %% Draw AP,DV
-        %{
+%         %{
         figure(7162221); 
         subplot(2,2,1);
         plot(all_VDs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),all_APs(all(bsxfun(@eq,all_monkey_hemis,[5 1]),2)),'o');
@@ -6555,7 +6555,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             hold on;
         end
         
-        plot(repmat(t_centers',1,1),mean_paras(:,1)+mean_paras(:,2),colors(3,:),'linew',2);
+        plot(repmat(t_centers',1,1),mean_paras(:,1)+mean_paras(:,2),'color',colors(3,:),'linew',2);
         plot(xlim,[1 1],'g:','linew',3);
         
         set(legend('w_{vest}','w_{vis}','R^2'),'location','best'); axis tight; %ylim([0 max(ylim)])
@@ -6656,30 +6656,37 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
 %     model_mean_PSTH_trace_without_heter = load('diff_PSTH_trace_without_heter_vestvelocity.mat'); % Vestibular velocity
 
     model_ts = model_mean_PSTH_trace_without_heter.result.ts*1000;
-    model_PSTH = squeeze(model_mean_PSTH_trace_without_heter.result.mean_diff_PSTH_correct_allheading);
+    model_PSTH_optimal_M1 = squeeze(model_mean_PSTH_trace_without_heter.result.mean_diff_PSTH_correct_allheading);
     
     % ==== Single cells from the model ====
     model_PSTH_trace_with_heter_optimal = load('diff_PSTH_trace_with_heter.mat');
     model_PSTH_trace_with_heter_vest10_vis1 = load('diff_PSTH_trace_with_heter_vest10_vis1.mat');
     model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau.mat');
-    
+%     real_diff_PSTH_trace_MST = load('diff_PSTH_trace_MST_scaling0.78.mat'); % HH20180916
+    real_diff_PSTH_trace_MST = load('diff_PSTH_trace_MST_scaling1.mat'); % HH20180916
     
     increase_step_trick = 0; alpha = [];
     common_ts = []; fit_time_range = []; test_time_range = [];  valid_time_range = [];
     fit_deltaPSTHs_per_cell = [];  test_deltaPSTHs_per_cell = []; valid_deltaPSTHs_per_cell = [];
     fit_model_PSTH_interp = [];  test_model_PSTH_interp = []; valid_model_PSTH_interp = [];
-    data_to_fit = []; use_data_to_fit = []; data_to_fit_time = [];  data_to_fit_PSTH = []; 
+    data_to_fit = []; use_data_to_fit = []; swap_visual_vest = []; data_to_fit_time = [];  data_to_fit_PSTH = []; 
     
     function f7p2(debug)
         if debug;  dbstack;  keyboard;  end
         
-        use_data_to_fit = 1; % 
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        use_data_to_fit = 4; % 
+        swap_visual_vest = 0; % Two fellows of Alex suggested us try flip the vest and vis labels HH20180908
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
         data_to_fit = {%Times  %Data   %Name 
                        rate_ts{1}, PSTH_all_raw_PrefminusNull{1},'Real LIP data';
                        model_ts, model_PSTH_trace_with_heter_optimal.a,'Optimal model with heterogeneity';
                        model_ts, model_PSTH_trace_with_heter_vest10_vis1.a,'vest10_vis1 with heterogeneity';
                        model_ts, model_PSTH_trace_with_heter_shortTau.a, 'ShortTau with heterogeneity';
+                       real_diff_PSTH_trace_MST.PSTH_ts_scaled, permute(real_diff_PSTH_trace_MST.group_PSTH_prefMnull_smoothed,[3 1 2]),'Real MST data';
                        };
+                   
         data_to_fit_time = data_to_fit{use_data_to_fit,1};
         data_to_fit_PSTH = data_to_fit{use_data_to_fit,2};
         
@@ -6706,22 +6713,23 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         test_ts = common_ts(test_time_range);
         valid_ts = common_ts(valid_time_range);
         
-        % Real data
+        
+        % Optimal model data
+        fit_model_PSTH_interp = interp1(model_ts,model_PSTH_optimal_M1(:,:),fit_ts);
+        test_model_PSTH_interp = interp1(model_ts,model_PSTH_optimal_M1(:,:),test_ts);
+        valid_model_PSTH_interp = interp1(model_ts,model_PSTH_optimal_M1(:,:),valid_ts);
+
+        % Heter data (basis functions)
         fit_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(fit_time_range),:); % Should be indices in original rate_ts{1}!
         test_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(test_time_range),:);
         valid_deltaPSTHs_per_cell =  data_to_fit_PSTH(:,find_common_ts_in_rate_ts(valid_time_range),:);
         
         
-        % Model data
-        fit_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),fit_ts);
-        test_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),test_ts);
-        valid_model_PSTH_interp = interp1(model_ts,model_PSTH(:,:),valid_ts);
-        
        %% Do fitting
         alphas = [1];
         
         global fitting_dynamics;
-        for aa = 1:length(alphas)% Scan alpha
+        for aa = 1:length(alphas) % Scan alpha
             
             fitting_dynamics = [];
             alpha = alphas(aa);
@@ -6735,7 +6743,18 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             set(figure(1458),'name','Optimization PlotFcns'); clf;
             %         fitted_w = fminsearch(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,opt);
             
-            fitted_w = fmincon(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,[],[],[],[],0*w0,[],[],opt);
+            if swap_visual_vest == 0 % Normal labeling
+                fitted_w = fmincon(@(w)f7p2_fitting_deltaPSTH_cost_func(fit_model_PSTH_interp,fit_deltaPSTHs_per_cell,w),w0,[],[],[],[],0*w0,[],[],opt);
+            else % Total flip, and only fit vest and vis
+                ys = fit_model_PSTH_interp;
+                ys(:,3) = nan; % Don't fit combined
+                
+                xs = fit_deltaPSTHs_per_cell(:,:,[2,1,3]);
+                xs(:,:,3) = nan;
+                
+                fitted_w = fmincon(@(w)f7p2_fitting_deltaPSTH_cost_func(ys,xs,w),w0,[],[],[],[],0*w0,[],[],opt);
+            end
+            
             scan_alpha_costs{aa} = fitting_dynamics{1};
             scan_alpha_weight{aa} = fitted_w;
         end
@@ -6796,7 +6815,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             % Fitted delta PSTH
             %             plot(h(1),real_ts,model_PSTH_interp,'linew',2); hold(h(1),'on');
             %             plot(h(1),real_ts,reshape((weight) * reshape(real_deltaPSTHs_per_cell,size(real_deltaPSTHs_per_cell,1),[]),[],3),'--','linew',2);
-            plot(h(1),data_to_fit_time,interp1(model_ts,model_PSTH(:,:),data_to_fit_time),'linew',2); hold(h(1),'on');
+            plot(h(1),data_to_fit_time,interp1(model_ts,model_PSTH_optimal_M1(:,:),data_to_fit_time),'linew',2); hold(h(1),'on');
             plot(h(1),data_to_fit_time,reshape((weight) * reshape(data_to_fit_PSTH,size(data_to_fit_PSTH,1),[]),[],3),'--','linew',2);
             xlim(h(1),[-400 2400]);
             ylim(h(1),[-5 20]);
@@ -6807,7 +6826,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             plot(h(1),common_ts(test_time_range),indicator_pos(test_time_range),'or','markerfacecol',colors(2,:),'markersize',5);
             plot(h(1),common_ts(valid_time_range),indicator_pos(valid_time_range),'ob','markerfacecol',colors(1,:),'markersize',5);
             % plot(h(1),[min(real_ts) max(real_ts)],min(ylims)*ones(1,2),'k-','linew',5);
-            title(h(1),sprintf('Solid: model; Dashed: %s',data_to_fit{use_data_to_fit,3}));
+            title(h(1),sprintf('Solid: model; Dashed: %s; Swap = %g',data_to_fit{use_data_to_fit,3}, swap_visual_vest));
             ylabel(h(1),'delta firing');
             
             % Projected PSTH
@@ -6866,7 +6885,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     function cost = f7p2_fitting_deltaPSTH_cost_func(model_y,real_ys,weight)
         weight = weight-increase_step_trick;
         proj_PSTH = reshape((weight) * reshape(real_ys,size(real_ys,1),[]),[],3);
-        cost = mean((proj_PSTH(:) - model_y(:)).^2)+alpha*norm(weight); % Mean Squared error
+        cost = nanmean((proj_PSTH(:) - model_y(:)).^2)+alpha*norm(weight); % Mean Squared error
     end
 
 
