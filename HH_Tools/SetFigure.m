@@ -15,7 +15,7 @@ set(findall(gcf,'-property','fontsize'),'fontsize',size);
  
 % === Axis ===
 set(findall(gcf,'tickdir','i'),'tickdir','o'); % Tick direction
-set(findall(gcf,'type','axes'),'ticklength',[0.02 0],'LineWidth',1.5,'color','none'); % Tick length
+set(findall(gcf,'type','axes'),'ticklength',[0.015 0],'LineWidth',1.5,'color','none'); % Tick length
 % set(findall(gcf,'type','axes','linewidth',0.5,'-not','tag','legend'),'linewidth',15); % Tick width
 
 set(findall(gcf,'type','axes','-not','tag','legend'),'box','off'); % Box off
