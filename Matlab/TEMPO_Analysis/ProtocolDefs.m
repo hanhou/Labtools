@@ -899,6 +899,7 @@ analysis_strings{DIRECTION_TUNING_3D + 1} = ...
     'Plot Tuning Surface_HH',
     'Plot Tuning Azimuth_HH',
     'Plot Tuning Azimuth PSTH (for ilPPC)_HH',
+    'Plot Tuning Azimuth PSTH (for ilPPC, 2 coh)_HH',
     '',
     'Plot Tuning Surface_yong',
     'Plot Tuning Surface (Aihua)',
@@ -1061,6 +1062,7 @@ analysis_strings{AZIMUTH_TUNING_1D + 1} = ...
     'Plot Tuning Azimuth_HH',
     'Plot Tuning Azimuth PSTH_HH',
     'Plot Tuning Azimuth PSTH (for ilPPC)_HH',
+    'Plot Tuning Azimuth PSTH (for ilPPC, 2 coh)_HH',
     'DirectionTuningPlot_1D_pairwiseunits_HH',
     ''
     'DirectionTuningPlot_1D_eyetrace'

@@ -31,6 +31,8 @@ switch(Analysis{1})
         end
     case 'Plot Tuning Azimuth PSTH (for ilPPC)_HH'
         Azimuth_PSTH_HH_for_ilPPC(data, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE, Protocol, batch_flag);        
+    case 'Plot Tuning Azimuth PSTH (for ilPPC, 2 coh)_HH'
+        Azimuth_PSTH_HH_for_ilPPC_2coh(data, SpikeChan, StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, StartEventBin, StopEventBin, PATH, FILE, Protocol, batch_flag);        
     case 'Plot Tuning Surface_HH'
         if JustEditIt == 1
             edit DirectionTuningPlot_3D_HH;

@@ -64,7 +64,8 @@ for i=1:size(paras,1)
     
     subplot(size(paras,1),4,4+4*(i-1));
     axis('off')
-    buff = sprintf('%s\n\nduration = %6.2f\nampl = %6.2f\nnum sigs = %6.2f\ndt(v-a peak) = %g ms', paras{i,4}, duration, ampl, num_sigs,(t_max_veloc(1)-t_max_accel(1))*1000);
+    buff = sprintf('%s\n\nduration = %6.2f\nampl = %6.2f\nnum sigs = %6.2f\nsig = %g ms\ndt(v-a peak) = %g ms', ...
+                    paras{i,4}, duration, ampl, num_sigs, duration/2/num_sigs, (t_max_veloc(1)-t_max_accel(1))*1000);
     text(.1,.8,buff);
 end
 

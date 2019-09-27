@@ -25,9 +25,9 @@ mat_address = {
     % Major protocol goes here (Address, Suffix)
     
     %     'Z:\Data\Tempo\Batch\20180608_HD_all_IONCluster_LightWeight\','PSTH';  % Git cfb3e647e93
-    % 'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8
-    % 'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a
-    'Z:\Data\Tempo\Batch\20180711_HD_all_IONCluster_LightWeight+fisherSimple+PSTHAll','PSTH'; % Git e86e4f76
+%     'Z:\Data\Tempo\Batch\20180607_HD_all_IONCluster_CDPerm_CP10ms\','PSTH';  % Git 7cf56f23a8   (j=2, 270 time bins) 
+    % 'Z:\Data\Tempo\Batch\20180619_HD_all_IONCluster_LightWeight+fisherSimple\','PSTH'; % Git ec5859b24933a                                                            
+    'Z:\Data\Tempo\Batch\20180711_HD_all_IONCluster_LightWeight+fisherSimple+PSTHAll','PSTH'; % Git e86e4f76 
     
     %     'Z:\Data\Tempo\Batch\20160918_HD_allAreas_m5_m10_Smooth50ms_NewChoicePref','PSTH';
     %     'Z:\Data\Tempo\Batch\20160908_HD_allAreas_m5_m10_Smooth50ms','PSTH';
@@ -198,6 +198,8 @@ end
                             raw = load(mat_file_fullname);
                             
                             group_result(major_i).cellID{pp}{ii} = cell_info{pp}{file_i(ii)};
+                            group_result(major_i).fileID = xls_txt{pp}{file_i(ii),header.FileNo}; % For behavior analysis. HH20190702
+
                             
                             if strcmp('2MemSac',xls_txt{pp}(file_i(ii),header.Protocol)) % 2Mem-sac
                                 group_result(major_i).(['mat_raw_2pt' mat_address{pp,2}]) = raw.result;  % Dynamic structure
@@ -596,11 +598,11 @@ for j = 1:2
     PSTH_outcomes_raw{j} = NaN(N,length(rate_ts{j}),4,3);
     PSTH_wrong_angles_raw{j} = NaN(N,length(rate_ts{j}),length(group_result(representative_cell).unique_heading)-1,3); % @HH20150523
     PSTH_hard_easy_raw_cellBtB4Bk{j} = NaN(N,length(rate_ts{j}),4,3); % HH20160905 For EI calculation. Cell by Time by 4 (diff, easy) by stimtype
-
     
     CP{j} = NaN(N,length(CP_ts{j}),3);
     
     ChoiceDiv_All{j} = NaN(N,length(rate_ts{j}),3);
+    
     ChoiceDiv_All_perm{j}.std = NaN(N,length(rate_ts{j}),3);  % HH20180608
     ChoiceDiv_All_perm{j}.p = NaN(N,length(rate_ts{j}),3);
 
@@ -678,7 +680,15 @@ for i = 1:N
                 PSTH_correct_angles_norm_this = PSTH_correct_angles_norm_this - offset;
                 PSTH_correct_angles_norm_this = PSTH_correct_angles_norm_this / gain;
                 
-                PSTH_correctNwrong_angles_raw_this =  group_result(i).mat_raw_PSTH.PSTH{j,CORRECTNWRONG_ANGLE,k}.ys;
+                try
+                    PSTH_correctNwrong_angles_raw_this =  group_result(i).mat_raw_PSTH.PSTH{j,CORRECTNWRONG_ANGLE,k}.ys;
+                catch
+                    PSTH_correctNwrong_angles_raw_this = nan;
+                    if ~exist('ww','var')
+                        warning('No "Correct + Wrong" in PSTH, you must have used the old data with the new Group_HD.m ...');
+                        ww = 1;
+                    end
+                end
                 PSTH_correctNwrong_angles_norm_this =  PSTH_correctNwrong_angles_raw_this - offset;
                 PSTH_correctNwrong_angles_norm_this = PSTH_correctNwrong_angles_norm_this / gain;
                 
@@ -1442,7 +1452,6 @@ function_handles = {
     'Choice Preference vs. Modality Preference', @f3p2;
     'Choice Preference between modalities', @f3p2p2;
     'Choice Preference: pre and post', @f3p2p3;
-    'Psychophysics vs. CD', @f3p3;
     'Cell position and type',@f3p4;
     '   Regression',@f3p4p1;
     };
@@ -1461,6 +1470,15 @@ function_handles = {
     'PCA_heading & choice (Eigen-neuron)',{
     '2-D Trajectory', @f51p1;
     };
+    
+    'demixed PCA and significant% (2nd reviewer)',{
+    '% Significant cells from t-test',@f55p4;
+    '% Significant cells from ANCOVA',@f55p5;    
+    't+st+dt+sdt, for each stim_type separately', @f55p1;
+    '==> t+mt+dt+mdt, stim_type together, heading marginalized', @f55p2;
+    't+st+dt+mt, heading+choice+modality, no interaction', @f55p3;
+    };
+    
 
     'Linear SVM decoder (choice and modality)',{
     'Training SVM', @f6p0;
@@ -1482,7 +1500,6 @@ function_handles = {
     'Fit model traces with real data (Alex Shanghai)',@cell_selection;
     '     1). All heading mean',@f7p2;
     '     2). Each |heading|',@f7p3;
-    
     };
     
     'Targeted Dimensionality Reduction',{
@@ -1491,6 +1508,8 @@ function_handles = {
     }
     
     'Others',{
+    'Behavior (recording sessions only)', @f9p3;
+    '  Psychophysics vs. Neural activity', @f9p4;
     'Cell Counter',@f9p1;
     'Target first vs. Target last',@f9p2;
     '-----------------------------------', @cell_selection;
@@ -1809,9 +1828,28 @@ function_handles = {
             end
         end
         
-        first_sign_result = BarComparison(firstDivergenceTime,'figN',556,'Colors',mat2cell(colors,ones(stim_type_num,1)));
+        % Paired, nans ignored for each two
+        first_sign_result = BarComparison(firstDivergenceTime,'figN',556,'Colors',mat2cell(colors,ones(stim_type_num,1)),'PairTTest',1);
         first_sign_ps =  [first_sign_result.ps_ttest(2,3),first_sign_result.ps_ttest(2,4),first_sign_result.ps_ttest(3,4)];
-        title(sprintf('%g, ',sum(~isnan(firstDivergenceTime)),first_sign_ps));
+        first_sign_ns =  [first_sign_result.ps_paired_ns(2,3),first_sign_result.ps_paired_ns(2,4),first_sign_result.ps_paired_ns(3,4)];
+%         title(sprintf('%g, ',sum(~isnan(firstDivergenceTime)),first_sign_ps));
+        title(sprintf('Paired for each two: %g,%g,%g,%g,%g,%g ',first_sign_ns,first_sign_ps));
+        ylim([0 1500]); SetFigure(15);
+        view([90 90]);
+        
+        % Paired, only all ~isnan cells are included
+        firstDivergenceTime_allSignif = firstDivergenceTime(all(~isnan(firstDivergenceTime),2),:);
+        first_sign_result_allchoice = BarComparison(firstDivergenceTime_allSignif,'figN',557,'Colors',mat2cell(colors,ones(stim_type_num,1)),'PairTTest',1);
+        first_sign_ps =  [first_sign_result_allchoice.ps_ttest(2,3),first_sign_result_allchoice.ps_ttest(2,4),first_sign_result_allchoice.ps_ttest(3,4)];
+        title(sprintf('Paired for "All choice": %g, %g, %g, %g, %g, %g ',sum(~isnan(firstDivergenceTime_allSignif)),first_sign_ps));
+        ylim([0 1500]); SetFigure(15);
+        view([90 90]);
+
+        % Paired, nans ignored for each two
+        first_sign_result = BarComparison(firstDivergenceTime,'figN',558,'Colors',mat2cell(colors,ones(stim_type_num,1)),'PairTTest',0);
+        first_sign_ps =  [first_sign_result.ps_ttest(2,3),first_sign_result.ps_ttest(2,4),first_sign_result.ps_ttest(3,4)];
+%         title(sprintf('%g, ',sum(~isnan(firstDivergenceTime)),first_sign_ps));
+        title(sprintf('Unpaired for "any chioce": %g,%g,%g,%g,%g,%g ',sum(~isnan(firstDivergenceTime)),first_sign_ps));
         ylim([0 1500]); SetFigure(15);
         view([90 90]);
         
@@ -4460,7 +4498,7 @@ function_handles = {
         cpref_sig_2 = Choice_pref_p_value_all(2,:,tt) < 0.05;
         
         % Abs() or not?
-        Choice_pref_all_temp = (Choice_pref_all);
+        Choice_pref_all_temp = abs(Choice_pref_all);
         
         h = LinearCorrelation({
                 (Choice_pref_all_temp(2, monkey1 & ~cpref_sig_1 & ~cpref_sig_2,tt)) ;
@@ -4715,43 +4753,6 @@ function_handles = {
         
     end
 
-    function f3p3(debug)      % Correlations 3. Psychophysics v.s. CD
-        if debug
-            dbstack;
-            keyboard;
-        end
-        %%
-        % T-cell is important here because Polo's behavior was getting worse while
-        % I was getting better at finding T-cells, so...
-        select_psycho = select_bottom_line & select_tcells; %& ~[zeros(80,1);ones(138-80,1)];
-        
-        j = 1;
-        
-        % Enhancement of cDiv in combined condition
-        % enhance_cdiv = max(ChoiceDiv_ModDiffer{1}(:,0 <= rate_ts{j} & rate_ts{j} <= 1500,2),[],2); % Comb - vis
-        
-        t_begin = 700; t_end = 800;
-        enhance_cdiv = nanmean(ChoiceDiv_ModDiffer{1}(:,700 <= rate_ts{j} & rate_ts{j} <= 800, 3 ),2); % Comb - vis
-        
-        h = LinearCorrelation({
-            Psy_pred_ratio(select_psycho)
-            Psy_pred_ratio(select_psycho)
-            Psy_pred_ratio(select_psycho)},...
-            {
-            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 1 ),2);
-            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 2 ),2);
-            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 3 ),2);
-            },...
-            'FaceColors',{colors(1,:),colors(2,:),'k'},'Markers',{'o'},...
-            'LineStyles',{'b-','r-','k-'},'MarkerSize',marker_size,...
-            'Ylabel',sprintf('\\Delta CDiv (%g - %g ms, 3-1, 3-2, 1-2)',t_begin,t_end),'Xlabel','Psycho prediction ratio',...
-            'MarkerSize',12,...
-            'figN',figN,'XHist',15,'YHist',15,'logx',1,...
-            'XHistStyle','stacked','YHistStyle','stacked','Method','Pearson','FittingMethod',2); figN = figN + 1;
-        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
-        
-    end
-
     function f3p4(debug)      % Correlations 4. Cell position and cell type HH20170715
         if debug
             dbstack;
@@ -4805,8 +4806,11 @@ function_handles = {
        waveformPlotTs = - waveformPlotBefore : interp_dt: waveformPlotAfter;
        
        allAlignedWaveform = nan(N, (waveformPlotBefore + waveformPlotAfter)/interp_dt + 1);
+       allBackgroundFiring = nan(N,1);
        
        for cc = 1:length(group_result)
+           
+           % -- This waveform --
            waveform_this = group_result(cc).Waveform;           
            waveform_this = [nan(1,1000) waveform_this nan(1,1000)]; % Padding of nans
            
@@ -4824,6 +4828,12 @@ function_handles = {
            %             plot((waveform_t_right-waveform_t_left)*dt,waveform_this(waveform_t_right),'og');
            
            allAlignedWaveform(cc,:) = waveformAligned;
+           
+           % -- This mean firing rate --
+           fromStartToWhen = 100; % in ms
+           dt = group_result(cc).mat_raw_PSTH.spike_aligned{2,1}(2) - group_result(cc).mat_raw_PSTH.spike_aligned{2,1}(1);
+           allBackgroundFiring(cc) = mean(sum(group_result(cc).mat_raw_PSTH.spike_aligned{1,1}(:,1:fromStartToWhen),2)/fromStartToWhen*1000); % in Hz
+           
 
        end
        
@@ -4840,7 +4850,8 @@ function_handles = {
                      
        xlabel('ms');
        xlim([-0.6 1.1])
-              
+       
+
         
        %% 3. Waveform width distribution
         figure(18616);  clf; hold on;
@@ -4938,6 +4949,29 @@ function_handles = {
             'figN',194852,'XHist',20,'YHist',20,...
             'XHistStyle','stacked','YHistStyle','stacked','SameScale',0,'Method','Spearman');
         %}
+        
+        %% 5. Spike waveform and baseline firing rate (HH20190330)
+        figure(19329); clf;
+        cache = nan(max(sum(all_celltype),sum(~all_celltype)),2);
+        cache(1:sum(~all_celltype),1) = allBackgroundFiring(~all_celltype);  % Narrow
+        cache(1:sum(all_celltype),2) = allBackgroundFiring(all_celltype); % Broad
+        result = BarComparison(cache,'Fig',19329);
+        text(1.5, max(ylim), sprintf('p = %g',result.ps_ttest(2,end)));
+        set(gca,'xticklabel',{'narrow','broad'});
+        ylabel('Background activity');
+        
+        figure(193291); clf;
+        LinearCorrelation(all_depths, allBackgroundFiring,'Fig',193291,'Xlabel', 'Depth','Ylabel','Background Firing');
+       
+        %% 6. Spike waveform and contralateral (HH20190330)
+        all_if_contra = [group_result.if_contralateral]';
+        narrow_contra = sum(~all_celltype & all_if_contra)/sum(~all_celltype);
+        broad_contra = sum(all_celltype & all_if_contra)/sum(all_celltype);
+        figure(190331); clf; 
+        bar([1 2],[narrow_contra broad_contra]);
+        set(gca,'xticklabel',{'narrow','broad'});
+        ylabel('contra %');
+        
         %% Draw AP,DV
 %         %{
         figure(7162221); 
@@ -5985,7 +6019,537 @@ function_handles = {
         SetFigure(15);
         
     end
+
+    %% =========== Demixed PCA, preparation ================  HH20190628
+        j_dPCA = 2; % Align to onset
         
+        unique_abs_heading = unique(abs(group_result(representative_cell).unique_heading)); 
+
+        dPCA1_PSTHAver_NHCMT = [];
+        dPCA1_PSTHTrial_NHCMTK = [];
+        dPCA1_TrialN_NHCM = [];
+        
+        dPCA2_PSTHAver_NMCT = [];
+        dPCA2_PSTHTrial_NMCTK = [];
+        dPCA2_TrialN_NMC = [];
+        
+    
+    function f55p0()     % Demixed PCA, preparation
+
+        time_length = length(rate_ts{j_dPCA});
+        
+        max_trialNum = 90; % This is known post hoc (the actual number is 87)
+        dPCA1_PSTHAver_NHCMT = NaN(N,length(unique_abs_heading),2,3,time_length);
+        dPCA1_PSTHTrial_NHCMTK = NaN(N,length(unique_abs_heading),2,3,time_length,max_trialNum);
+        dPCA1_TrialN_NHCM = NaN(N,length(unique_abs_heading),2,3);
+        
+        max_trialNum = 250; % This is known post hoc (the actual number is 233)
+        dPCA2_PSTHAver_NMCT = NaN(N,3,2,time_length);
+        dPCA2_PSTHTrial_NMCTK = NaN(N,3,2,time_length,max_trialNum);
+        dPCA2_TrialN_NMC = NaN(N,3,2);
+        
+       %% Organize my data
+        
+        
+        % Should put in Batch file
+        for nn = 1:N
+            this_unique_abs_heading = unique(abs(group_result(nn).unique_heading)); % Group abs(headings) to the same levels
+            this_unique_abs_heading_add0 = union(this_unique_abs_heading,0); % Deal with sessions without 0 heading
+
+            this_raw = group_result(nn).mat_raw_PSTH;
+            this_PSTH_per_trial = this_raw.spike_hist{j_dPCA};
+            this_stim_type_per_trial = this_raw.stim_type_per_trial';
+            this_heading_per_trial = this_raw.heading_per_trial';
+            this_choice_per_trial = this_raw.choice_per_trial;
+            this_correctOr0_per_trial = ((this_choice_per_trial > 1.5) == (this_heading_per_trial >= 0)) | ...
+                                        (this_heading_per_trial == 0); % Correct or 0 heading trials
+            
+            for stim_type = 1:3
+               kk = find(stim_type == group_result(i).mat_raw_PSTH.unique_stim_type);
+               if ~isempty(kk)   % We have this condition
+                   for cc = 1:2  % 1: pref; 2: Null
+                       
+                    %% Different ways of dealing with headings
+
+                       % 1) f55p1: PSTH: [N, abs(Heading), choice, modality], for each modality separately
+
+                       for hh = 1:length(unique_abs_heading)
+                           this_selected = (this_stim_type_per_trial == kk) & ...
+                               (abs(this_heading_per_trial) == this_unique_abs_heading_add0(hh)) & ...
+                               (this_choice_per_trial == (cc == 1) * this_raw.PREF + (cc == 2) * (3 - this_raw.PREF)) & ... % Align to [Pref, Null]
+                               (this_correctOr0_per_trial); % Correct only
+                           
+                           dPCA1_PSTHTrial_NHCMTK(nn, hh, cc, stim_type, :, 1:sum(this_selected)) = this_PSTH_per_trial(this_selected,:)';
+                           dPCA1_PSTHAver_NHCMT(nn, hh, cc, stim_type, :) = mean(this_PSTH_per_trial(this_selected,:),1);
+                           dPCA1_TrialN_NHCM (nn, hh, cc, stim_type) = sum(this_selected);
+                       end
+                       
+                       % 2) f55p2: PSTH: [N, modality, choice], different headings grouped together, exactly what the 2nd reviewer wants, like TDR
+                       % Note that here 'choice' is still in the third dimension to keep compatible with the dPCA_plot function.
+                       this_selected = (this_stim_type_per_trial == kk) & ...
+                           (this_choice_per_trial == (cc == 1) * this_raw.PREF + (cc == 2) * (3 - this_raw.PREF)) & ...  % Align to [Pref, Null]
+                           (this_correctOr0_per_trial); % Correct only
+                       
+                       dPCA2_PSTHTrial_NMCTK(nn, stim_type, cc, :, 1:sum(this_selected)) = this_PSTH_per_trial(this_selected,:)';
+                       dPCA2_PSTHAver_NMCT(nn, stim_type, cc, :) = mean(this_PSTH_per_trial(this_selected,:),1);
+                       dPCA2_TrialN_NMC (nn, stim_type, cc) = sum(this_selected);
+
+                       
+                   end
+               end
+            end
+        end
+
+    end
+
+   %% 1. dPCA over heading and choice, separately for each stim_type
+    % Use abs(heading), correct only. Because lots of wrong trials are missing (at the largest heading).
+    % In fact, if wrong trials are included, there will be only less than 20 cells that have data for ALL parameter combinations.
+    % But in the meantime, this will make choice and heading highly correlated, so the task-difficulty dependence trace is still 
+    % in the choice's second component.
+    
+    function f55p1(debug)     % Demixed PCA. %HH20190625
+        if debug;  dbstack;  keyboard;  end
+        
+        if isempty(dPCA1_PSTHAver_NHCMT)
+            f55p0();
+        end
+        
+        set(0,'defaultAxesColorOrder','remove');
+
+        for kk = 1:3
+            
+            min_trials = 2; % Follows Kobak's paper
+            
+            % Select cells that have at least min_trials trials for ALL parameter combinations
+            this_full_data = all(all(dPCA1_TrialN_NHCM(:,:,:,kk) >= min_trials,2),3); 
+            
+            firingRates = squeeze(dPCA1_PSTHTrial_NHCMTK(this_full_data,:,:,kk,:,:));
+            firingRatesAverage = squeeze(dPCA1_PSTHAver_NHCMT(this_full_data,:,:,kk,:));
+            trialNum = dPCA1_TrialN_NHCM(this_full_data,:,:,kk);
+            ifSimultaneousRecording = 0;
+            
+            combinedParams = {{1, [1 3]}, {2, [2 3]}, {3}, {[1 2], [1 2 3]}}; 
+            margNames = {'Stimulus', 'Decision', 'Condition-independent', 'S/D Interaction'};
+            margColours = [23 100 171; 187 20 25; 150 150 150; 114 97 171]/256;
+            time = rate_ts{j_dPCA};
+            timeEvents = time_markers{j_dPCA}(1,:);
+           
+            % -- Adapted from Kobak et al. 2016 --
+            %{
+            
+            %% --- dPCA without regularization and ignoring noise covariance ---
+
+            % This is the core function.
+            % W is the decoder, V is the encoder (ordered by explained variance),
+            % whichMarg is an array that tells you which component comes from which
+            % marginalization
+            
+            tic
+            [W,V,whichMarg] = dpca(firingRatesAverage, 20, ...
+                'combinedParams', combinedParams);
+            toc
+            
+            explVar = dpca_explainedVariance(firingRatesAverage, W, V, ...
+                'combinedParams', combinedParams);
+            
+            dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+                'explainedVar', explVar, ...
+                'marginalizationNames', margNames, ...
+                'marginalizationColours', margColours, ...
+                'whichMarg', whichMarg,                 ...
+                'time', time,                        ...
+                'timeEvents', timeEvents,               ...
+                'timeMarginalization', 3, ...
+                'legendSubplot', 16);
+            
+            set(gcf,'Name',sprintf('Without Regulation, stim_type = %g, cell_number = %g',kk, sum(this_full_data)));
+           %}
+            
+           %% --- dPCA with regularization and Noise (Co)variance ---
+%             %{
+            % This function takes some minutes to run. It will save the computations
+            % in a .mat file with a given name. Once computed, you can simply load
+            % lambdas out of this file:
+            %   load('tmp_optimalLambdas.mat', 'optimalLambda')
+            
+            % Please note that this now includes noise covariance matrix Cnoise which
+            % tends to provide substantial regularization by itself (even with lambda set
+            % to zero).
+            
+            optimalLambda = dpca_optimizeLambda(firingRatesAverage, firingRates, trialNum, ...
+                'combinedParams', combinedParams, ...
+                'simultaneous', ifSimultaneousRecording, ...
+                'numRep', 2, ...  % increase this number to ~10 for better accuracy
+                'filename', 'tmp_optimalLambdas.mat');
+            
+            Cnoise = dpca_getNoiseCovariance(firingRatesAverage, ...
+                firingRates, trialNum, 'simultaneous', ifSimultaneousRecording);
+            
+            [W,V,whichMarg] = dpca(firingRatesAverage, 20, ...
+                'combinedParams', combinedParams, ...
+                'lambda', optimalLambda, ...
+                'Cnoise', Cnoise);
+            
+            explVar = dpca_explainedVariance(firingRatesAverage, W, V, ...
+                'combinedParams', combinedParams);
+            
+            dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+                'explainedVar', explVar, ...
+                'marginalizationNames', margNames, ...
+                'marginalizationColours', margColours, ...
+                'whichMarg', whichMarg,                 ...
+                'time', time,                        ...
+                'timeEvents', timeEvents,               ...
+                'timeMarginalization', 3,           ...
+                'legendSubplot', 16);
+            
+            set(gcf,'Name',sprintf('With Regulation, stim_type = %g, cell_number = %g',kk, sum(this_full_data)));
+
+            %}
+            
+    
+        end
+        
+        set(0,'defaultAxesColorOrder',[41 89 204; 248 28 83; 14 153 46]/255); % Restore color order
+
+    end
+
+    %% 2. dPCA over choice and modality (exactly what the 2nd reviewer asked)
+     % Also ignore the wrong trials. Everything is like the TDR analysis in the original manuscript
+    
+    function f55p2(debug)     % Demixed PCA. %HH20190625
+        if debug;  dbstack;  keyboard;  end
+        
+        if isempty(dPCA1_PSTHAver_NHCMT)
+            f55p0();
+        end
+        
+        set(0,'defaultAxesColorOrder','remove');
+                
+        
+        % --- Select cells that have at least min_trials trials for ALL parameter combinations ---
+        min_trials = 2; % Follows Kobak's paper
+        this_full_data = all(all(dPCA2_TrialN_NMC(:,:,:) >= min_trials,2),3);
+        
+        firingRates = dPCA2_PSTHTrial_NMCTK(this_full_data,:,:,:,:);
+        firingRatesAverage = dPCA2_PSTHAver_NMCT(this_full_data,:,:,:);
+        trialNum = dPCA2_TrialN_NMC(this_full_data,:,:);
+        ifSimultaneousRecording = 0;
+        
+        combinedParams = {{1, [1 3]}, {2, [2 3]}, {3}, {[1 2], [1 2 3]}};
+        margNames = {'Modality', 'Decision', 'Condition-independent', 'D/M Interaction'};
+        margColours = [23 100 171; 187 20 25; 150 150 150; 114 97 171]/256;
+        time = rate_ts{j_dPCA};
+        timeEvents = time_markers{j_dPCA}(1,:);
+        
+        % -- Adapted from Kobak et al. 2016 --
+    
+        %% --- dPCA with regularization and Noise (Co)variance ---
+        % This function takes some minutes to run. It will save the computations
+        % in a .mat file with a given name. Once computed, you can simply load
+        % lambdas out of this file:
+        %   load('tmp_optimalLambdas.mat', 'optimalLambda')
+        
+        % Please note that this now includes noise covariance matrix Cnoise which
+        % tends to provide substantial regularization by itself (even with lambda set
+        % to zero).
+        
+        optimalLambda = dpca_optimizeLambda(firingRatesAverage, firingRates, trialNum, ...
+            'combinedParams', combinedParams, ...
+            'simultaneous', ifSimultaneousRecording, ...
+            'numRep', 10, ...  % increase this number to ~10 for better accuracy
+            'filename', 'tmp_optimalLambdas.mat');
+        
+        Cnoise = dpca_getNoiseCovariance(firingRatesAverage, ...
+            firingRates, trialNum, 'simultaneous', ifSimultaneousRecording);
+        
+        [W,V,whichMarg] = dpca(firingRatesAverage, 20, ...
+            'combinedParams', combinedParams, ...
+            'lambda', optimalLambda, ...
+            'Cnoise', Cnoise);
+        
+        explVar = dpca_explainedVariance(firingRatesAverage, W, V, ...
+            'combinedParams', combinedParams);
+        
+%         dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+%             'explainedVar', explVar, ...
+%             'marginalizationNames', margNames, ...
+%             'marginalizationColours', margColours, ...
+%             'whichMarg', whichMarg,                 ...
+%             'time', time,                        ...
+%             'timeEvents', timeEvents,               ...
+%             'timeMarginalization', 3,           ...
+%             'legendSubplot', 16);
+        
+        
+        % === dPCA with Decoding ===
+        
+        decodingClasses = {[(1:3)' (1:3)'], repmat([1:2], [3 1]), [], [(1:3)' (4:6)']};
+        
+        accuracy = dpca_classificationAccuracy(firingRatesAverage, firingRates, trialNum, ...
+            'lambda', optimalLambda, ...
+            'combinedParams', combinedParams, ...
+            'decodingClasses', decodingClasses, ...
+            'simultaneous', ifSimultaneousRecording, ...
+            'numRep', 20, ...        % increase to 100
+            'filename', 'tmp_classification_accuracy.mat');
+        
+        dpca_classificationPlot(accuracy, [], [], [], decodingClasses)
+        
+        accuracyShuffle = dpca_classificationShuffled(firingRates, trialNum, ...
+            'lambda', optimalLambda, ...
+            'combinedParams', combinedParams, ...
+            'decodingClasses', decodingClasses, ...
+            'simultaneous', ifSimultaneousRecording, ...
+            'numRep', 20, ...        % increase to 100
+            'numShuffles', 20, ...  % increase to 100 (takes a lot of time)
+            'filename', 'tmp_classification_accuracy.mat');
+        
+        dpca_classificationPlot(accuracy, [], accuracyShuffle, [], decodingClasses)
+        
+        componentsSignif = dpca_signifComponents(accuracy, accuracyShuffle, whichMarg);
+        
+        dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+            'explainedVar', explVar, ...
+            'marginalizationNames', margNames, ...
+            'marginalizationColours', margColours, ...
+            'whichMarg', whichMarg,                 ...
+            'time', time,                        ...
+            'timeEvents', timeEvents,               ...
+            'timeMarginalization', 3,           ...
+            'legendSubplot', 16,                ...
+            'componentsSignif', componentsSignif);
+        
+        set(gcf,'Name',sprintf('With Regulation, Choice amd Modality, cell_number = %g', sum(this_full_data)));
+
+        set(0,'defaultAxesColorOrder',[41 89 204; 248 28 83; 14 153 46]/255); % Restore color order
+
+
+    end
+
+    %% 3. dPCA over choice and modality and heading
+     % Also ignore the wrong trials. Everything is like the TDR analysis in the original manuscript
+    
+    function f55p3(debug)     % Demixed PCA. %HH20190711
+        if debug;  dbstack;  keyboard;  end
+        
+        if isempty(dPCA1_PSTHAver_NHCMT)
+            f55p0();
+        end
+        
+        set(0,'defaultAxesColorOrder','remove');
+        
+        % --- Select cells that have at least min_trials trials for ALL parameter combinations ---
+        min_trials = 2; % Follows Kobak's paper
+        this_full_data = all(all(dPCA1_TrialN_NHCM(:,:,:) >= min_trials,2),3);
+        
+        firingRates = dPCA1_PSTHTrial_NHCMTK(this_full_data,:,:,:,:,:);
+        firingRatesAverage = dPCA1_PSTHAver_NHCMT(this_full_data,:,:,:,:);
+        trialNum = dPCA1_TrialN_NHCM(this_full_data,:,:,:);
+        ifSimultaneousRecording = 0;
+        
+        % 1: abs(Heading), 2: Choice, 3: Modality, 4: Time
+        combinedParams = {{1, [1 4]}, {2, [2 4]}, {3, [3 4]}, {4}};  % No interaction. Just like Rossi-Pool
+        margNames = {'Heading', 'Decision', 'Modality', 'Time'};
+        margColours = [23 100 171; 187 20 25; 150 150 150; 114 97 171]/256;
+        time = rate_ts{j_dPCA};
+        timeEvents = time_markers{j_dPCA}(1,:);
+        
+        % -- Adapted from Kobak et al. 2016 --
+    
+        %% --- dPCA with regularization and Noise (Co)variance ---
+        % This function takes some minutes to run. It will save the computations
+        % in a .mat file with a given name. Once computed, you can simply load
+        % lambdas out of this file:
+        %   load('tmp_optimalLambdas.mat', 'optimalLambda')
+        
+        % Please note that this now includes noise covariance matrix Cnoise which
+        % tends to provide substantial regularization by itself (even with lambda set
+        % to zero).
+        
+        optimalLambda = dpca_optimizeLambda(firingRatesAverage, firingRates, trialNum, ...
+            'combinedParams', combinedParams, ...
+            'simultaneous', ifSimultaneousRecording, ...
+            'numRep', 2, ...  % increase this number to ~10 for better accuracy
+            'filename', 'tmp_optimalLambdas.mat');
+        
+        Cnoise = dpca_getNoiseCovariance(firingRatesAverage, ...
+            firingRates, trialNum, 'simultaneous', ifSimultaneousRecording);
+        
+        [W,V,whichMarg] = dpca(firingRatesAverage, 20, ...
+            'combinedParams', combinedParams, ...
+            'lambda', optimalLambda, ...
+            'Cnoise', Cnoise);
+        
+        explVar = dpca_explainedVariance(firingRatesAverage, W, V, ...
+            'combinedParams', combinedParams);
+        
+        dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+            'explainedVar', explVar, ...
+            'marginalizationNames', margNames, ...
+            'marginalizationColours', margColours, ...
+            'whichMarg', whichMarg,                 ...
+            'time', time,                        ...
+            'timeEvents', timeEvents,               ...
+            'timeMarginalization', 4,           ...  % Note here
+            'legendSubplot', 16, ...
+            'showNonsignificantComponents', 1);
+        
+        set(gcf,'Name',sprintf('With Regulation, Choice amd Modality, cell_number = %g', sum(this_full_data)));
+                
+        set(0,'defaultAxesColorOrder',[41 89 204; 248 28 83; 14 153 46]/255); % Restore color order
+
+    end
+
+    function f55p4(debug)     % Significant cells using choice divergence / PSTH p test (2nd reviewer)
+        if debug;  dbstack;  keyboard;  end
+        
+        for jj = 1:2
+            CD_p_all{jj} = nan(N,length(rate_ts{jj}),3);
+            
+            for nn = 1:N
+%                 CD_p_all{j}(nn,:,:) = group_result(nn).mat_raw_PSTH.ChoiceDivergence_ALL_perm{jj}.p';  % From choice divergence, permutation test (a caveat
+                                                                                                         % is that this will overestimate the significance, because
+                                                                                                         % of limitation in the number of permutations)
+                CD_p_all{jj}(nn,:,:) = group_result(nn).mat_raw_PSTH.PSTH{jj,1,1}.ps';  % j = 1  % From PSTH, t-test
+            end
+            
+            percent_sign{jj} = squeeze(sum(CD_p_all{jj}(:,:,:) < p_critical,1) / N * 100);
+            
+        end
+        
+        figure(155010); set(gcf,'uni','norm','pos',[0.023       0.127       0.936       0.549]); clf
+        
+        if isempty(firstDivergenceTime)
+            f1p1p6p1(0); % Calculate divergence time
+        end
+        
+        for k = 1:3
+            
+            % [divergence_time_ordered, plot_order] = sort(firstDivergenceTime(:,k)); % Not good because some cell does not have divergence time
+            [~, plot_order] =sort(abs(group_ChoicePreference(3,:,3)),'descend');
+%             [~, plot_order] =sort(group_ChoicePreference_pvalue(k,:,3),'ascend');
+            p_ordered = group_ChoicePreference_pvalue(k,plot_order,3);
+
+            subplot(1,5,k); hold on;
+            imagesc('XData', rate_ts{1}, 'CData', CD_p_all{1}(plot_order,:,k) < p_critical); 
+            
+            sign_ind = find(p_ordered < p_critical);
+            plot(0*sign_ind,sign_ind,'rs','linew',1,'markerfacecol','r');
+            
+            axis tight;
+            
+%             for nn = 1:N
+%                  plot(divergence_time_ordered(nn),nn,'ro');
+%             end
+            
+            % Time markers
+            for tt = 1:3
+                plot([1 1] * time_markers{j_for_SVM}(1,tt),ylim,'k','linestyle',marker_for_time_markers{j_for_SVM}{tt},'linew',1);
+            end
+            plot(Gauss_vel(:,1) + time_markers{1}(1),Gauss_vel(:,2)*range(ylim)/3 + min(ylim),'--','linew',2.5,'color',[0.6 0.6 0.6]);
+            
+        end
+        
+        h_subplot = subplot(1,5,[4 5]);
+        SeriesComparison({shiftdim(percent_sign{1}, -1) shiftdim(percent_sign{2}, -1)},...
+            {rate_ts{1} rate_ts{2} time_markers},...
+            'Colors',{colors(1,:),colors(2,:),colors(3,:)},'LineStyles',{'-'},...
+            'Xlabel',[],'Ylabel','Fraction of cells (%)','axes',h_subplot);
+        plot(Gauss_vel(:,1) + time_markers{1}(1),Gauss_vel(:,2)*range(ylim)/3 + p_critical*100,'--','linew',2.5,'color',[0.6 0.6 0.6]);
+        
+        plot(xlim,[p_critical p_critical]*100,'k--'); % By definition, false alarm level (baseline) = p_critical
+        legend off; SetFigure();
+
+    end
+
+    ANOVAN_1_p_all = [];
+    ANOVAN_2_p_all = [];
+    ANOVAN_ts = [];
+    
+    function f55p5(debug)     % Significant cells using ANOVA (2nd reviewer)  HH20190701
+        if debug;  dbstack;  keyboard;  end
+        
+        ANOVAN_p_tRange = {[-300 1800],[-300 300]};
+        
+        if isempty(ANOVAN_1_p_all)
+            for jj = 1:2
+                
+                this_t_ind = find(ANOVAN_p_tRange{jj}(1) < rate_ts{jj} & rate_ts{jj} < ANOVAN_p_tRange{jj}(2));
+                this_t_ind = this_t_ind(1:2:end); % Downsample a little bit
+                
+                ANOVAN_ts{jj} = rate_ts{jj}(this_t_ind);
+                ANOVAN_1_p_all{jj} = nan(N,length(ANOVAN_ts{jj}),3);
+                ANOVAN_2_p_all{jj} = nan(N,length(ANOVAN_ts{jj}),2,3);
+                
+                %                 parfor_progress(N);
+                progressbar(['j = ' num2str(jj) ', cell num']);
+                
+                for nn = 1:N
+                    
+                    this_PSTH = group_result(nn).mat_raw_PSTH.spike_hist{jj}(:,this_t_ind);
+                    this_stim_type = group_result(nn).mat_raw_PSTH.stim_type_per_trial;
+                    this_heading = group_result(nn).mat_raw_PSTH.heading_per_trial;
+                    this_choice = group_result(nn).mat_raw_PSTH.choice_per_trial';
+                    
+                    for ttt = 1 : length(this_t_ind)
+                        % --- ANOVA_1: on heading, stim_type, and choice ---
+                        [this_p, ~, ~] = anovan(this_PSTH(:,ttt),{this_heading, this_stim_type, this_choice},'continuous',1,'display','off');
+                        ANOVAN_1_p_all{jj}(nn,ttt,:) = this_p';
+                        
+                        % --- ANOVA_2: on heading and choice, for each stim_type separately ---
+                        for kk = 1:3
+                            select_kk = this_stim_type == kk;
+                            [this_p, ~, ~] = anovan(this_PSTH(select_kk,ttt),{this_heading(select_kk), this_choice(select_kk)},'continuous',1,'display','off');
+                            ANOVAN_2_p_all{jj}(nn,ttt,:,kk) = this_p';
+                        end
+                    end
+                    
+                    progressbar(nn/N)
+                    %                     parfor_progress();
+                end
+                %                 parfor_progress(0);
+                
+            end
+        end
+        
+        for jj = 1:2
+            percent_significant_1{jj} = squeeze(sum(ANOVAN_1_p_all{jj}(:,:,:) < p_critical,1) / N * 100);
+            percent_significant_2{jj} = squeeze(sum(ANOVAN_2_p_all{jj}(:,:,:,:) < p_critical,1) / N * 100);
+        end
+        
+        figure(191948); set(gcf,'Name','ANCOVA: heading, stim_type, choice','uni','norm','pos',[ 0.036905         0.1     0.93869     0.37619]); clf
+        
+        h_subplot = subplot(1,3,1);
+        SeriesComparison({shiftdim(percent_significant_1{1}, -1) shiftdim(percent_significant_1{2}, -1)},...
+            {ANOVAN_ts{1} ANOVAN_ts{2} time_markers},...
+            'Colors',{'k','c','m'},'LineStyles',{'-'},...
+            'Xlabel',[],'Ylabel','Fraction of cells (%)','figN',191948,'axes',h_subplot);
+        legend off; ylim([0 90]); title('Heading, Choice, Modality')
+        plot(Gauss_vel(:,1) + time_markers{1}(1),Gauss_vel(:,2)*range(ylim)/3 + p_critical*100,'--','linew',2.5,'color',[0.6 0.6 0.6]);
+        
+        plot(xlim,[p_critical p_critical]*100,'k--'); % By definition, false alarm level (baseline) = p_critical
+        
+        for hc = 1:2 % Heading, choice
+            h_subplot = subplot(1,3,1+hc);
+            SeriesComparison({shiftdim(squeeze(percent_significant_2{1}(:,hc,:)), -1) shiftdim(squeeze(percent_significant_2{2}(:,hc,:)), -1)},...
+                {ANOVAN_ts{1} ANOVAN_ts{2} time_markers},...
+                'Colors',{colors(1,:),colors(2,:),colors(3,:)},'LineStyles',{'-'},...
+                'Xlabel',[],'Ylabel','Fraction of cells (%)','figN',191948,'axes',h_subplot);
+            legend off;            ylim([0 90])
+            
+            if hc == 1; title('Heading'); else title('Choice'); end
+            
+            plot(Gauss_vel(:,1) + time_markers{1}(1),Gauss_vel(:,2)*range(ylim)/3 + p_critical*100,'--','linew',2.5,'color',[0.6 0.6 0.6]);
+            plot(xlim,[p_critical p_critical]*100,'k--'); % By definition, false alarm level (baseline) = p_critical
+        end
+        
+        SetFigure();
+        
+    end
+
+
 %%%%%%%%%%%%%%%%%%%  6. SVM Parameters   %%%%%%%%%%%%%%%%%%%%%%%%%%
 % ------ SVM Training ------
 select_for_SVM = select_bottom_line;
@@ -6521,6 +7085,11 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
 %                 [b,~,stat] = glmfit(r(:,1:2) ,r(:,3),'normal','link','identity','constant','on');
 %                 b = b(2:3); stat.p = stat.p(2:3);
                 
+                % Override by ridge regression
+                X = r(:,1:2); Y = r(:,3);
+                lamda = 0;
+                b = inv(X'*X + lamda*eye(size(X,2))) * X' * Y;
+
                 [~,~,~,~,stat_reg] = regress(r(:,3),[ones(size(r,1),1) r(:,1:2)]);
                 weight_vest_vis(i,:,tcc) = [b' stat.p' stat_reg([1 3])]; % Weights, r^2 and p-value
 
@@ -6623,7 +7192,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             text(min(xlim)+0.2,min(ylim)+0.2,sprintf('r^2 = %g, p = %g',h.group(2).r_square,h.group(2).p),'FontSize',13);
             legend off;
             set(gca,'xtick',-10:1:10,'ytick',-10:1:10);
-            
+            title(sprintf('Ridge \\lamda = %g', lamda))
+
             %{
             % Annotate tcells
             h_t = plot(weight_vest_vis(select_tcells(select_for_regression),1,toi_ind),...
@@ -6647,6 +7217,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
 
     %% Regression 2. Fitting model traces with real data. (We decided to do this when Alex came to Shanghai) @HH20170808
     %%%%%%%%%%%%%%%%%%% for f7p2: load model traces %%%%%%%%%%%%%%%
+    % Using "result = lip_HH({},{'mean_diff_PSTH_correct_allheading','diff_PSTH_correct_mean_allheading','ts'});"
     
     % ==== Load model data (Fit target) from the trace without heterogeneity ====
     % Generated from calling "result = lip_HH({},{'ts','mean_diff_PSTH_correct_allheading'});"
@@ -6661,8 +7232,12 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     % ==== Single cells from the model ====
     model_PSTH_trace_with_heter_optimal = load('diff_PSTH_trace_with_heter.mat');
     model_PSTH_trace_with_heter_vest10_vis1 = load('diff_PSTH_trace_with_heter_vest10_vis1.mat');
-    model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau.mat');
-%     real_diff_PSTH_trace_MST = load('diff_PSTH_trace_MST_scaling0.78.mat'); % HH20180916
+    
+    % model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau.mat')
+    % model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau_fixed2000ms.mat');
+    model_PSTH_trace_with_heter_shortTau = load('diff_PSTH_trace_with_heter_shortTau_fixed100ms.mat'); % 20181010 Fixed real dynamics with 100ms tau
+    
+%     real_diff_PSTH_trace_MST = load('diff_PSTH_trace_MST_scaling0.78.mat'); % HH20180916  % Scale of sigma
     real_diff_PSTH_trace_MST = load('diff_PSTH_trace_MST_scaling1.mat'); % HH20180916
     
     increase_step_trick = 0; alpha = [];
@@ -6675,7 +7250,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         if debug;  dbstack;  keyboard;  end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        use_data_to_fit = 4; % 
+        use_data_to_fit = 5; % 
         swap_visual_vest = 0; % Two fellows of Alex suggested us try flip the vest and vis labels HH20180908
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
@@ -7105,7 +7680,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
 
 
     fisherSimpleGu = [];
-    findForFisher = find(select_tcells);
+    findForFisher = [];
 
     %% ====== Calculate Fisher information of heading ======== HH20180619
     % 1. Simplest method like Gu 2010: Sum over cells (slope / mean)
@@ -7114,7 +7689,9 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         %%
         
         j = 1;
-        
+                
+        findForFisher = find(select_bottom_line);
+
         fisherSize = size(group_result(1).mat_raw_PSTH.fisherSimpleGu);
         fisherSimpleGu = nan(length(findForFisher),fisherSize(1),fisherSize(2),fisherSize(3),fisherSize(4));  % Last one: varPoisson/varReal
         
@@ -7177,7 +7754,11 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                     'SEM',0,'Errorbar',2,'Axes',h,'Transparent',transparent);
                 
                 sumFisherMean = squeeze(mean(sumBoots,1));
-                sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+                % sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+                sumFisherVestPlusVIs = sumFisherMean(:,1) - nanmean(sumFisherMean(CP_ts{1}<0,1)) ...
+                                     + sumFisherMean(:,2) - nanmean(sumFisherMean(CP_ts{1}<0,2)) ...
+                                     + nanmean(sumFisherMean(CP_ts{1}<0,3)); % Remove baseline
+                                 
                 plot(CP_ts{1}(plotRange),sumFisherVestPlusVIs,'m','linew',2);
                 
                 % Gaussian vel
@@ -7187,6 +7768,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
                 legend off;
                 title(titles{varMethod})
                 ylabel(rangeTitles{ranges});
+                text(min(xlim),min(ylim),sprintf('n = %g',length(findForFisher)))
             end
         end
         
@@ -7203,6 +7785,8 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
     function f6p5p1p1(debug)  
         if debug;  dbstack;  keyboard;  end
         
+        findForFisher = find(select_tcells);
+
         if isempty(fisherSimpleGu), f6p5p1(0); end
         
         % -------- Plotting cell-by-cell FI (Yong Gu wants this) ---------
@@ -7631,7 +8215,11 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'SEM',0,'Errorbar',2,'axes',h,  'Transparent',transparent,'colors',colors);     legend off;
       
         sumFisherMean = squeeze(nanmean(sumBoots,1));
-        sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        % sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        sumFisherVestPlusVIs = sumFisherMean(:,1) - nanmean(sumFisherMean(FIDora_tCenters < 200, 1)) ...
+                             + sumFisherMean(:,2) - nanmean(sumFisherMean(FIDora_tCenters < 200, 2)) ...
+                             + nanmean(sumFisherMean(FIDora_tCenters < 200, 3));
+
         plot(FIDora_tCenters,sumFisherVestPlusVIs,'m','linew',2);
         
         % Gaussian vel
@@ -7639,7 +8227,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
         plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
         legend off;
-        title('Conditional FI,Sensory')
+        title('Partial FI,Sensory')
 
         % ----- Partial Choice FI ----
         
@@ -7651,7 +8239,11 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
             'SEM',0,'Errorbar',2,'axes',h, 'Transparent',transparent,'colors',colors);     legend off;
       
         sumFisherMean = squeeze(nanmean(sumBoots,1));
-        sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        % sumFisherVestPlusVIs = sumFisherMean(:,1) + sumFisherMean(:,2);
+        sumFisherVestPlusVIs = sumFisherMean(:,1) - nanmean(sumFisherMean(FIDora_tCenters < 200, 1)) ...
+                             + sumFisherMean(:,2) - nanmean(sumFisherMean(FIDora_tCenters < 200, 2)) ...
+                             + nanmean(sumFisherMean(FIDora_tCenters < 200, 3));
+
         plot(FIDora_tCenters,sumFisherVestPlusVIs,'m','linew',2);
         
         % Gaussian vel
@@ -7659,7 +8251,7 @@ thres_choice = []; thres_modality = []; select_for_SVM_actual = [];
         plot([0 0],ylim,'k--'); plot([1500 1500], ylim,'k--')
         plot(Gauss_vel(:,1) + time_markers{j}(1),Gauss_vel(:,2)*range(ylim)/2 + min(ylim),'--','linew',2,'color',[0.6 0.6 0.6]);
         legend off;
-        title('Conditional FI, Choice')
+        title('Partial FI, Choice')
         SetFigure(15)
     end
 
@@ -8244,6 +8836,167 @@ weights_TDR_PCA_SVM_allbootstrap = [];
     % plot(rate_ts{j}(1:end-1),diff(mean_div));
     
         %}
+    end
+
+    function f9p3(debug)    % More analysis of behavioral data
+        if debug;  dbstack;  keyboard;  end
+        
+        % Find unique file names
+        file_names = {group_result.fileID};
+        same_as_previous = [0 strcmp(file_names(1:end-1),file_names(2:end))]; % Add a 0 to the first element
+        unique_file_ind = find((~ same_as_previous) & (Psy_pred_ratio > 0.1)'); % Exclude too crazy data due to bad fitting
+               
+        monkeys = xls_num{1}(:,header.Monkey);  
+        monkey{1} = find(monkeys == 5);
+        monkey{2} = find(monkeys == 10);
+        
+        figure(145957); clf;
+        set(gcf,'uni','norm','pos',[0.061       0.096       0.854       0.585]);
+        
+        for mm = 1:2
+            
+            this_select = intersect(monkey{mm}, unique_file_ind);
+            data_to_average = [Psy_thres(this_select,:) Psy_thres_pred(this_select)];
+            
+            
+            mean_threshold = mean(data_to_average);
+            sem_threshold = std(data_to_average)/sqrt(size(data_to_average,1));
+            
+            % Plotting
+            
+            color_bar = [colors; 0.1 0.1 0.1];
+            
+            xlim([0.5 4.5]);
+            
+            subplot(1,2,mm); hold on;
+            for i = 1:4
+                bar(i,mean_threshold(i),0.7,'facecol',color_bar(i,:),'edgecol','none');
+                h = errorbar(i,mean_threshold(i),sem_threshold(i),'color',color_bar(i,:),'linestyle','none','linewidth',3);
+                errorbar_tick(h,13);
+            end
+            
+            % Statistics
+            [~,p_vest_vis] = ttest(data_to_average(:,1)-data_to_average(:,2));
+            [~,p_comb_vest] = ttest(data_to_average(:,1)-data_to_average(:,3));
+            [~,p_comb_vis] = ttest(data_to_average(:,2)-data_to_average(:,3));
+            [~,p_comb_pred] = ttest(data_to_average(:,3)-data_to_average(:,4));
+            
+            % Draw lines
+            plot(1:4, data_to_average','-','color',[0.5 0.5 0.5]);
+            
+            set(gca,'xtick',1:4,'xticklabel',{'Vestibular','Visual','Combined','Optimal'});
+            rotateXLabels(gca,45);
+            ylabel('Threshold');
+            
+            text(0,max(ylim)*0.8,sprintf('p vest-vis = %g, p comb-vest = %g\np comb-vis = %g, p comb-pred = %g',p_vest_vis,p_comb_vest,p_comb_vis,p_comb_pred),'fontsize',10.5);
+            title(sprintf('n = %g unique recording sessions',length(data_to_average)));
+            
+        end
+        SetFigure();
+    end
+
+
+    function f9p4(debug)      % Correlations 3. Psychophysics v.s. Neural activity
+        if debug
+            dbstack;
+            keyboard;
+        end
+        
+       
+        % T-cell is important here because Polo's behavior was getting worse while
+        % I was getting better at finding T-cells, so...
+        select_psycho = select_bottom_line & select_tcells & (Psy_pred_ratio > 0.1); %& ~[zeros(80,1);ones(138-80,1)];  % Exclude too crazy psychocurve
+        
+        
+       %% 1. With Choice divergence
+        j = 1;
+        
+        % Enhancement of cDiv in combined condition
+        % enhance_cdiv = max(ChoiceDiv_ModDiffer{1}(:,0 <= rate_ts{j} & rate_ts{j} <= 1500,2),[],2); % Comb - vis
+        
+        t_begin = 700; t_end = 800;
+        enhance_cdiv = nanmean(ChoiceDiv_ModDiffer{1}(:,700 <= rate_ts{j} & rate_ts{j} <= 800, 3 ),2); % Comb - vis
+        
+        figure(162824); clf;
+        
+        h = LinearCorrelation({
+            Psy_pred_ratio(select_psycho)
+            Psy_pred_ratio(select_psycho)
+            Psy_pred_ratio(select_psycho)},...
+            {
+            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 1 ),2);
+            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 2 ),2);
+            nanmean(ChoiceDiv_ModDiffer{1}(select_psycho,t_begin <= rate_ts{j} & rate_ts{j} <= t_end, 3 ),2);
+            },...
+            'FaceColors',{colors(1,:),colors(2,:),'k'},'Markers',{'o'},...
+            'LineStyles',{'b-','r-','k-'},'MarkerSize',marker_size,...
+            'Ylabel',sprintf('\\Delta CDiv (%g - %g ms, 3-1, 3-2, 1-2)',t_begin,t_end),'Xlabel','Psycho prediction ratio',...
+            'MarkerSize',12,...
+            'figN',162824,'XHist',15,'YHist',15,'logx',1,...
+            'XHistStyle','stacked','YHistStyle','stacked','Method','Pearson','FittingMethod',2); 
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        title(sprintf('t cells, n = %g',sum(select_psycho)))
+        
+        %% 2. With Single cell Fisher info
+        % Enhancement of Fisher info in combined condition
+        % enhance_cdiv = max(ChoiceDiv_ModDiffer{1}(:,0 <= rate_ts{j} & rate_ts{j} <= 1500,2),[],2); % Comb - vis
+        
+        
+        % Which info? (t-cell, not unique session, two monkeys together)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        findForFisher = find(select_psycho);
+
+        t_begin = 500; t_end = 1500;
+        FIScatterTimeRange = t_begin < CP_ts{1} & CP_ts{1} <= t_end;
+        FIScatterHeadingRange = 1; % +/-8 degrees
+        FIScatterVariance = 2; % Real variance
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+%         if isempty(fisherSimpleGu)
+            f6p5p1(0); 
+%         end
+        
+        FI_all_temp = squeeze(mean(fisherSimpleGu(:,FIScatterTimeRange,:,FIScatterHeadingRange,FIScatterVariance),2))';
+        FI_temp_comb_minus_vest = FI_all_temp(3,:)-FI_all_temp(1,:);
+        FI_temp_comb_minus_vis = FI_all_temp(3,:)-FI_all_temp(2,:);
+        FI_temp_vest_plus_vis = FI_all_temp(1,:) + FI_all_temp(2,:);
+        
+        monkeys = xls_num{1}(:,header.Monkey);  
+        monkey1 = monkeys == 5;
+        monkey2 = monkeys == 10;
+        
+        [~ , monkey1_in_findForFisher] = intersect(findForFisher, find(monkey1)); % This is nasty, but works
+        [~ , monkey2_in_findForFisher] = intersect(findForFisher, find(monkey2));
+        
+        optimal_ratio_from_Fisher = @(FI) sqrt((FI(2,:)+FI(1,:))./FI(3,:)); % Optimal ratio predicted from Fisher info: sqrt((I1+I2)/I3)
+        
+        figure(162844); clf;
+        h = LinearCorrelation({
+            Psy_pred_ratio(select_psycho & monkey1)
+            Psy_pred_ratio(select_psycho & monkey2)
+%             Psy_pred_ratio(select_psycho)
+%             Psy_pred_ratio(select_psycho)
+            },...
+            {
+%             FI_temp_comb_minus_vest';
+%             FI_temp_comb_minus_vis';
+%             FI_temp_vest_plus_vis';
+              optimal_ratio_from_Fisher(FI_all_temp(:,monkey1_in_findForFisher));
+              optimal_ratio_from_Fisher(FI_all_temp(:,monkey2_in_findForFisher));
+            },...
+            'CombinedIndex',3,'PlotCombinedOnly',0,...
+            'FaceColors',{'b','r'},... % {colors(1,:),colors(2,:),'k'}
+            'Markers',{'o','^'},...
+            'LineStyles',{'b:','r:','k'},... % {'b-','r-','k-'},
+            'MarkerSize',marker_size,...
+            'Ylabel',sprintf('Sqrt((FI_1+FI_2)/FI_3) (%g - %g ms)',t_begin,t_end),'Xlabel','actual optimal ratio (comb/pred)',...
+            'MarkerSize',12,... 
+            'figN',162844,'XHist',15,'YHist',15,'logx',1,'logy',1,...
+            'XHistStyle','grouped','YHistStyle','grouped','Method','Pearson','FittingMethod',2); figN = figN + 1;
+        
+        plot(xlim,[0 0],'k--'); plot([0 0],ylim,'k--');         SetFigure(20);
+        title(sprintf('t cells, n = %g, %g',sum(select_psycho & monkey1), sum(select_psycho & monkey2)))
+        
     end
 
     function f9p9(debug)      % Export Associated Memsac Files
