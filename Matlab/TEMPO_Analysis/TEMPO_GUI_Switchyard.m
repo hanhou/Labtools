@@ -112,7 +112,7 @@ switch(action)
         else	%data are loaded, now setup some interface items
             
             % Save the file name to disk. HH20130901
-            f = fopen('Z:\Labtools\HH_Tools\DataHub\LastFileName.txt','w');
+            f = fopen('E:\Labtools\HH_Tools\DataHub\ZCdata\LastFileName.txt','w');
             fprintf(f, '%s\r\n', get(PathHandle,'String'));
             fprintf(f, get(FileHandle,'String'));
             fclose(f);

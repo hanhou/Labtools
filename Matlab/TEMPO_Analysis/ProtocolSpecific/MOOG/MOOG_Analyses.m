@@ -11,6 +11,12 @@ switch(Analysis{1})
     %%%%%%%%%%%%%% Frequently used by HH%%%%%%%%%%%%%%%%%%
     
     % Tuning related
+    case 'ZCFUNC'
+        if JustEditIt == 1
+            edit ZCFUNC;
+        else
+            ZCFUNC(data, Protocol, Analysis, SpikeChan, StartEventBin, StopEventBin,StartCode, StopCode, BegTrial, EndTrial, StartOffset, StopOffset, PATH, FILE);
+        end
     case 'Plot Tuning Azimuth_HH'
         if JustEditIt == 1
             edit DirectionTuningPlot_1D_HH;

@@ -142,10 +142,11 @@ else
     else
         all_trials = 1:size(temp2,3);	%list of indices for all trials; GCD changed this 5/18/04 to deal with a strange data file that had extra trial in event channel; should be OK this way
     end
-    good_trials = find(temp3(:,:,:) == SUCCESS_CD);
+    %good_trials = find(temp3(:,:,:) == SUCCESS_CD);
+    good_trials = find(misc_params(1,:) ~= 2);%ZC2020/10/20 根据OUTCOME判断是否有choice
     fprintf('Success/Total Trials = %g / %g\n',length(good_trials),num_trials);  % HH20130825
     
-    good_trials = ceil(good_trials/good_data.htb_header{EVENT_DB}.period);  %these are now trial indices
+    %good_trials = ceil(good_trials/good_data.htb_header{EVENT_DB}.period);  %these are now trial indices
     %NOTE: don't use htb_header.sweep hereafter for the number of trials, since this includes trials that were
     %not completed successfully (e.g. breaks of fixation).  GCD, 12/28/99
     all_trials(good_trials) = NaN;	%mark the good trials with NaNs

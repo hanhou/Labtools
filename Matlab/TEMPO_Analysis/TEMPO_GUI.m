@@ -415,7 +415,7 @@ if nargout > 0, fig = h0; end
 % set(h_fileName,'string',fileName);
 % fclose(f);
 
-filePathName = textread('Z:\Labtools\HH_Tools\DataHub\LastFileName.txt','%s');
+filePathName = textread('E:\Labtools\HH_Tools\DataHub\ZCdata\LastFileName.txt','%s');
 filePath = filePathName{1};
 fileName = filePathName{2};
 set(h_pathName,'string',filePath);

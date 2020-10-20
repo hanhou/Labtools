@@ -147,7 +147,7 @@ protocol_names = 	{'Direction Tuning',
     'Axis Cued Direction Tuning',
     'Orientation Cued Direction Tuning',
     'Delayed Saccade',
-    'Moving Target RF Mapping'    
+    'Moving Target RF Mapping',
     };
 
 %added by GCD 6/27/03 for MOOG protocols
@@ -496,6 +496,11 @@ moog_keywords{num_keys}='SIN_ROT_AMPLITUDE';    SIN_ROT_AMPLITUDE=num_keys;     
 moog_keywords{num_keys}='VESTIB_HEADING_OFFSET'; VESTIB_HEADING_OFFSET=num_keys; num_keys=num_keys+1;
 moog_keywords{num_keys}='PURSUIT_VELOCITY';     PURSUIT_VELOCITY=num_keys;      num_keys=num_keys+1;
 moog_keywords{num_keys}='PURSUIT_HEADING_DELAY'; PURSUIT_HEADING_DELAY=num_keys; num_keys=num_keys+1;
+% Moog_protocol_1D added by ZC 20/10/19
+moog_keywords{num_keys}='TRAPEZOID_ACC'; TRAPEZOID_ACC = num_keys; num_keys=num_keys+1;
+moog_keywords{num_keys}='TRAPEZOID_TIME'; TRAPEZOID_TIME = num_keys; num_keys=num_keys+1;
+moog_keywords{num_keys}='TRAPEZOID_TIME3'; TRAPEZOID_TIME3 = num_keys; num_keys=num_keys+1;
+
 NUM_MOOG_PARAMS = num_keys - 1;
 
 
@@ -1145,6 +1150,8 @@ analysis_strings{AZIMUTH_TUNING_1D_TRAP + 1} = ...
     'Plot 1Dtuning_trapezoid (Yong)'
     'Plot 1Dtuningcoherence_trapezoid (Yong)'
     'Plot 1Dtuningtimecourse_trapezoid (Yong)'
+    'Plot ZCFUNC'
+    'Plot Psychometric'
 }; %Added by Yong 07/29/2010
 
 analysis_strings{DELAYED_SACCADE + 1} = ...
