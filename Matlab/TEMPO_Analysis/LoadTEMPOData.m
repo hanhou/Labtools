@@ -142,11 +142,11 @@ else
     else
         all_trials = 1:size(temp2,3);	%list of indices for all trials; GCD changed this 5/18/04 to deal with a strange data file that had extra trial in event channel; should be OK this way
     end
-    %good_trials = find(temp3(:,:,:) == SUCCESS_CD);
-    good_trials = find(misc_params(1,:) ~= 2);%ZC2020/10/20 根据OUTCOME判断是否有choice
+    good_trials = find(temp3(:,:,:) == SUCCESS_CD);    
+    good_trials = ceil(good_trials/good_data.htb_header{EVENT_DB}.period);  %these are now trial indices
+%     good_trials = find(misc_params(1,:) == 0|misc_params(1,:) == 5);%ZC2020/10/20 根据OUTCOME判断是否有choice
     fprintf('Success/Total Trials = %g / %g\n',length(good_trials),num_trials);  % HH20130825
     
-    %good_trials = ceil(good_trials/good_data.htb_header{EVENT_DB}.period);  %these are now trial indices
     %NOTE: don't use htb_header.sweep hereafter for the number of trials, since this includes trials that were
     %not completed successfully (e.g. breaks of fixation).  GCD, 12/28/99
     all_trials(good_trials) = NaN;	%mark the good trials with NaNs
@@ -183,7 +183,7 @@ else
         temp1(REYE_V, :, :) = temp1(REYE_V, :, :) .* (one_time_params(Y_DEG_FULL_SCALE)/one_time_params(AD_RANGE));
         
         % if there are D/A channels in addition to eye channels (not overlapped, HH20150722)
-        if (size(temp1,1) > 4) && (isempty(intersect([LEYE_H,LEYE_V,REYE_H,REYE_V],[DA_H DA_V])))  
+           if (size(temp1,1) > 4) && (isempty(intersect([LEYE_H,LEYE_V,REYE_H,REYE_V],[DA_H DA_V])))  
             temp1(DA_H, :, :) = temp1(DA_H, :, :) .* (one_time_params(X_DEG_FULL_SCALE)/one_time_params(AD_RANGE));
             temp1(DA_V, :, :) = temp1(DA_V, :, :) .* (one_time_params(Y_DEG_FULL_SCALE)/one_time_params(AD_RANGE));
         end
