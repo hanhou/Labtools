@@ -368,7 +368,7 @@ return_value = 1;		%indicates completed OK
 
 %add by AHC 02-22-06
 fa = find(PATH == '\');
-sName = ['Z:\Data\MOOG', PATH(fa(3):fa(4)), 'Analysis\SortedSpikes2\', FILE(1:length(FILE) - 4),'.mat'];
+sName = [PATH(1:fa(3)), 'SortedSpikes2\', FILE(1:length(FILE) - 4),'.mat'];
 if (exist(sName,'file'))
     [good_data SortedChannel] = PackData(good_data,sName);%get the Spike2 sorted data
     if SortedChannel >0

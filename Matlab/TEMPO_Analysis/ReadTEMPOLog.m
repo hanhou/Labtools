@@ -34,7 +34,7 @@ revcorr_protocol = 0;
 
 initRevCorrParams = 1;
 revcorr_params = [];
-
+curr_trial = 1; % SPHERE_ALPHA的存储一开始错误设为one time paramter 导致读取时无curr_trial，初始化以避免错误 2021/714
 for i=1:num_lines_read
     switch keys{i}
     case 'TRIAL#'

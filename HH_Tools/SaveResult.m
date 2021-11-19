@@ -8,7 +8,7 @@ persistent XlsData; % Hold some xls data to prevent read xls file repeatly durin
 
 if ~isempty(config.batch_flag)  % Figures and raw data (always in "result" structure)
     
-    outpath = ['Z:\Data\Tempo\Batch\' config.batch_flag(1:end-2) '\'];
+    outpath = ['E:\Data\Tempo\Batch\' config.batch_flag(1:end-2) '\'];
     
     % Check directory
     if ~exist(outpath,'dir')
@@ -168,7 +168,7 @@ end
         
         % Read xls if needed. (only for the first file in BATCH mode)
         if isempty(XlsData) || strcmp(config.batch_flag,'test.m')  % If we are in test mode, we reload xls each time. HH20160415
-            XlsData = ReadXls('Z:\Labtools\HH_Tools\DataHub\DataHub.xlsm',2,3);
+            XlsData = ReadXls('E:\Labtools\HH_Tools\DataHub\DataHubzc.xlsx',2,3);
         end
         
         % Locate where to paste "toClip"

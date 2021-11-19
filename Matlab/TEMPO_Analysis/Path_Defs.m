@@ -6,10 +6,10 @@
 
 % Commented by HH20160415
 
-%{
+
 
 %Base path specification for protocol-specific analysis routines
-BASE_PATH = 'Z:\LabTools\Matlab\TEMPO_Analysis\';
+BASE_PATH = 'D:\LabTools\Matlab\TEMPO_Analysis\';
 
 global g_path_defs
 
@@ -121,4 +121,3 @@ if isempty(g_path_defs) || g_path_defs ~= 7
 
 end
 
-%}

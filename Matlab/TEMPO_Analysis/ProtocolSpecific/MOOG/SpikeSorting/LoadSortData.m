@@ -148,7 +148,7 @@ function BrowseButton_Callback(hObject, eventdata, handles)
 %    dfltDir = 'Z:\Data\MOOG\Jedi\Analysis';% Default data directory
 %    dfltDir = 'Z:\Data\MOOG\'; % Default data directory
 
-dfltDir = 'Z:\Data\MOOG\Hetao\raw';% Default data directory for HH20130826
+dfltDir = 'E:\Data\Gutou\CED';% Default data directory for HH20130826
 
 dfltSuffix = '*.smr';      % Default file type.
 cd(dfltDir);
@@ -191,8 +191,8 @@ if ~isempty(slashIndex)
     dataFileName = dataFileName(slashIndex(end)+1:end-4);
 end
 
-dataFileName=dataFileName(dataFileName~=' ');
-OutFileName=['Z:\Data\Moog\', monkeyName, '\Analysis\SortedSpikes2\', dataFileName, '.mat'];
+dataFileName=dataFileName(1:length(dataFileName)-4);
+OutFileName=['E:\Data\Gutou\SortedSpikes2\', dataFileName, '.mat'];
 if exist(OutFileName,'file')
     delete(OutFileName);
     disp('Overwriting...');
@@ -586,7 +586,7 @@ for k= length(SelectNeuronID) :-1: 1
         % Overdraw waveform
         axes(handles.axes1);
         hold on;
-        hh = shadedErrorBar((1:size(meanWaveForm,1))*1000/spsData2(k).sampleRate,meanWaveForm,stdWaveForm,colors{SelectNeuronID(k)},0.6);
+        hh = shadedErrorBar((1:size(meanWaveForm,1))*1000/spsData2(k).sampleRate,meanWaveForm,stdWaveForm);%,colors{SelectNeuronID(k)},0.6
         set(hh.mainLine,'LineW',2);
         axis tight;
         
@@ -716,7 +716,7 @@ end
 
 % Automatically add default path if you input cell No. by hand.  HH20130826
 if isempty(findstr(fileName,'\'))    % If the directory has been ignored...
-    fileName = horzcat(fileName(fileName~=' '),'.smr');
+    fileName = horzcat(fileName(1:length(fileName) - 4),'.smr');
     
     monkeyN = str2num(fileName(strfind(fileName,'m')+1:strfind(fileName,'c')-1));
     switch monkeyN
@@ -726,7 +726,8 @@ if isempty(findstr(fileName,'\'))    % If the directory has been ignored...
         handles.dataPath = 'Z:\Data\MOOG\Polo\raw\';   
         case 10
         handles.dataPath = 'Z:\Data\MOOG\Messi\raw\';   
-
+        case 13
+        handles.dataPath = 'E:\Data\Gutou\CED\';  
     end
     
     handles.dataFileName = fileName;

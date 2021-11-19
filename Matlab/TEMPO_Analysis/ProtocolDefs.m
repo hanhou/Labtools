@@ -500,6 +500,9 @@ moog_keywords{num_keys}='PURSUIT_HEADING_DELAY'; PURSUIT_HEADING_DELAY=num_keys;
 moog_keywords{num_keys}='TRAPEZOID_ACC'; TRAPEZOID_ACC = num_keys; num_keys=num_keys+1;
 moog_keywords{num_keys}='TRAPEZOID_TIME'; TRAPEZOID_TIME = num_keys; num_keys=num_keys+1;
 moog_keywords{num_keys}='TRAPEZOID_TIME3'; TRAPEZOID_TIME3 = num_keys; num_keys=num_keys+1;
+moog_keywords{num_keys}='SPHERE_ALPHA'; SPHERE_ALPHA = num_keys; num_keys=num_keys+1;
+moog_keywords{num_keys}='SPHERE_ALPHA_START'; SPHERE_ALPHA_START = num_keys; num_keys=num_keys+1;
+moog_keywords{num_keys}='TRAPEZOID_TIME_COFF'; TRAPEZOID_TIME_COFF = num_keys; num_keys=num_keys+1;
 
 NUM_MOOG_PARAMS = num_keys - 1;
 
