@@ -1,3 +1,7 @@
 /Log.txt
 *.html
 *.mat
+*.smr
+*.s2rx
+*.log
+*.htb

@@ -156,8 +156,8 @@ spike_in_bin(spike_in_bin > 1) = 1; % Some MU from Chan21 would have more than o
 
 spikeN_trial = sum(spike_in_bin,1);
 spikeN_cum_trial = [0 cumsum(spikeN_trial)];   % Find the start & end spikes number of each trial (for later indexing use)
-spikeT_raw = mod(find(spike_in_bin>0),size(spike_in_bin,1));  % Fast way to find spike times
-
+%spikeT_raw = mod(find(spike_in_bin>0),size(spike_in_bin,1));  % Fast way to find spike times
+[spikeT_raw,J] = find(spike_in_bin>0)
 % Event data
 events_in_bin = squeeze(data.event_data(1,:,select_trials));
 
