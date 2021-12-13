@@ -11,7 +11,7 @@ switch(Analysis{1})
     %%%%%%%%%%%%%% Frequently used by HH%%%%%%%%%%%%%%%%%%
     
     % Tuning related
-    case 'ZCFUNC'
+    case 'Plot ZCFUNC'
         if JustEditIt == 1
             edit ZCFUNC;
         else

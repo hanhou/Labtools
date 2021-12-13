@@ -70,9 +70,9 @@ chanNumberBegin = 4;  % This makes the first channel from Spike2 be #5. @HH20150
 
 %The number of bins and slots per bin
 try
-    binCount=round((spsData2(1).postbuffer+spsData2(1).prebuffer)/spsData2(1).sampleRate*(good_data.htb_header{SPIKE_DB}.speed_units/good_data.htb_header{SPIKE_DB}.speed));
+    binCount=round((spsData2(1).postbuffer+spsData2(1).prebuffer)/spsData2(1).sampleRate*(good_data.htb_header{SPIKE_DB}.speed_units/good_data.htb_header{SPIKE_DB}.speed)/2);%add /2 by ZC 2021/12/5 for 2sample/bin 
 catch
-    binCount=round((spsData2(1).postbuffer+spsData2(1).prebuffer)/spsData2(1).sampleRate*1000);  % Workaround when there is no SPIKE trace in htb but we have spike2 signals. HH20130508
+    binCount=round((spsData2(1).postbuffer+spsData2(1).prebuffer)/spsData2(1).sampleRate*500);  % Workaround when there is no SPIKE trace in htb but we have spike2 signals. HH20130508
 end
 
 slotsperbin=(spsData2(1).postbuffer+spsData2(1).prebuffer)/binCount;

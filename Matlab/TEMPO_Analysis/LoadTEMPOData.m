@@ -399,9 +399,9 @@ if ~isempty(abnormal_spike_bins)
         end
     end
     
-    good_data.spike_data(abnormal_spike_bins) = 1;
+    good_data.spike_data(abnormal_spike_bins) = 2;
     
-    fprintf('******* All abnormal values were set to 1 *******\n');
+    fprintf('******* All abnormal values were set to 2 *******\n');
 end
 
 return;

@@ -189,9 +189,10 @@ dataFileName = get(handles.edit_FileName,'string');
 slashIndex = findstr(dataFileName,'\');
 if ~isempty(slashIndex)
     dataFileName = dataFileName(slashIndex(end)+1:end-4);
+else
+    dataFileName=dataFileName(1:length(dataFileName)-4);
 end
 
-dataFileName=dataFileName(1:length(dataFileName)-4);
 OutFileName=['E:\Data\Gutou\SortedSpikes2\', dataFileName, '.mat'];
 if exist(OutFileName,'file')
     delete(OutFileName);
@@ -201,6 +202,7 @@ eval(['save ', OutFileName, ' spsData2']);
 guidata(hObject,handles);
 disp(['File Exported: ' OutFileName]);
 
+%for gutou data 5s 1000hz -> 7s 500hz
 % Window vibration
 currPos = get(gcf,'Position');
 for ii = 1:6
@@ -408,7 +410,7 @@ disp('SpikeNum in GUI, SNR, meanWaveform:');
 for k= length(SelectNeuronID) :-1: 1
     
     PreEventBuffer=1; % s
-    PostEventBuffer=4; % s
+    PostEventBuffer=6; % s
     
     spsData2(k).UnitId = SelectNeuronID(k);  % Make it clear. 10 = Marker 0; 11 = All cross threshold @HH20150207
     spsData2(k).sampleRate = 1/CHAN3header.sampleinterval;   % Make it soft-coded . HH20130508
@@ -424,7 +426,7 @@ for k= length(SelectNeuronID) :-1: 1
         spsData2(k).spikeInfo(i).trialCondition = trial_condition(i);
         
         % Store all the event codes for later reference.
-        binCount = (spsData2(k).postbuffer + spsData2(k).prebuffer) /spsData2(k).sampleRate * 1000;
+        binCount = (spsData2(k).postbuffer + spsData2(k).prebuffer) /spsData2(k).sampleRate * 500;
         slotsperbin = (spsData2(k).postbuffer + spsData2(k).prebuffer) / binCount;
         spsData2(k).spikeInfo(i).eventCodes = zeros(1, round(binCount));
         mrstart = spsData2(k).spikeInfo(i).startTime;
@@ -434,7 +436,7 @@ for k= length(SelectNeuronID) :-1: 1
         
         a = [CHAN32.timings(mrstupid)]*spsData2(k).sampleRate;
         CHAN32markers=real(CHAN32.markers(:,1));
-        spsData2(k).spikeInfo(i).eventCodes([ceil((a - spsData2(k).spikeInfo(i).startTime + 1) / 25)]) =CHAN32markers(mrstupid);
+        spsData2(k).spikeInfo(i).eventCodes([ceil((a - spsData2(k).spikeInfo(i).startTime + 1) / spsData2(k).sampleRate * 500)]) =CHAN32markers(mrstupid);
         
         %Find spike times of each trial
         clear mrsuckass; mrsuckass=Neuron(k).SpikeTiming'*spsData2(k).sampleRate;
